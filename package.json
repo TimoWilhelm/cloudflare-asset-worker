@@ -1,0 +1,31 @@
+{
+  "name": "cloudflare-asset-worker",
+  "version": "1.0.0",
+  "description": "A Cloudflare Worker for serving static assets from KV storage",
+  "main": "src/worker.ts",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "vitest",
+    "cf-typegen": "wrangler types"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "static-assets",
+    "kv"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^3.87.0"
+  },
+  "dependencies": {
+    "@stablelib/base64": "^2.0.1"
+  }
+}
