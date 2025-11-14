@@ -20,19 +20,23 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return response;
 		}
 
-		let worker = this.env.LOADER.get('my_worker_id', () => {
-			return {
-				compatibilityDate: '2025-11-09',
-
-				mainModule: 'index.js',
-				modules: {
-					'index.js': `
+		const moduleCode = `
 						export default {
 							async fetch(req, env, ctx) {
 								return new Response('Hello from dynamic Worker!');
 							}
 						};
-					`,
+					`;
+
+		const contentHash = await computeContentHash(new TextEncoder().encode(moduleCode));
+
+		let worker = this.env.LOADER.get(contentHash, () => {
+			return {
+				compatibilityDate: '2025-11-09',
+
+				mainModule: 'index.js',
+				modules: {
+					'index.js': moduleCode,
 				},
 
 				env: {},
@@ -66,10 +70,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 			// Compute content hash (eTag) for the HTML file
 			const htmlBuffer = new TextEncoder().encode(htmlContent);
-			const contentHashBuffer = await crypto.subtle.digest('SHA-256', htmlBuffer);
-			const contentHash = Array.from(new Uint8Array(contentHashBuffer))
-				.map((b) => b.toString(16).padStart(2, '0'))
-				.join('');
+			const contentHash = await computeContentHash(htmlBuffer);
 
 			// Upload manifest as object array
 			const manifestEntries: ManifestEntry[] = [
@@ -120,4 +121,12 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			);
 		}
 	}
+}
+
+async function computeContentHash(content: ArrayBuffer | ArrayBufferView): Promise<string> {
+	const contentHashBuffer = await crypto.subtle.digest('SHA-256', content);
+	const contentHash = Array.from(new Uint8Array(contentHashBuffer))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+	return contentHash;
 }
