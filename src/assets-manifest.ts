@@ -1,15 +1,8 @@
-import {
-	CONTENT_HASH_OFFSET,
-	CONTENT_HASH_SIZE,
-	ENTRY_SIZE,
-	HEADER_SIZE,
-	PATH_HASH_OFFSET,
-	PATH_HASH_SIZE,
-} from "./lib/constants";
+import { CONTENT_HASH_OFFSET, CONTENT_HASH_SIZE, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from './lib/constants';
 
 export class AssetsManifest {
 
-	constructor(private readonly data: Uint8Array) { }
+	constructor(private readonly data: Uint8Array) {}
 
 	async get(pathname: string) {
 		const pathHash = await hashPath(pathname);
@@ -21,10 +14,7 @@ export class AssetsManifest {
 export const hashPath = async (path: string) => {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(path);
-	const hashBuffer = await crypto.subtle.digest(
-		"SHA-256",
-		data.buffer as ArrayBuffer
-	);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
 	return new Uint8Array(hashBuffer, 0, PATH_HASH_SIZE);
 };
 
@@ -35,14 +25,9 @@ export const hashPath = async (path: string) => {
  * @param pathHash the path hash to find in the manifest
  * @returns The content hash when the entry is found and `false` otherwise
  */
-export const binarySearch = (
-	manifest: Uint8Array,
-	pathHash: Uint8Array
-): Uint8Array | false => {
+export const binarySearch = (manifest: Uint8Array, pathHash: Uint8Array): Uint8Array | false => {
 	if (pathHash.byteLength !== PATH_HASH_SIZE) {
-		throw new TypeError(
-			`Search value should have a length of ${PATH_HASH_SIZE}`
-		);
+		throw new TypeError(`Search value should have a length of ${PATH_HASH_SIZE}`);
 	}
 
 	const numberOfEntries = (manifest.byteLength - HEADER_SIZE) / ENTRY_SIZE;
@@ -69,11 +54,7 @@ export const binarySearch = (
 			continue;
 		}
 
-		return new Uint8Array(
-			manifest.buffer,
-			HEADER_SIZE + middleIndex * ENTRY_SIZE + CONTENT_HASH_OFFSET,
-			CONTENT_HASH_SIZE
-		);
+		return new Uint8Array(manifest.buffer, HEADER_SIZE + middleIndex * ENTRY_SIZE + CONTENT_HASH_OFFSET, CONTENT_HASH_SIZE);
 	}
 
 	return false;
@@ -86,11 +67,7 @@ export const binarySearch = (
  * @param manifest the manifest bytes
  * @param entryIndex the index in the manifest of the entry to compare
  */
-function comparePathHashWithEntry(
-	searchValue: Uint8Array,
-	manifest: Uint8Array,
-	entryIndex: number
-) {
+function comparePathHashWithEntry(searchValue: Uint8Array, manifest: Uint8Array, entryIndex: number) {
 	let pathHashOffset = HEADER_SIZE + entryIndex * ENTRY_SIZE + PATH_HASH_OFFSET;
 	for (let offset = 0; offset < PATH_HASH_SIZE; offset++, pathHashOffset++) {
 		// We know that both values could not be undefined
@@ -116,5 +93,5 @@ function comparePathHashWithEntry(
  * @returns padded hex string
  */
 const Uint8ToHexString = (array: Uint8Array) => {
-	return [...array].map((b) => b.toString(16).padStart(2, "0")).join("");
+	return [...array].map((b) => b.toString(16).padStart(2, '0')).join('');
 };

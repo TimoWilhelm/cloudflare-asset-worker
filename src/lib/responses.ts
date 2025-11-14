@@ -85,7 +85,7 @@ export class MethodNotAllowedResponse extends Response {
 export class InternalServerErrorResponse extends Response {
 	static readonly status = 500;
 	constructor(error?: Error, init?: ResponseInit) {
-		const body = error ? `Internal Server Error: ${error.message}` : "Internal Server Error";
+		const body = error ? `Internal Server Error: ${error.message}` : 'Internal Server Error';
 		super(body, { ...init, status: InternalServerErrorResponse.status });
 	}
 }

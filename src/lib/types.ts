@@ -1,7 +1,7 @@
 // Asset configuration types
 export interface AssetConfig {
-	html_handling?: "auto-trailing-slash" | "force-trailing-slash" | "drop-trailing-slash" | "none";
-	not_found_handling?: "single-page-application" | "404-page" | "none";
+	html_handling?: 'auto-trailing-slash' | 'force-trailing-slash' | 'drop-trailing-slash' | 'none';
+	not_found_handling?: 'single-page-application' | '404-page' | 'none';
 	redirects?: {
 		version: number;
 		staticRules: Record<string, { status: number; to: string; lineNumber: number }>;

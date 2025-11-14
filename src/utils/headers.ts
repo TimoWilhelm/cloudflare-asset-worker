@@ -1,8 +1,8 @@
-import { CACHE_CONTROL_BROWSER } from "../constants";
-import { HEADERS_VERSION } from "../handler";
-import { generateRulesMatcher, replacer } from "./rules-engine";
-import type { AssetConfig } from "../lib/types";
-import type { AssetIntentWithResolver } from "../handler";
+import { CACHE_CONTROL_BROWSER } from '../constants';
+import { HEADERS_VERSION } from '../handler';
+import { generateRulesMatcher, replacer } from './rules-engine';
+import type { AssetConfig } from '../lib/types';
+import type { AssetIntentWithResolver } from '../handler';
 
 /**
  * Returns a Headers object that contains additional headers (to those
@@ -22,43 +22,33 @@ export function getAssetHeaders(
 	});
 
 	if (contentType !== undefined) {
-		headers.append("Content-Type", contentType);
+		headers.append('Content-Type', contentType);
 	}
 
 	if (isCacheable(request)) {
-		headers.append("Cache-Control", CACHE_CONTROL_BROWSER);
+		headers.append('Cache-Control', CACHE_CONTROL_BROWSER);
 	}
 
 	// Attach CF-Cache-Status, this will show to users that we are caching assets
 	// and it will also populate the cache fields through the logging pipeline.
-	headers.append("CF-Cache-Status", cacheStatus);
+	headers.append('CF-Cache-Status', cacheStatus);
 
 	// Always enable debug logging for Sec-Fetch-Mode navigation feature
-	if (configuration.debug && resolver === "not-found") {
-		headers.append(
-			"X-Mf-Additional-Response-Log",
-			"`Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior"
-		);
+	if (configuration.debug && resolver === 'not-found') {
+		headers.append('X-Mf-Additional-Response-Log', '`Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior');
 	}
 
 	return headers;
 }
 
 function isCacheable(request: Request) {
-	return !request.headers.has("Authorization") && !request.headers.has("Range");
+	return !request.headers.has('Authorization') && !request.headers.has('Range');
 }
 
-export function attachCustomHeaders(
-	request: Request,
-	response: Response,
-	configuration: Required<AssetConfig>,
-	env: Env
-) {
+export function attachCustomHeaders(request: Request, response: Response, configuration: Required<AssetConfig>, env: Env) {
 	// Iterate through rules and find rules that match the path
 	const headersMatcher = generateRulesMatcher(
-		configuration.headers?.version === HEADERS_VERSION
-			? configuration.headers.rules
-			: {},
+		configuration.headers?.version === HEADERS_VERSION ? configuration.headers.rules : {},
 		({ set = {}, unset = [] }, replacements) => {
 			const replacedSet: Record<string, string> = {};
 			Object.entries(set).forEach(([key, value]) => {

@@ -1,4 +1,4 @@
-declare module "*.bin" {
+declare module '*.bin' {
 	const arrayBuffer: ArrayBuffer;
 	export default arrayBuffer;
 }

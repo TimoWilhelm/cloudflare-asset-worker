@@ -24,8 +24,5 @@
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
     "wrangler": "^3.87.0"
-  },
-  "dependencies": {
-    "@stablelib/base64": "^2.0.1"
   }
 }

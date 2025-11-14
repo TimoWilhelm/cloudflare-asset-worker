@@ -1,27 +1,30 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  // Cloudflare Workers configuration file
-  "name": "asset-worker",
-  "main": "src/worker.ts",
-  "compatibility_date": "2024-07-31",
-  "compatibility_flags": ["nodejs_compat"],
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Cloudflare Workers configuration file
+	"name": "asset-worker",
+	"main": "src/worker.ts",
+	"compatibility_date": "2024-07-31",
+	"compatibility_flags": ["nodejs_compat"],
 
-  // KV Namespace binding for static assets
-  // You'll need to create a KV namespace first: wrangler kv namespace create ASSETS_KV_NAMESPACE
-  "kv_namespaces": [
-    {
-      "binding": "ASSETS_KV_NAMESPACE",
-      "id": "todo"
-    }
-  ],
-    "version_metadata": {
-    "binding": "VERSION_METADATA"
-  },
-  "vars": {
-    "ENVIRONMENT": "development",
-		"ASSETS_MANIFEST": "todo",
-		"CONFIG": {
-			
+	// KV Namespace binding for static assets
+	// You'll need to create a KV namespace first: wrangler kv namespace create ASSETS_KV_NAMESPACE
+	"kv_namespaces": [
+		{
+			"binding": "ASSETS_KV_NAMESPACE",
+			"id": "todo"
+		},
+		{
+			"binding": "MANIFEST_KV_NAMESPACE",
+			"id": "todo"
 		}
-  }
+	],
+	"version_metadata": {
+		"binding": "VERSION_METADATA"
+	},
+	"vars": {
+		"ENVIRONMENT": "development",
+		"CONFIG": {
+			"not_found_handling": "single-page-application"
+		}
+	}
 }

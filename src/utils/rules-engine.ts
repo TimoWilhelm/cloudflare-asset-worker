@@ -2,19 +2,18 @@
 // which is everything from the tc39 proposal, plus the following two characters: ^/
 // It's also everything included in the URLPattern escape (https://wicg.github.io/urlpattern/#escape-a-regexp-string), plus the following: -
 
-import { REDIRECTS_VERSION } from "../handler";
-import type { AssetConfig } from "../lib/types";
+import { REDIRECTS_VERSION } from '../handler';
+import type { AssetConfig } from '../lib/types';
 
 // As the answer says, there's no downside to escaping these extra characters, so better safe than sorry
 const ESCAPE_REGEX_CHARACTERS = /[-/\\^$*+?.()|[\]{}]/g;
 const escapeRegex = (str: string) => {
-	return str.replace(ESCAPE_REGEX_CHARACTERS, "\\$&");
+	return str.replace(ESCAPE_REGEX_CHARACTERS, '\\$&');
 };
 
 // Placeholder names must begin with a colon then a letter, be alphanumeric and optionally contain underscores.
 // e.g. :place_123_holder
-const HOST_PLACEHOLDER_REGEX =
-	/(?<=^https:\\\/\\\/[^/]*?):([A-Za-z]\w*)(?=\\)/g;
+const HOST_PLACEHOLDER_REGEX = /(?<=^https:\\\/\\\/[^/]*?):([A-Za-z]\w*)(?=\\)/g;
 const PLACEHOLDER_REGEX = /:([A-Za-z]\w*)/g;
 
 export type Replacements = Record<string, string>;
@@ -30,17 +29,17 @@ export const replacer = (str: string, replacements: Replacements) => {
 
 export const generateGlobOnlyRuleRegExp = (rule: string) => {
 	// Escape all regex characters other than globs (the "*" character) since that's all that's supported.
-	rule = rule.split("*").map(escapeRegex).join(".*");
+	rule = rule.split('*').map(escapeRegex).join('.*');
 
 	// Wrap in line terminators to be safe.
-	rule = "^" + rule + "$";
+	rule = '^' + rule + '$';
 
 	return RegExp(rule);
 };
 
 export const generateRuleRegExp = (rule: string) => {
 	// Create :splat capturer then escape.
-	rule = rule.split("*").map(escapeRegex).join("(?<splat>.*)");
+	rule = rule.split('*').map(escapeRegex).join('(?<splat>.*)');
 
 	// Create :placeholder capturers (already escaped).
 	// For placeholders in the host, we separate at forward slashes and periods.
@@ -60,7 +59,7 @@ export const generateRuleRegExp = (rule: string) => {
 	}
 
 	// Wrap in line terminators to be safe.
-	rule = "^" + rule + "$";
+	rule = '^' + rule + '$';
 
 	return RegExp(rule);
 };
@@ -75,17 +74,14 @@ export const generateRulesMatcher = <T>(
 
 	const compiledRules = Object.entries(rules)
 		.map(([rule, match]) => {
-			const crossHost = rule.startsWith("https://");
+			const crossHost = rule.startsWith('https://');
 
 			try {
 				const regExp = generateRuleRegExp(rule);
 				return [{ crossHost, regExp }, match];
 			} catch {}
 		})
-		.filter((value) => value !== undefined) as [
-		{ crossHost: boolean; regExp: RegExp },
-		T,
-	][];
+		.filter((value) => value !== undefined) as [{ crossHost: boolean; regExp: RegExp }, T][];
 
 	return ({ request }: { request: Request }) => {
 		const { pathname, hostname } = new URL(request.url);
@@ -113,13 +109,8 @@ export const generateRulesMatcher = <T>(
 	};
 };
 
-export const staticRedirectsMatcher = (
-	configuration: Required<AssetConfig>,
-	host: string,
-	pathname: string
-) => {
-	const withHostMatch =
-		configuration.redirects.staticRules[`https://${host}${pathname}`];
+export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, host: string, pathname: string) => {
+	const withHostMatch = configuration.redirects.staticRules[`https://${host}${pathname}`];
 	const withoutHostMatch = configuration.redirects.staticRules[pathname];
 
 	if (withHostMatch && withoutHostMatch) {
@@ -133,13 +124,9 @@ export const staticRedirectsMatcher = (
 	return withHostMatch || withoutHostMatch;
 };
 
-export const generateRedirectsMatcher = (
-	configuration: Required<AssetConfig>
-) =>
+export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =>
 	generateRulesMatcher(
-		configuration.redirects.version === REDIRECTS_VERSION
-			? configuration.redirects.rules
-			: {},
+		configuration.redirects.version === REDIRECTS_VERSION ? configuration.redirects.rules : {},
 		({ status, to }, replacements) => {
 			const target = replacer(to, replacements).trim();
 			const protoPattern = /^(\w+:\/\/)/;
@@ -153,7 +140,7 @@ export const generateRedirectsMatcher = (
 				// Relative redirects are modified to remove multiple slashes.
 				return {
 					status,
-					to: target.replace(/\/+/g, "/"),
+					to: target.replace(/\/+/g, '/'),
 				};
 			}
 		}

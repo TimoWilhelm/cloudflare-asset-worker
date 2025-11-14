@@ -1,1 +1,1 @@
-export type Environment = "production" | "staging" | "fed-prod";
+export type Environment = 'production' | 'staging' | 'fed-prod';

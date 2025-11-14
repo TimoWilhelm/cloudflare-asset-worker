@@ -34,21 +34,20 @@ Configure your worker in `wrangler.jsonc`:
   "main": "src/worker.ts",
   "compatibility_date": "2024-07-31",
   "compatibility_flags": ["nodejs_compat"],
-  
+
   "kv_namespaces": [
     {
       "binding": "ASSETS_KV_NAMESPACE",
       "id": "your-kv-namespace-id"
     }
   ],
-  
+
   "version_metadata": {
     "binding": "VERSION_METADATA"
   },
-  
+
   "vars": {
     "ENVIRONMENT": "production",
-    "ASSETS_MANIFEST": "base64-encoded-manifest",
     "CONFIG": {
       // Configuration options (see below)
     }
@@ -169,8 +168,6 @@ Create a base64-encoded assets manifest that maps pathnames to ETags:
 ```typescript
 const manifest = new AssetsManifest(manifestBuffer);
 ```
-
-Set the `ASSETS_MANIFEST` environment variable to the base64-encoded manifest.
 
 ## Usage
 

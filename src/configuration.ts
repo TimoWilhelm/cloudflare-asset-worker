@@ -1,11 +1,9 @@
-import type { AssetConfig } from "./lib/types";
+import type { AssetConfig } from './lib/types';
 
-export const normalizeConfiguration = (
-	configuration?: AssetConfig
-): Required<AssetConfig> => {
+export const normalizeConfiguration = (configuration?: AssetConfig): Required<AssetConfig> => {
 	return {
-		html_handling: configuration?.html_handling ?? "auto-trailing-slash",
-		not_found_handling: configuration?.not_found_handling ?? "none",
+		html_handling: configuration?.html_handling ?? 'auto-trailing-slash',
+		not_found_handling: configuration?.not_found_handling ?? 'none',
 		redirects: configuration?.redirects ?? {
 			version: 1,
 			staticRules: {},

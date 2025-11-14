@@ -2,8 +2,8 @@
 
 interface Env {
 	ASSETS_KV_NAMESPACE: KVNamespace;
+	MANIFEST_KV_NAMESPACE: KVNamespace;
 	ENVIRONMENT: "development";
-	ASSETS_MANIFEST: "todo";
-	CONFIG: {};
+	CONFIG: {"not_found_handling":"single-page-application"};
 	VERSION_METADATA: WorkerVersionMetadata;
 }
