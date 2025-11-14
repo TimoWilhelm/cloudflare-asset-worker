@@ -10,5 +10,10 @@
 			"binding": "ASSET_WORKER",
 			"service": "asset-worker-api"
 		}
+	],
+	"worker_loaders": [
+		{
+			"binding": "LOADER"
+		}
 	]
 }

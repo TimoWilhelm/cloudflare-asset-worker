@@ -14,12 +14,37 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		// Forward all other requests to the API worker
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 		const response = await assets.fetch(request);
+		console.log(response, response.ok);
 
-		if (response.ok) {
+		if (response.status !== 404) {
 			return response;
 		}
 
-		return dynamicWorker.fetch(request);
+		let worker = this.env.LOADER.get('my_worker_id', () => {
+			return {
+				compatibilityDate: '2025-11-09',
+
+				mainModule: 'index.js',
+				modules: {
+					'index.js': `
+						export default {
+							async fetch(req, env, ctx) {
+								return new Response('Hello from dynamic Worker!');
+							}
+						};
+					`,
+				},
+
+				env: {},
+				globalOutbound: null,
+			};
+		});
+
+		let defaultEntrypoint = worker.getEntrypoint(undefined, {
+			props: { name: 'Alice' },
+		});
+
+		return await defaultEntrypoint.fetch(request);
 	}
 
 	private async handleUpload(): Promise<Response> {

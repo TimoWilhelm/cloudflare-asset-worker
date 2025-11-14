@@ -20,8 +20,6 @@
 	},
 	"vars": {
 		"ENVIRONMENT": "development",
-		"CONFIG": {
-			"not_found_handling": "single-page-application"
-		}
+		"CONFIG": {}
 	}
 }
