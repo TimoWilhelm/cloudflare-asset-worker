@@ -40,9 +40,6 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				.map(b => b.toString(16).padStart(2, '0'))
 				.join('');
 
-			// Upload the asset
-			await assets.uploadAsset(contentHash, htmlBuffer.buffer as ArrayBuffer, 'text/html; charset=utf-8');
-
 			// Upload manifest as object array
 			const manifestEntries: ManifestEntry[] = [
 				{
@@ -50,12 +47,28 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 					contentHash: contentHash,
 				},
 			];
-			await assets.uploadManifest(manifestEntries);
+
+			// Get list of new entries that need uploading
+			const newEntries = await assets.uploadManifest(manifestEntries);
+
+			// Only upload assets for new entries
+			const skippedCount = manifestEntries.length - newEntries.length;
+			if (skippedCount > 0) {
+				console.log(`Skipping ${skippedCount} existing asset(s) that already exist in KV storage`);
+			}
+
+			for (const entry of newEntries) {
+				if (entry.contentHash === contentHash) {
+					await assets.uploadAsset(contentHash, htmlBuffer.buffer as ArrayBuffer, 'text/html; charset=utf-8');
+				}
+			}
 
 			return new Response(JSON.stringify({
 				success: true,
 				message: 'Asset and manifest uploaded successfully',
 				eTag: contentHash,
+				newAssets: newEntries.length,
+				totalAssets: manifestEntries.length,
 			}), {
 				status: 200,
 				headers: { 'Content-Type': 'application/json' },

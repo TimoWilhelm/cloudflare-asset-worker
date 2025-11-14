@@ -4,7 +4,7 @@ import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { handleError } from './utils/final-operations';
 import { getAssetWithMetadataFromKV } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { CONTENT_HASH_SIZE, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './lib/constants';
+import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './lib/constants';
 
 export interface ManifestEntry {
 	pathname: string;
@@ -138,13 +138,44 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * - Entries are sorted by path hash
 	 *
 	 * @param entries - Array of manifest entries with pathname and contentHash
-	 * @returns A promise that resolves when the upload is complete
+	 * @returns Array of ManifestEntry objects that need to be uploaded (entries whose contentHash doesn't exist in KV)
 	 */
-	async uploadManifest(entries: ManifestEntry[]): Promise<void> {
+	async uploadManifest(entries: ManifestEntry[]): Promise<ManifestEntry[]> {
+		// Validate entries
+		for (const entry of entries) {
+			// Validate content hash: must be 64 hex characters (SHA-256 = 32 bytes = 64 hex chars)
+			if (!/^[0-9a-f]{64}$/i.test(entry.contentHash)) {
+				throw new Error(`Invalid content hash for ${entry.pathname}: must be 64 hexadecimal characters`);
+			}
+
+			// Validate pathname: must start with /, not be empty, and contain valid URL path characters
+			if (!entry.pathname || !entry.pathname.startsWith('/')) {
+				throw new Error(`Invalid pathname "${entry.pathname}": must start with /`);
+			}
+
+			// Check for invalid characters in pathname
+			if (/[\s<>{}|\\^`\[\]]/.test(entry.pathname)) {
+				throw new Error(`Invalid pathname "${entry.pathname}": contains invalid URL characters`);
+			}
+		}
+
+		// Check which etags already exist in KV storage
+		const existenceChecks = await Promise.all(
+			entries.map(async (entry) => {
+				const exists = await this.env.ASSETS_KV_NAMESPACE.list({ prefix: entry.contentHash });
+				return { entry, exists: exists.keys.length > 0 };
+			})
+		);
+
+		// Filter to only entries that need uploading
+		const newEntries = existenceChecks.filter(({ exists }) => !exists).map(({ entry }) => entry);
+
 		// Generate binary manifest
 		const manifestBuffer = await this.generateManifestBuffer(entries);
 
 		await this.env.MANIFEST_KV_NAMESPACE.put('ASSETS_MANIFEST', manifestBuffer);
+
+		return newEntries;
 	}
 
 	/**
