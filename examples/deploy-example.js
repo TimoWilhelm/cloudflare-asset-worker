@@ -7,62 +7,7 @@
  * 3. Access the deployed application
  */
 
-const MANAGER_URL = 'http://127.0.0.1:8787';
-
-/**
- * Create a new project
- */
-async function createProject(name) {
-	const response = await fetch(`${MANAGER_URL}/__api/projects`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name }),
-	});
-
-	const result = await response.json();
-	if (!result.success) {
-		throw new Error(`Failed to create project: ${result.error}`);
-	}
-
-	console.log('✓ Project created:', result.project.id);
-	return result.project;
-}
-
-/**
- * Deploy a full-stack application
- */
-async function deployApplication(projectId, deployment) {
-	const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(deployment),
-	});
-
-	const result = await response.json();
-	if (!result.success) {
-		throw new Error(`Failed to deploy: ${result.error}`);
-	}
-
-	console.log('✓ Deployment successful');
-	console.log(`  - Assets deployed: ${result.deployedAssets}`);
-	console.log(`  - New assets: ${result.newAssets}`);
-	console.log(`  - Cached assets: ${result.skippedAssets}`);
-	return result;
-}
-
-/**
- * List all projects
- */
-async function listProjects() {
-	const response = await fetch(`${MANAGER_URL}/__api/projects`);
-	const result = await response.json();
-
-	if (!result.success) {
-		throw new Error(`Failed to list projects: ${result.error}`);
-	}
-
-	return result.projects;
-}
+import { createProject, deployApplication, listProjects, getProjectUrl } from './shared-utils.js';
 
 /**
  * Main deployment example
@@ -164,9 +109,8 @@ button:hover {
 		await deployApplication(project.id, deployment);
 
 		// 4. Show access URLs
-		console.log('\n✓ Deployment complete!');
 		console.log('\nAccess your application at:');
-		console.log(`  Path-based: ${MANAGER_URL}/__project/${project.id}/`);
+		console.log(`  Path-based: ${getProjectUrl(project.id)}`);
 		console.log(`  Subdomain:  https://${project.id}.yourdomain.com/ (configure DNS)`);
 
 		// 5. List all projects
@@ -186,5 +130,3 @@ button:hover {
 if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
 	main();
 }
-
-export { createProject, deployApplication, listProjects };

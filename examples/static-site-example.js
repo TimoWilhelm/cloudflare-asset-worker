@@ -4,25 +4,21 @@
  * This demonstrates deploying a simple static site with HTML, CSS, and assets
  */
 
-const MANAGER_URL = 'http://127.0.0.1:8787';
+import { createProject, deployApplication, listProjects, getProjectUrl } from './shared-utils.js';
 
 async function deployStaticSite() {
 	try {
 		// 1. Create project
 		console.log('Creating project...');
-		const createResponse = await fetch(`${MANAGER_URL}/__api/projects`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ name: 'My Static Site' }),
-		});
-		const { project } = await createResponse.json();
-		console.log('✓ Project created:', project.id);
+		const project = await createProject('My Static Site');
 
 		// 2. Prepare static assets
+		console.log('\nPreparing deployment...');
 		const assets = [
 			{
 				pathname: '/index.html',
-				content: Buffer.from(`<!DOCTYPE html>
+				content: Buffer.from(
+					`<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -36,12 +32,15 @@ async function deployStaticSite() {
 		<p>Deployed on Cloudflare Workers with KV storage</p>
 	</div>
 </body>
-</html>`, 'utf-8').toString('base64'),
+</html>`,
+					'utf-8'
+				).toString('base64'),
 				contentType: 'text/html; charset=utf-8',
 			},
 			{
 				pathname: '/styles.css',
-				content: Buffer.from(`* {
+				content: Buffer.from(
+					`* {
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
@@ -70,12 +69,15 @@ h1 {
 p {
 	font-size: 1.2rem;
 	opacity: 0.9;
-}`, 'utf-8').toString('base64'),
+}`,
+					'utf-8'
+				).toString('base64'),
 				contentType: 'text/css',
 			},
 			{
 				pathname: '/about.html',
-				content: Buffer.from(`<!DOCTYPE html>
+				content: Buffer.from(
+					`<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -89,34 +91,33 @@ p {
 		<p><a href="/" style="color: white;">← Back to Home</a></p>
 	</div>
 </body>
-</html>`, 'utf-8').toString('base64'),
+</html>`,
+					'utf-8'
+				).toString('base64'),
 				contentType: 'text/html; charset=utf-8',
 			},
 		];
 
 		// 3. Deploy (no server code)
-		console.log('Deploying static assets...');
-		const deployResponse = await fetch(
-			`${MANAGER_URL}/__api/projects/${project.id}/deploy`,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					projectName: 'My Static Site',
-					assets,
-					// Note: no serverCode property
-				}),
-			}
-		);
+		console.log('Deploying application...');
+		await deployApplication(project.id, {
+			projectName: 'My Static Site',
+			assets,
+			// Note: no serverCode property
+		});
 
-		const result = await deployResponse.json();
-		console.log('✓ Deployment complete!');
-		console.log(`  - ${result.deployedAssets} assets deployed`);
-		console.log(`  - ${result.newAssets} new, ${result.skippedAssets} cached`);
+		// 4. Show access URLs
+		console.log('\nAccess your application at:');
+		console.log(`  Path-based: ${getProjectUrl(project.id)}`);
+		console.log(`  Subdomain:  https://${project.id}.yourdomain.com/ (configure DNS)`);
 
-		console.log('\nAccess your site at:');
-		console.log(`  ${MANAGER_URL}/__project/${project.id}/`);
-
+		// 5. List all projects
+		console.log('\n--- All Projects ---');
+		const projects = await listProjects();
+		projects.forEach((p) => {
+			console.log(`  - ${p.name} (${p.id})`);
+			console.log(`    Assets: ${p.assetsCount}, Server: ${p.hasServerCode ? 'Yes' : 'No'}`);
+		});
 	} catch (error) {
 		console.error('❌ Error:', error.message);
 		process.exit(1);
