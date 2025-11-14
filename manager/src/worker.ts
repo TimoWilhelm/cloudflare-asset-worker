@@ -2,112 +2,119 @@ import { WorkerEntrypoint } from 'cloudflare:workers';
 import type AssetApi from '../../api/src/worker';
 import type { ManifestEntry } from '../../api/src/worker';
 
+interface ProjectMetadata {
+	id: string;
+	name: string;
+	createdAt: string;
+	updatedAt: string;
+	hasServerCode: boolean;
+	assetsCount: number;
+}
+
+interface DeploymentPayload {
+	projectName?: string;
+	assets: {
+		pathname: string;
+		content: string; // Base64 encoded
+		contentType?: string;
+	}[];
+	serverCode?: {
+		entrypoint: string;
+		modules: Record<string, string>;
+		compatibilityDate?: string;
+	};
+}
+
 export default class AssetManager extends WorkerEntrypoint<Env> {
-	// Currently, entrypoints without a named handler are not supported
-	override async fetch(request: Request) {
+	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 
-		if (url.pathname === '/__api/upload') {
-			return this.handleUpload();
+		// Management API routes
+		if (url.pathname.startsWith('/__api/')) {
+			return this.handleApiRequest(request, url);
 		}
 
-		// Forward all other requests to the API worker
+		// Project serving - extract project ID from subdomain or path
+		const { projectId, isPathBased } = this.extractProjectId(url);
+
+		if (!projectId) {
+			return new Response('Project not found. Access via subdomain (project-id.domain.com) or path (/__project/project-id/)', {
+				status: 404,
+			});
+		}
+
+		// Verify project exists
+		const project = await this.getProject(projectId);
+		if (!project) {
+			return new Response('Project not found', { status: 404 });
+		}
+
+		// Rewrite request URL if using path-based routing
+		let rewrittenRequest = request;
+		if (isPathBased) {
+			rewrittenRequest = this.rewriteRequestUrl(request, projectId);
+		}
+
+		// Try to serve static assets first
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-		const response = await assets.fetch(request);
-		console.log(response, response.ok);
 
-		if (response.status !== 404) {
-			return response;
+		// Create request with project ID header for asset serving
+		const modifiedRequest = new Request(rewrittenRequest.url, {
+			method: rewrittenRequest.method,
+			headers: { ...Object.fromEntries(rewrittenRequest.headers.entries()), 'X-Project-ID': projectId },
+			body: rewrittenRequest.body,
+		});
+
+		const canServeAsset = await assets.canFetch(modifiedRequest);
+
+		if (canServeAsset) {
+			return await assets.fetch(modifiedRequest);
 		}
 
-		const moduleCode = `
-						export default {
-							async fetch(req, env, ctx) {
-								return new Response('Hello from dynamic Worker!');
-							}
-						};
-					`;
+		// If no asset found and project has server code, run dynamic worker
+		if (project.hasServerCode) {
+			return this.runServerCode(rewrittenRequest, projectId);
+		}
 
-		const contentHash = await computeContentHash(new TextEncoder().encode(moduleCode));
-
-		let worker = this.env.LOADER.get(contentHash, () => {
-			return {
-				compatibilityDate: '2025-11-09',
-
-				mainModule: 'index.js',
-				modules: {
-					'index.js': moduleCode,
-				},
-
-				env: {},
-				globalOutbound: null,
-			};
-		});
-
-		let defaultEntrypoint = worker.getEntrypoint(undefined, {
-			props: { name: 'Alice' },
-		});
-
-		return await defaultEntrypoint.fetch(request);
+		return new Response('Not found', { status: 404 });
 	}
 
-	private async handleUpload(): Promise<Response> {
+	/**
+	 * Handle API management requests
+	 */
+	private async handleApiRequest(request: Request, url: URL): Promise<Response> {
+		const { pathname } = url;
+
 		try {
-			const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-
-			// Create minimal index.html
-			const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Asset Worker</title>
-</head>
-<body>
-	<h1>Hello from Asset Worker!</h1>
-</body>
-</html>`;
-
-			// Compute content hash (eTag) for the HTML file
-			const htmlBuffer = new TextEncoder().encode(htmlContent);
-			const contentHash = await computeContentHash(htmlBuffer);
-
-			// Upload manifest as object array
-			const manifestEntries: ManifestEntry[] = [
-				{
-					pathname: '/index.html',
-					contentHash: contentHash,
-				},
-			];
-
-			// Get list of new entries that need uploading
-			const newEntries = await assets.uploadManifest(manifestEntries);
-
-			// Only upload assets for new entries
-			const skippedCount = manifestEntries.length - newEntries.length;
-			if (skippedCount > 0) {
-				console.log(`Skipping ${skippedCount} existing asset(s) that already exist in KV storage`);
+			if (pathname === '/__api/projects' && request.method === 'POST') {
+				return this.createProject(request);
 			}
 
-			for (const entry of newEntries) {
-				if (entry.contentHash === contentHash) {
-					await assets.uploadAsset(contentHash, htmlBuffer.buffer as ArrayBuffer, 'text/html; charset=utf-8');
+			if (pathname === '/__api/projects' && request.method === 'GET') {
+				return this.listProjects();
+			}
+
+			if (pathname.startsWith('/__api/projects/')) {
+				const projectId = pathname.split('/')[3];
+
+				if (!projectId) {
+					return new Response('Project ID required', { status: 400 });
+				}
+
+				if (request.method === 'GET') {
+					return this.getProjectInfo(projectId);
+				}
+
+				if (request.method === 'DELETE') {
+					return this.deleteProject(projectId);
+				}
+
+				if (pathname.endsWith('/deploy') && request.method === 'POST') {
+					return this.deployProject(projectId, request);
 				}
 			}
 
-			return new Response(
-				JSON.stringify({
-					success: true,
-					message: 'Asset and manifest uploaded successfully',
-					eTag: contentHash,
-					newAssets: newEntries.length,
-					totalAssets: manifestEntries.length,
-				}),
-				{
-					status: 200,
-					headers: { 'Content-Type': 'application/json' },
-				}
-			);
+			return new Response('Not found', { status: 404 });
 		} catch (error) {
 			return new Response(
 				JSON.stringify({
@@ -120,6 +127,283 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				}
 			);
 		}
+	}
+
+	/**
+	 * Extract project ID from subdomain or path
+	 * Returns both the project ID and whether path-based routing is used
+	 */
+	private extractProjectId(url: URL): { projectId: string | null; isPathBased: boolean } {
+		// Check for path-based routing: /__project/project-id/...
+		if (url.pathname.startsWith('/__project/')) {
+			const parts = url.pathname.split('/');
+			return {
+				projectId: parts[2] || null,
+				isPathBased: true,
+			};
+		}
+
+		// Check for subdomain-based routing: project-id.domain.com
+		const subdomain = url.hostname.split('.')[0];
+		if (subdomain && subdomain !== 'www' && !url.hostname.startsWith('localhost')) {
+			return {
+				projectId: subdomain,
+				isPathBased: false,
+			};
+		}
+
+		return { projectId: null, isPathBased: false };
+	}
+
+	/**
+	 * Rewrite request URL to strip path-based project prefix
+	 */
+	private rewriteRequestUrl(request: Request, projectId: string): Request {
+		const url = new URL(request.url);
+		const prefix = `/__project/${projectId}`;
+
+		if (url.pathname.startsWith(prefix)) {
+			// Strip the prefix and keep the rest
+			const newPathname = url.pathname.slice(prefix.length) || '/';
+			url.pathname = newPathname;
+		}
+
+		return new Request(url.toString(), {
+			method: request.method,
+			headers: request.headers,
+			body: request.body,
+		});
+	}
+
+	/**
+	 * Create a new project
+	 */
+	private async createProject(request: Request): Promise<Response> {
+		const body = await request.json<{ name?: string }>();
+		const projectId = crypto.randomUUID();
+
+		const project: ProjectMetadata = {
+			id: projectId,
+			name: body.name || `Project ${projectId}`,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+			hasServerCode: false,
+			assetsCount: 0,
+		};
+
+		await this.env.PROJECTS_KV_NAMESPACE.put(`project:${projectId}`, JSON.stringify(project));
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				project,
+			}),
+			{
+				status: 201,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	/**
+	 * List all projects
+	 */
+	private async listProjects(): Promise<Response> {
+		const { keys } = await this.env.PROJECTS_KV_NAMESPACE.list({ prefix: 'project:' });
+
+		const projects = await Promise.all(
+			keys.map(async (key: { name: string }) => {
+				const data = await this.env.PROJECTS_KV_NAMESPACE.get(key.name);
+				return data ? JSON.parse(data) : null;
+			})
+		);
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				projects: projects.filter((p: ProjectMetadata | null) => p !== null),
+			}),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	/**
+	 * Get project information
+	 */
+	private async getProjectInfo(projectId: string): Promise<Response> {
+		const project = await this.getProject(projectId);
+
+		if (!project) {
+			return new Response('Project not found', { status: 404 });
+		}
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				project,
+			}),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	/**
+	 * Delete a project and all its assets
+	 */
+	private async deleteProject(projectId: string): Promise<Response> {
+		const project = await this.getProject(projectId);
+
+		if (!project) {
+			return new Response('Project not found', { status: 404 });
+		}
+
+		// Delete project metadata
+		await this.env.PROJECTS_KV_NAMESPACE.delete(`project:${projectId}`);
+
+		// Delete server code if exists
+		if (project.hasServerCode) {
+			await this.env.SERVER_CODE_KV_NAMESPACE.delete(projectId);
+		}
+
+		// Note: Assets and manifest cleanup would require listing and deleting by prefix
+		// This is left as a future enhancement or can be done with a background job
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				message: 'Project deleted',
+			}),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	/**
+	 * Deploy a full-stack project (assets + optional server code)
+	 */
+	private async deployProject(projectId: string, request: Request): Promise<Response> {
+		const project = await this.getProject(projectId);
+
+		if (!project) {
+			return new Response('Project not found', { status: 404 });
+		}
+
+		const payload = await request.json<DeploymentPayload>();
+
+		// Update project name if provided
+		if (payload.projectName) {
+			project.name = payload.projectName;
+		}
+
+		// Deploy assets
+		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+		const manifestEntries: ManifestEntry[] = [];
+		const assetContents = new Map<string, { content: ArrayBuffer; contentType?: string }>();
+
+		for (const asset of payload.assets) {
+			// Decode base64 content
+			const content = Uint8Array.from(atob(asset.content), (c) => c.charCodeAt(0));
+			const contentHash = await computeContentHash(content);
+
+			manifestEntries.push({
+				pathname: asset.pathname,
+				contentHash,
+			});
+
+			assetContents.set(contentHash, {
+				content: content.buffer,
+				contentType: asset.contentType,
+			});
+		}
+
+		// Upload manifest with project namespace
+		const newEntries = await assets.uploadManifest(manifestEntries, projectId);
+
+		// Upload new assets
+		for (const entry of newEntries) {
+			const assetData = assetContents.get(entry.contentHash);
+			if (assetData) {
+				await assets.uploadAsset(entry.contentHash, assetData.content, assetData.contentType, projectId);
+			}
+		}
+
+		// Deploy server code if provided
+		if (payload.serverCode) {
+			const serverCodeData = {
+				entrypoint: payload.serverCode.entrypoint,
+				modules: payload.serverCode.modules,
+				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
+			};
+
+			await this.env.SERVER_CODE_KV_NAMESPACE.put(projectId, JSON.stringify(serverCodeData));
+			project.hasServerCode = true;
+		}
+
+		// Update project metadata
+		project.updatedAt = new Date().toISOString();
+		project.assetsCount = manifestEntries.length;
+
+		await this.env.PROJECTS_KV_NAMESPACE.put(`project:${projectId}`, JSON.stringify(project));
+
+		return new Response(
+			JSON.stringify({
+				success: true,
+				message: 'Project deployed successfully',
+				project,
+				deployedAssets: manifestEntries.length,
+				newAssets: newEntries.length,
+				skippedAssets: manifestEntries.length - newEntries.length,
+			}),
+			{
+				status: 200,
+				headers: { 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	/**
+	 * Get project metadata from KV
+	 */
+	private async getProject(projectId: string): Promise<ProjectMetadata | null> {
+		const data = await this.env.PROJECTS_KV_NAMESPACE.get(`project:${projectId}`);
+		return data ? JSON.parse(data) : null;
+	}
+
+	/**
+	 * Run server code for a project using dynamic worker loading
+	 */
+	private async runServerCode(request: Request, projectId: string): Promise<Response> {
+		const serverCodeData = await this.env.SERVER_CODE_KV_NAMESPACE.get(projectId);
+
+		if (!serverCodeData) {
+			return new Response('Server code not found', { status: 404 });
+		}
+
+		const { entrypoint, modules, compatibilityDate } = JSON.parse(serverCodeData);
+
+		// Use content hash of the code as the worker key for caching
+		const codeHash = await computeContentHash(new TextEncoder().encode(serverCodeData));
+
+		const worker = this.env.LOADER.get(codeHash, () => {
+			return {
+				compatibilityDate: compatibilityDate || '2025-11-09',
+				mainModule: entrypoint,
+				modules,
+				env: {},
+				globalOutbound: null,
+			};
+		});
+
+		const defaultEntrypoint = worker.getEntrypoint(undefined, {});
+
+		return await defaultEntrypoint.fetch(request);
 	}
 }
 

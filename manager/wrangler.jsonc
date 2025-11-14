@@ -5,6 +5,16 @@
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat"],
+	"kv_namespaces": [
+		{
+			"binding": "PROJECTS_KV_NAMESPACE",
+			"id": "todo"
+		},
+		{
+			"binding": "SERVER_CODE_KV_NAMESPACE",
+			"id": "todo"
+		}
+	],
 	"services": [
 		{
 			"binding": "ASSET_WORKER",
