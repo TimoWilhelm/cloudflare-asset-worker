@@ -15,8 +15,8 @@ import { attachCustomHeaders, getAssetHeaders } from './utils/headers';
 import { generateRedirectsMatcher, staticRedirectsMatcher } from './utils/rules-engine';
 import type { AssetConfig } from './lib/types';
 
-type UnstableExists = (pathname: string, request?: Request) => Promise<string | null>;
-type UnstableGetByETag = (
+type Exists = (pathname: string, request?: Request) => Promise<string | null>;
+type GetByETag = (
 	eTag: string,
 	request?: Request
 ) => Promise<{
@@ -39,7 +39,7 @@ const getResponseOrAssetIntent = async (
 	request: Request,
 	env: Env,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists
+	exists: Exists
 ): Promise<Response | AssetIntentWithResolver> => {
 	const url = new URL(request.url);
 	const { search } = url;
@@ -88,9 +88,8 @@ const resolveAssetIntentToResponse = async (
 	request: Request,
 	env: Env,
 	configuration: Required<AssetConfig>,
-	getByETag: UnstableGetByETag
+	getByETag: GetByETag
 ) => {
-	const { pathname } = new URL(request.url);
 	const method = request.method.toUpperCase();
 
 	const asset = await getByETag(assetIntent.eTag, request);
@@ -113,12 +112,7 @@ const resolveAssetIntentToResponse = async (
 	}
 };
 
-export const canFetch = async (
-	request: Request,
-	env: Env,
-	configuration: Required<AssetConfig>,
-	exists: UnstableExists
-): Promise<boolean> => {
+export const canFetch = async (request: Request, env: Env, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
 	// Always enable Sec-Fetch-Mode navigate header feature
 	const shouldKeepNotFoundHandling = configuration.has_static_routing || request.headers.get('Sec-Fetch-Mode') === 'navigate';
 	if (!shouldKeepNotFoundHandling) {
@@ -141,8 +135,8 @@ export const handleRequest = async (
 	request: Request,
 	env: Env,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
-	getByETag: UnstableGetByETag
+	exists: Exists,
+	getByETag: GetByETag
 ) => {
 	const responseOrAssetIntent = await getResponseOrAssetIntent(request, env, configuration, exists);
 
@@ -169,7 +163,7 @@ export const getIntent = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
+	exists: Exists,
 	skipRedirects = false
 ): Promise<Intent> => {
 	switch (configuration.html_handling) {
@@ -192,7 +186,7 @@ const htmlHandlingAutoTrailingSlash = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
+	exists: Exists,
 	skipRedirects: boolean
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
@@ -354,7 +348,7 @@ const htmlHandlingForceTrailingSlash = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
+	exists: Exists,
 	skipRedirects: boolean
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
@@ -520,7 +514,7 @@ const htmlHandlingDropTrailingSlash = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
+	exists: Exists,
 	skipRedirects: boolean
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
@@ -704,7 +698,7 @@ const htmlHandlingNone = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists
+	exists: Exists
 ): Promise<Intent> => {
 	const exactETag = await exists(pathname, request);
 	if (exactETag) {
@@ -718,12 +712,7 @@ const htmlHandlingNone = async (
 	}
 };
 
-const notFound = async (
-	pathname: string,
-	request: Request,
-	configuration: Required<AssetConfig>,
-	exists: UnstableExists
-): Promise<Intent> => {
+const notFound = async (pathname: string, request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<Intent> => {
 	switch (configuration.not_found_handling) {
 		case 'single-page-application': {
 			const eTag = await exists('/index.html', request);
@@ -763,7 +752,7 @@ const safeRedirect = async (
 	request: Request,
 	destination: string,
 	configuration: Required<AssetConfig>,
-	exists: UnstableExists,
+	exists: Exists,
 	skip: boolean,
 	resolver: Resolver
 ): Promise<Intent> => {

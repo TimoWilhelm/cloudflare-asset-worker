@@ -1,28 +1,26 @@
-import { AssetsManifest } from './assets-manifest';
+import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { handleError } from './utils/final-operations';
 import { getAssetWithMetadataFromKV } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
+import { CONTENT_HASH_SIZE, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './lib/constants';
+
+export interface ManifestEntry {
+	pathname: string;
+	contentHash: string;
+}
 
 // Cache hit threshold in milliseconds
 const KV_CACHE_HIT_THRESHOLD_MS = 100;
 
-export default class extends WorkerEntrypoint<Env> {
-	private _assetsManifest?: AssetsManifest;
-
-	/**
-	 * Lazy-load and cache the assets manifest
-	 */
+export default class AssetApi extends WorkerEntrypoint<Env> {
 	private async getAssetsManifest(): Promise<AssetsManifest> {
-		if (!this._assetsManifest) {
-			const manifestBuffer = await this.env.MANIFEST_KV_NAMESPACE.get<ArrayBuffer>('ASSETS_MANIFEST');
-			if (!manifestBuffer) {
-				throw new Error('Failed to load assets manifest');
-			}
-			this._assetsManifest = new AssetsManifest(new Uint8Array(manifestBuffer));
+		const manifestBuffer = await this.env.MANIFEST_KV_NAMESPACE.get('ASSETS_MANIFEST', 'arrayBuffer');
+		if (!manifestBuffer) {
+			throw new Error('Failed to load assets manifest');
 		}
-		return this._assetsManifest;
+		return new AssetsManifest(new Uint8Array(manifestBuffer));
 	}
 
 	/**
@@ -134,18 +132,56 @@ export default class extends WorkerEntrypoint<Env> {
 	/**
 	 * Upload the assets manifest to KV storage and clear the cached manifest
 	 *
-	 * The manifest should be a binary buffer following the format:
+	 * The manifest will be encoded into a binary buffer following the format:
 	 * - 16 byte header
 	 * - Entries (48 bytes each): 16 bytes path hash + 32 bytes content hash
-	 * - Entries must be sorted by path hash
+	 * - Entries are sorted by path hash
 	 *
-	 * @param manifestBuffer - The encoded manifest as ArrayBuffer
+	 * @param entries - Array of manifest entries with pathname and contentHash
 	 * @returns A promise that resolves when the upload is complete
 	 */
-	async uploadManifest(manifestBuffer: ArrayBuffer): Promise<void> {
-		// Clear the cached manifest so it will be reloaded on next access
-		this._assetsManifest = undefined;
+	async uploadManifest(entries: ManifestEntry[]): Promise<void> {
+		// Generate binary manifest
+		const manifestBuffer = await this.generateManifestBuffer(entries);
 
 		await this.env.MANIFEST_KV_NAMESPACE.put('ASSETS_MANIFEST', manifestBuffer);
+	}
+
+	/**
+	 * Generate a binary manifest buffer from an array of entries
+	 * @param entries - Array of manifest entries
+	 * @returns The encoded manifest as ArrayBuffer
+	 */
+	private async generateManifestBuffer(entries: ManifestEntry[]): Promise<ArrayBuffer> {
+		// Compute hashes for all entries
+		const hashedEntries = await Promise.all(
+			entries.map(async (entry) => {
+				const pathHash = await hashPath(entry.pathname);
+				const contentHashBytes = new Uint8Array(entry.contentHash.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)));
+				return { pathHash, contentHashBytes };
+			})
+		);
+
+		// Sort entries by path hash
+		hashedEntries.sort((a, b) => {
+			for (let i = 0; i < PATH_HASH_SIZE; i++) {
+				const diff = a.pathHash[i]! - b.pathHash[i]!;
+				if (diff !== 0) return diff;
+			}
+			return 0;
+		});
+
+		// Create manifest buffer: header + entries
+		const manifestSize = HEADER_SIZE + entries.length * ENTRY_SIZE;
+		const manifest = new Uint8Array(manifestSize);
+
+		// Write entries (path hash + content hash)
+		hashedEntries.forEach((entry, index) => {
+			const offset = HEADER_SIZE + index * ENTRY_SIZE;
+			manifest.set(entry.pathHash, offset);
+			manifest.set(entry.contentHashBytes, offset + PATH_HASH_SIZE);
+		});
+
+		return manifest.buffer as ArrayBuffer;
 	}
 }
