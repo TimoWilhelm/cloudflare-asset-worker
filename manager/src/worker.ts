@@ -253,7 +253,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	}
 
 	/**
-	 * Delete a project and all its assets
+	 * Delete a project and its metadata
 	 */
 	private async deleteProject(projectId: string): Promise<Response> {
 		const project = await this.getProject(projectId);
@@ -262,21 +262,25 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return new Response('Project not found', { status: 404 });
 		}
 
-		// Delete project metadata
-		await this.env.PROJECTS_KV_NAMESPACE.delete(`project:${projectId}`);
+		// Delete assets and manifest via AssetApi RPC
+		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+		const assetDeletion = await assets.deleteProjectAssets(projectId);
 
 		// Delete server code if exists
 		if (project.hasServerCode) {
 			await this.env.SERVER_CODE_KV_NAMESPACE.delete(projectId);
 		}
 
-		// Note: Assets and manifest cleanup would require listing and deleting by prefix
-		// This is left as a future enhancement or can be done with a background job
+		// Delete project metadata
+		await this.env.PROJECTS_KV_NAMESPACE.delete(`project:${projectId}`);
 
 		return new Response(
 			JSON.stringify({
 				success: true,
 				message: 'Project deleted',
+				deletedAssets: assetDeletion.deletedAssets,
+				deletedManifest: assetDeletion.deletedManifest,
+				deletedServerCode: project.hasServerCode,
 			}),
 			{
 				status: 200,

@@ -266,4 +266,50 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 		return manifest.buffer as ArrayBuffer;
 	}
+
+	/**
+	 * Delete all assets and manifest for a project
+	 * This is an RPC method that can be called from the manager
+	 * @param projectId - The project ID to delete assets for
+	 * @returns Object with deletion statistics
+	 */
+	async deleteProjectAssets(projectId: string): Promise<{ deletedAssets: number; deletedManifest: boolean }> {
+		let deletedAssets = 0;
+		let deletedManifest = false;
+
+		// List all keys with the project prefix in ASSETS_KV_NAMESPACE
+		const assetPrefix = `${projectId}:`;
+		const assetsList = await this.env.ASSETS_KV_NAMESPACE.list({ prefix: assetPrefix });
+
+		// Delete all assets
+		await Promise.all(
+			assetsList.keys.map(async (key: { name: string }) => {
+				await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
+				deletedAssets++;
+			})
+		);
+
+		// Handle pagination if there are more keys
+		let currentList = assetsList;
+		while (!currentList.list_complete) {
+			const moreAssets = await this.env.ASSETS_KV_NAMESPACE.list({
+				prefix: assetPrefix,
+				cursor: currentList.cursor
+			});
+			await Promise.all(
+				moreAssets.keys.map(async (key: { name: string }) => {
+					await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
+					deletedAssets++;
+				})
+			);
+			currentList = moreAssets;
+		}
+
+		// Delete the manifest
+		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
+		await this.env.MANIFEST_KV_NAMESPACE.delete(manifestKey);
+		deletedManifest = true;
+
+		return { deletedAssets, deletedManifest };
+	}
 }
