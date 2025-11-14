@@ -4,7 +4,7 @@ import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { handleError } from './utils/final-operations';
 import { getAssetWithMetadataFromKV } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './lib/constants';
+import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 
 export interface ManifestEntry {
 	pathname: string;
@@ -84,12 +84,12 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	/**
 	 * Fetch an asset by its pathname by first resolving the pathname to an eTag
 	 * @param pathname - The URL pathname of the asset (e.g., "/index.html")
-	 * @param request - Optional request object passed to exists() and getByETag()
+	 * @param request - Request object passed to exists() and getByETag()
 	 * @returns An object containing the asset's readable stream, content type, and cache status, or null if not found
 	 */
 	async getByPathname(
 		pathname: string,
-		request?: Request
+		request: Request
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -107,10 +107,10 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	/**
 	 * Check if an asset exists for the given pathname in the manifest
 	 * @param pathname - The URL pathname to look up (e.g., "/index.html")
-	 * @param _request - Optional request object (currently unused)
+	 * @param equest - Request object (currently unused)
 	 * @returns The eTag (content hash) if the asset exists, null otherwise
 	 */
-	async exists(pathname: string, _request?: Request): Promise<string | null> {
+	async exists(pathname: string, request: Request): Promise<string | null> {
 		const manifest = await this.getAssetsManifest();
 		const eTag = await manifest.get(pathname);
 		return eTag;
@@ -162,8 +162,8 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		// Check which etags already exist in KV storage
 		const existenceChecks = await Promise.all(
 			entries.map(async (entry) => {
-				const exists = await this.env.ASSETS_KV_NAMESPACE.list({ prefix: entry.contentHash });
-				return { entry, exists: exists.keys.length > 0 };
+				const exists = await this.env.ASSETS_KV_NAMESPACE.get(entry.contentHash, 'stream');
+				return { entry, exists: exists !== null };
 			})
 		);
 

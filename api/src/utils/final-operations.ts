@@ -1,4 +1,4 @@
-import { InternalServerErrorResponse } from '../lib/responses';
+import { InternalServerErrorResponse } from './responses';
 
 export function handleError(err: unknown) {
 	try {

@@ -7,13 +7,19 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	override async fetch(request: Request) {
 		const url = new URL(request.url);
 
-		if (url.pathname === '/api/upload') {
+		if (url.pathname === '/__api/upload') {
 			return this.handleUpload();
 		}
 
 		// Forward all other requests to the API worker
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-		return assets.fetch(request);
+		const response = await assets.fetch(request);
+
+		if (response.ok) {
+			return response;
+		}
+
+		return dynamicWorker.fetch(request);
 	}
 
 	private async handleUpload(): Promise<Response> {
@@ -37,7 +43,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			const htmlBuffer = new TextEncoder().encode(htmlContent);
 			const contentHashBuffer = await crypto.subtle.digest('SHA-256', htmlBuffer);
 			const contentHash = Array.from(new Uint8Array(contentHashBuffer))
-				.map(b => b.toString(16).padStart(2, '0'))
+				.map((b) => b.toString(16).padStart(2, '0'))
 				.join('');
 
 			// Upload manifest as object array
@@ -63,24 +69,30 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				}
 			}
 
-			return new Response(JSON.stringify({
-				success: true,
-				message: 'Asset and manifest uploaded successfully',
-				eTag: contentHash,
-				newAssets: newEntries.length,
-				totalAssets: manifestEntries.length,
-			}), {
-				status: 200,
-				headers: { 'Content-Type': 'application/json' },
-			});
+			return new Response(
+				JSON.stringify({
+					success: true,
+					message: 'Asset and manifest uploaded successfully',
+					eTag: contentHash,
+					newAssets: newEntries.length,
+					totalAssets: manifestEntries.length,
+				}),
+				{
+					status: 200,
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
 		} catch (error) {
-			return new Response(JSON.stringify({
-				success: false,
-				error: error instanceof Error ? error.message : 'Unknown error',
-			}), {
-				status: 500,
-				headers: { 'Content-Type': 'application/json' },
-			});
+			return new Response(
+				JSON.stringify({
+					success: false,
+					error: error instanceof Error ? error.message : 'Unknown error',
+				}),
+				{
+					status: 500,
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
 		}
 	}
 }

@@ -1,4 +1,4 @@
-import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from '../src/lib/constants';
+import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from '../src/constants';
 import AssetManifestFixture from '../fixtures/AssetManifest.bin';
 import { binarySearch, hashPath } from '../src/assets-manifest';
 

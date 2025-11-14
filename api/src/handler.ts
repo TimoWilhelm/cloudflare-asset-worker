@@ -10,15 +10,15 @@ import {
 	PermanentRedirectResponse,
 	SeeOtherResponse,
 	TemporaryRedirectResponse,
-} from './lib/responses';
+} from './utils/responses';
 import { attachCustomHeaders, getAssetHeaders } from './utils/headers';
 import { generateRedirectsMatcher, staticRedirectsMatcher } from './utils/rules-engine';
-import type { AssetConfig } from './lib/types';
+import type { AssetConfig } from './types';
 
-type Exists = (pathname: string, request?: Request) => Promise<string | null>;
+type Exists = (pathname: string, request: Request) => Promise<string | null>;
 type GetByETag = (
 	eTag: string,
-	request?: Request
+	request: Request
 ) => Promise<{
 	readableStream: ReadableStream;
 	contentType: string | undefined;

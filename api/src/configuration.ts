@@ -1,4 +1,4 @@
-import type { AssetConfig } from './lib/types';
+import type { AssetConfig } from './types';
 
 export const normalizeConfiguration = (configuration?: AssetConfig): Required<AssetConfig> => {
 	return {
