@@ -4,7 +4,8 @@
  * This script demonstrates how to:
  * 1. Create a new project
  * 2. Deploy a full-stack application with assets and server code
- * 3. Access the deployed application
+ * 3. Use environment variables in server-side code
+ * 4. Access the deployed application
  */
 
 import { createProject, deployApplication, listProjects, getProjectUrl } from './shared-utils.js';
@@ -27,12 +28,13 @@ async function main() {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>My App</title>
-	<link rel="stylesheet" href="/style.css">
+	<link rel="stylesheet" href="style.css">
 </head>
 <body>
 	<h1>Hello from Multi-Project Platform!</h1>
 	<p>Project ID: ${project.id}</p>
-	<button onclick="fetch('/api/hello').then(r => r.text()).then(alert)">Test API</button>
+	<button onclick="fetch('api/hello').then(r => r.json()).then(data => alert(JSON.stringify(data, null, 2)))">Test API</button>
+	<button onclick="fetch('api/config').then(r => r.json()).then(data => alert(JSON.stringify(data, null, 2)))">Show Config</button>
 </body>
 </html>`;
 
@@ -56,6 +58,8 @@ button {
 	border-radius: 4px;
 	cursor: pointer;
 	font-size: 1rem;
+	margin-right: 0.5rem;
+	margin-top: 0.5rem;
 }
 
 button:hover {
@@ -63,14 +67,30 @@ button:hover {
 }`;
 
 		const serverCode = `export default {
-	async fetch(request) {
+	async fetch(request, env) {
 		const url = new URL(request.url);
 
-		// API endpoint
+		// API endpoint - demonstrates basic functionality
 		if (url.pathname === '/api/hello') {
 			return new Response(JSON.stringify({
 				message: 'Hello from server code!',
+				environment: env.ENVIRONMENT || 'not set',
 				timestamp: new Date().toISOString()
+			}), {
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+
+		// Config endpoint - demonstrates environment variable usage
+		if (url.pathname === '/api/config') {
+			return new Response(JSON.stringify({
+				environment: env.ENVIRONMENT || 'development',
+				apiUrl: env.API_URL || 'not configured',
+				appName: env.APP_NAME || 'My App',
+				maxItems: parseInt(env.MAX_ITEMS_PER_PAGE || '10'),
+				debugMode: env.DEBUG === 'true',
+				featureNewUI: env.FEATURE_NEW_UI === 'true',
+				version: env.VERSION || '1.0.0'
 			}), {
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -102,6 +122,23 @@ button:hover {
 				},
 				compatibilityDate: '2025-11-09',
 			},
+			// Asset configuration
+			config: {
+				html_handling: 'auto-trailing-slash',
+				not_found_handling: 'none',
+			},
+			// Run worker first for API routes to avoid unnecessary asset checks
+			run_worker_first: ['/api/*'],
+			// Environment variables for server code (non-secret config)
+			env: {
+				ENVIRONMENT: 'production',
+				API_URL: 'https://api.example.com',
+				APP_NAME: 'My Full-Stack App',
+				MAX_ITEMS_PER_PAGE: '20',
+				DEBUG: 'false',
+				FEATURE_NEW_UI: 'true',
+				VERSION: '1.0.0',
+			},
 		};
 
 		// 3. Deploy
@@ -112,6 +149,12 @@ button:hover {
 		console.log('\nAccess your application at:');
 		console.log(`  Path-based: ${getProjectUrl(project.id)}`);
 		console.log(`  Subdomain:  https://${project.id}.yourdomain.com/ (configure DNS)`);
+
+		console.log('\nℹ️  Environment variables deployed:');
+		Object.keys(deployment.env).forEach(key => {
+			console.log(`  ${key}: ${deployment.env[key]}`);
+		});
+		console.log('\n💡 Try clicking "Test API" and "Show Config" buttons to see env vars in action!');
 
 		// 5. List all projects
 		console.log('\n--- All Projects ---');

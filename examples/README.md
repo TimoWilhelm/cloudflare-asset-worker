@@ -1,33 +1,37 @@
 # Deployment Examples
 
-This directory contains example scripts demonstrating how to deploy applications to the Multi-Project Deployment Platform.
+This directory contains example scripts demonstrating how to use the Cloudflare Multi-Project Deployment Platform.
 
-## Examples
+## Running the Examples
 
-### 1. Full-Stack Application (`deploy-example.js`)
+All examples use the management API running at `http://127.0.0.1:8787` by default.
 
-Complete example showing:
-- Creating a project
-- Deploying HTML, CSS, and JavaScript assets
-- Adding server-side code with API endpoints
-- Accessing the deployed application
-
-**Run:**
 ```bash
+# From the examples directory
 node deploy-example.js
-```
-
-### 2. Static Website (`static-site-example.js`)
-
-Simple static site deployment without server code:
-- Multiple HTML pages
-- CSS styling
-- Pure static asset serving
-
-**Run:**
-```bash
 node static-site-example.js
 ```
+
+## Available Examples
+
+### 1. Full-Stack Deployment (`deploy-example.js`)
+
+Demonstrates deploying a complete application with:
+
+- Static assets (HTML, CSS)
+- Server-side code (API endpoints)
+- Asset configuration
+- Path-based routing for APIs
+- Environment variables
+
+### 2. Static Site Deployment (`static-site-example.js`)
+
+Shows how to deploy a static website with:
+
+- Multiple HTML pages
+- CSS styling
+- No server code required
+- Asset-only deployment
 
 ## Usage Pattern
 
@@ -58,7 +62,12 @@ const deployment = {
     modules: {
       'index.js': 'export default { async fetch() { ... } }'
     }
-  }
+  },
+  config: { // Optional - Asset serving configuration
+    html_handling: 'auto-trailing-slash',
+    not_found_handling: 'single-page-application'
+  },
+  run_worker_first: ['/api/*', '/admin/**'] // Optional - Glob patterns for worker-first routing
 };
 
 // 3. Deploy
@@ -129,20 +138,200 @@ serverCode: {
 }
 ```
 
+## Environment Variables
+
+Environment variables are stored with your server code deployment and injected into your worker at runtime. They are deployment-specific and updated through redeployment.
+
+**Note:** Environment variables are intended for non-secret configuration values (feature flags, URLs, limits, etc.).
+
+### Setting Environment Variables During Deployment
+
+```javascript
+const deployment = {
+  projectName: 'My App',
+  assets: [...],
+  serverCode: {...},
+  env: {
+    ENVIRONMENT: 'production',
+    API_URL: 'https://api.example.com',
+    APP_NAME: 'My App',
+    MAX_ITEMS_PER_PAGE: '20',
+    DEBUG: 'false',
+    FEATURE_NEW_UI: 'true'
+  }
+};
+
+await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
+  method: 'POST',
+  body: JSON.stringify(deployment)
+});
+```
+
+### Accessing Environment Variables in Server Code
+
+```javascript
+export default {
+  async fetch(request, env, ctx) {
+    // Access environment variables through the env parameter
+    const apiUrl = env.API_URL || 'https://api.default.com';
+    const appName = env.APP_NAME || 'My App';
+    const maxItems = parseInt(env.MAX_ITEMS_PER_PAGE || '10');
+    const isDebug = env.DEBUG === 'true';
+
+    // Use in your code
+    const data = {
+      app: appName,
+      limit: maxItems,
+      debug: isDebug
+    };
+
+    return new Response(JSON.stringify(data), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+```
+
+### Updating Environment Variables
+
+To update environment variables, deploy again with the new values. Each deployment replaces the previous environment.
+
+```javascript
+// Initial deployment with env vars
+await deployApplication(projectId, {
+  assets: [...],
+  serverCode: {...},
+  env: {
+    ENVIRONMENT: 'development',
+    MAX_ITEMS_PER_PAGE: '10',
+    FEATURE_NEW_UI: 'false'
+  }
+});
+
+// Update env vars by redeploying
+await deployApplication(projectId, {
+  assets: [...], // Same or updated assets
+  serverCode: {...}, // Same or updated code
+  env: {
+    ENVIRONMENT: 'production', // Updated
+    MAX_ITEMS_PER_PAGE: '20', // Updated
+    FEATURE_NEW_UI: 'true', // Updated
+    CACHE_TTL: '3600' // New variable
+  }
+});
+```
+
+**Removing Environment Variables:**
+Deploy without the `env` field or with an empty object:
+
+```javascript
+await deployApplication(projectId, {
+  assets: [...],
+  serverCode: {...}
+  // No env field - removes all environment variables
+});
+```
+
+### Best Practices
+
+1. **Non-Secret Values**: Use env vars for configuration, not secrets (use Cloudflare secrets for sensitive data)
+2. **Deployment-Specific**: Environment variables are tied to deployments, not managed separately
+3. **Naming**: Use UPPER_SNAKE_CASE for environment variable names
+4. **Types**: All values are strings; convert as needed (`env.DEBUG === 'true'`, `parseInt(env.MAX_ITEMS)`)
+5. **Defaults**: Always provide fallback values for optional variables
+6. **Validation**: Validate and type-check environment variables at runtime
+7. **Versioning**: Track environment configurations alongside code in your deployment process
+
+**Example with Best Practices:**
+```javascript
+export default {
+  async fetch(request, env) {
+    // Provide defaults for all variables
+    const environment = env.ENVIRONMENT || 'production';
+    const debug = env.DEBUG === 'true';
+    const apiUrl = env.API_URL || 'https://api.default.com';
+    const maxItems = parseInt(env.MAX_ITEMS_PER_PAGE || '10');
+
+    // Validate required variables
+    if (!env.APP_NAME) {
+      return new Response('Configuration error: APP_NAME required', { status: 500 });
+    }
+
+    // Use environment variables
+    return new Response(JSON.stringify({
+      app: env.APP_NAME,
+      environment,
+      debug,
+      maxItems,
+      timestamp: Date.now()
+    }));
+  }
+}
+```
+
+## Configuration Options
+
+### Asset Configuration (`config`)
+
+Configure how assets are served per-project:
+
+```javascript
+config: {
+  // HTML handling mode
+  html_handling: 'auto-trailing-slash' | 'force-trailing-slash' | 'drop-trailing-slash' | 'none',
+
+  // 404 handling
+  not_found_handling: 'single-page-application' | '404-page' | 'none',
+
+  // Custom redirects (optional)
+  redirects: {
+    version: 1,
+    staticRules: {},
+    rules: {}
+  },
+
+  // Custom headers (optional)
+  headers: {
+    version: 2,
+    rules: {}
+  }
+}
+```
+
+### Worker-First Routing (`run_worker_first`)
+
+Control when server code runs vs checking assets:
+
+```javascript
+// Boolean: always or never run worker first
+run_worker_first: true  // Always run worker first
+run_worker_first: false // Always check assets first (default)
+
+// Array: run worker first for matching paths (glob patterns)
+run_worker_first: [
+  '/api/*',        // Match /api/users, /api/posts, etc.
+  '/admin/**',     // Match /admin and all sub-paths
+  '/auth'          // Exact match
+]
+```
+
+**Benefits:**
+- Avoid unnecessary asset checks for API routes
+- Better performance for worker-heavy paths
+- Fine-grained control over request routing
+
 ## Common Patterns
 
 ### SPA (Single Page Application)
 
-For React/Vue/Angular apps, configure the API worker with SPA routing:
+For React/Vue/Angular apps, use SPA config in your deployment:
 
-```jsonc
-// In api/wrangler.jsonc
+```javascript
 {
-  "vars": {
-    "CONFIG": {
-      "html_handling": "auto-trailing-slash",
-      "not_found_handling": "single-page-application"
-    }
+  assets: [...],
+  config: {
+    html_handling: 'auto-trailing-slash',
+    not_found_handling: 'single-page-application'
   }
 }
 ```
@@ -180,13 +369,13 @@ const worker = this.env.LOADER.get(codeHash, () => {
 
 ### Static Site with API Routes
 
-Deploy both static files and server code. Server code only handles API routes:
+Deploy both static files and server code. Use `run_worker_first` for API routes:
 
 ```javascript
 {
   assets: [
-    { pathname: '/', content: btoa('...'), contentType: 'text/html' },
-    { pathname: '/about', content: btoa('...'), contentType: 'text/html' }
+    { pathname: '/index.html', content: btoa('...'), contentType: 'text/html' },
+    { pathname: '/about.html', content: btoa('...'), contentType: 'text/html' }
   ],
   serverCode: {
     entrypoint: 'api.js',
@@ -209,7 +398,13 @@ Deploy both static files and server code. Server code only handles API routes:
         }
       `
     }
-  }
+  },
+  config: {
+    html_handling: 'auto-trailing-slash',
+    not_found_handling: 'none'
+  },
+  // Skip asset checks for API routes - improves performance
+  run_worker_first: ['/api/*']
 }
 ```
 

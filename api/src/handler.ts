@@ -13,7 +13,7 @@ import {
 } from './utils/responses';
 import { attachCustomHeaders, getAssetHeaders } from './utils/headers';
 import { generateRedirectsMatcher, staticRedirectsMatcher } from './utils/rules-engine';
-import type { AssetConfig } from './types';
+import type { AssetConfig } from './configuration';
 
 type Exists = (pathname: string, request: Request) => Promise<string | null>;
 type GetByETag = (

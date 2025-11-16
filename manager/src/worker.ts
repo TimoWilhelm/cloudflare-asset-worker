@@ -1,6 +1,8 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import type AssetApi from '../../api/src/worker';
 import type { ManifestEntry } from '../../api/src/worker';
+import type { AssetConfig } from '../../api/src/configuration';
+import { minimatch } from 'minimatch';
 
 interface ProjectMetadata {
 	id: string;
@@ -9,6 +11,8 @@ interface ProjectMetadata {
 	updatedAt: string;
 	hasServerCode: boolean;
 	assetsCount: number;
+	config?: AssetConfig;
+	run_worker_first?: boolean | string[];
 }
 
 interface DeploymentPayload {
@@ -23,9 +27,46 @@ interface DeploymentPayload {
 		modules: Record<string, string>;
 		compatibilityDate?: string;
 	};
+	config?: AssetConfig;
+	run_worker_first?: boolean | string[];
+	env?: Record<string, string>;
 }
 
 export default class AssetManager extends WorkerEntrypoint<Env> {
+	/**
+	 * Check if a pathname matches glob patterns using minimatch
+	 * @param pathname - The pathname to check
+	 * @param patterns - Array of glob patterns to match against
+	 * @returns True if pathname matches any pattern
+	 */
+	private matchesGlobPatterns(pathname: string, patterns: string[]): boolean {
+		for (const pattern of patterns) {
+			if (minimatch(pathname, pattern)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Determine if worker should run first based on config and pathname
+	 * @param config - The run_worker_first configuration
+	 * @param pathname - The request pathname
+	 * @returns True if worker should run first
+	 */
+	private shouldRunWorkerFirst(config: boolean | string[] | undefined, pathname: string): boolean {
+		if (config === undefined || config === false) {
+			return false;
+		}
+
+		if (config === true) {
+			return true;
+		}
+
+		// If config is string[], check if pathname matches any pattern
+		return this.matchesGlobPatterns(pathname, config);
+	}
+
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 
@@ -55,13 +96,28 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			rewrittenRequest = this.rewriteRequestUrl(request, projectId);
 		}
 
-		// Try to serve static assets first
+		// Decide whether to check assets first or run worker first based on config
+		const rewrittenUrl = new URL(rewrittenRequest.url);
+		const runWorkerFirst = this.shouldRunWorkerFirst(project.run_worker_first, rewrittenUrl.pathname);
+
+		if (runWorkerFirst && project.hasServerCode) {
+			// Run server code first, let it handle everything including static files
+			return this.runServerCode(rewrittenRequest, projectId);
+		}
+
+		// Try to serve static assets first (default behavior)
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 
-		// Create request with project ID header for asset serving
+		// Create request with project ID and config headers for asset serving
+		const modifiedHeaders = {
+			...Object.fromEntries(rewrittenRequest.headers.entries()),
+			'X-Project-ID': projectId,
+			'X-Project-Config': JSON.stringify(project.config || {}),
+		};
+
 		const modifiedRequest = new Request(rewrittenRequest.url, {
 			method: rewrittenRequest.method,
-			headers: { ...Object.fromEntries(rewrittenRequest.headers.entries()), 'X-Project-ID': projectId },
+			headers: modifiedHeaders,
 			body: rewrittenRequest.body,
 		});
 
@@ -266,7 +322,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 		const assetDeletion = await assets.deleteProjectAssets(projectId);
 
-		// Delete server code if exists
+		// Delete server code if exists (includes env vars)
 		if (project.hasServerCode) {
 			await this.env.SERVER_CODE_KV_NAMESPACE.delete(projectId);
 		}
@@ -344,6 +400,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				entrypoint: payload.serverCode.entrypoint,
 				modules: payload.serverCode.modules,
 				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
+				env: { ...payload.env },
 			};
 
 			await this.env.SERVER_CODE_KV_NAMESPACE.put(projectId, JSON.stringify(serverCodeData));
@@ -353,6 +410,16 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		// Update project metadata
 		project.updatedAt = new Date().toISOString();
 		project.assetsCount = manifestEntries.length;
+
+		// Store config if provided
+		if (payload.config) {
+			project.config = payload.config;
+		}
+
+		// Store run_worker_first setting
+		if (payload.run_worker_first !== undefined) {
+			project.run_worker_first = payload.run_worker_first;
+		}
 
 		await this.env.PROJECTS_KV_NAMESPACE.put(`project:${projectId}`, JSON.stringify(project));
 
@@ -390,7 +457,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return new Response('Server code not found', { status: 404 });
 		}
 
-		const { entrypoint, modules, compatibilityDate } = JSON.parse(serverCodeData);
+		const { entrypoint, modules, compatibilityDate, env: envVars = {} } = JSON.parse(serverCodeData);
 
 		// Use content hash of the code as the worker key for caching
 		const codeHash = await computeContentHash(new TextEncoder().encode(serverCodeData));
@@ -400,7 +467,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				compatibilityDate: compatibilityDate || '2025-11-09',
 				mainModule: entrypoint,
 				modules,
-				env: {},
+				env: envVars,
 				globalOutbound: null,
 			};
 		});

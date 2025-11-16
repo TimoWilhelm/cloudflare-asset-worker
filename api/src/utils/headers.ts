@@ -1,7 +1,7 @@
 import { CACHE_CONTROL_BROWSER } from '../constants';
 import { HEADERS_VERSION } from '../handler';
 import { generateRulesMatcher, replacer } from './rules-engine';
-import type { AssetConfig } from '../types';
+import type { AssetConfig } from '../configuration';
 import type { AssetIntentWithResolver } from '../handler';
 
 /**

@@ -103,7 +103,11 @@ p {
 		await deployApplication(project.id, {
 			projectName: 'My Static Site',
 			assets,
-			// Note: no serverCode property
+			// Asset configuration for static site
+			config: {
+				html_handling: 'auto-trailing-slash',
+				not_found_handling: '404-page', // Serve 404.html if it exists
+			},
 		});
 
 		// 4. Show access URLs

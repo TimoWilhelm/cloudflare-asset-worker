@@ -19,7 +19,6 @@
 		"binding": "VERSION_METADATA"
 	},
 	"vars": {
-		"ENVIRONMENT": "development",
-		"CONFIG": {}
+		"ENVIRONMENT": "development"
 	}
 }

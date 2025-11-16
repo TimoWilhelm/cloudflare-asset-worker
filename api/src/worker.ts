@@ -1,5 +1,5 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
-import { normalizeConfiguration } from './configuration';
+import { normalizeConfiguration, type AssetConfig } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { handleError } from './utils/final-operations';
 import { getAssetWithMetadataFromKV } from './utils/kv';
@@ -44,6 +44,23 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	}
 
 	/**
+	 * Extract project config from request headers
+	 * @param request - The incoming HTTP request
+	 * @returns The project config if present, undefined otherwise
+	 */
+	private extractProjectConfig(request: Request): AssetConfig | undefined {
+		const configHeader = request.headers.get('X-Project-Config');
+		if (!configHeader) {
+			return undefined;
+		}
+		try {
+			return JSON.parse(configHeader);
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
 	 * Handles incoming HTTP requests to serve static assets
 	 * @param request - The incoming HTTP request
 	 * @returns A Response object with the requested asset or an error response
@@ -51,7 +68,8 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	override async fetch(request: Request): Promise<Response> {
 		try {
 			const projectId = this.extractProjectId(request);
-			const config = normalizeConfiguration(this.env.CONFIG);
+			const projectConfig = this.extractProjectConfig(request);
+			const config = normalizeConfiguration(projectConfig);
 			const response = await handleRequest(
 				request,
 				this.env,
@@ -73,10 +91,12 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 */
 	async canFetch(request: Request): Promise<boolean> {
 		const projectId = this.extractProjectId(request);
+		const projectConfig = this.extractProjectConfig(request);
+		const config = normalizeConfiguration(projectConfig);
 		return handleCanFetch(
 			request,
 			this.env,
-			normalizeConfiguration(this.env.CONFIG),
+			config,
 			(pathname: string, req: Request) => this.exists(pathname, req, projectId)
 		);
 	}

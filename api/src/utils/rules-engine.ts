@@ -3,7 +3,7 @@
 // It's also everything included in the URLPattern escape (https://wicg.github.io/urlpattern/#escape-a-regexp-string), plus the following: -
 
 import { REDIRECTS_VERSION } from '../handler';
-import type { AssetConfig } from '../types';
+import type { AssetConfig } from '../configuration';
 
 // As the answer says, there's no downside to escaping these extra characters, so better safe than sorry
 const ESCAPE_REGEX_CHARACTERS = /[-/\\^$*+?.()|[\]{}]/g;

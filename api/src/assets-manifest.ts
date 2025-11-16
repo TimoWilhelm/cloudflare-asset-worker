@@ -1,7 +1,6 @@
 import { CONTENT_HASH_OFFSET, CONTENT_HASH_SIZE, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from './constants';
 
 export class AssetsManifest {
-
 	constructor(private readonly data: Uint8Array) {}
 
 	async get(pathname: string) {
