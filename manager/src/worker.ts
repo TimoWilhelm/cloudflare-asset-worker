@@ -15,6 +15,13 @@ interface ProjectMetadata {
 	run_worker_first?: boolean | string[];
 }
 
+interface ServerCodeData {
+	entrypoint: string;
+	modules: Record<string, string>;
+	compatibilityDate?: string;
+	env?: Record<string, string>;
+}
+
 interface DeploymentPayload {
 	projectName?: string;
 	assets: {
@@ -30,6 +37,13 @@ interface DeploymentPayload {
 	config?: AssetConfig;
 	run_worker_first?: boolean | string[];
 	env?: Record<string, string>;
+}
+
+export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfig }> {
+	override async fetch(request: Request): Promise<Response> {
+		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+		return await assets.serveAsset(request, this.ctx.props.projectId, this.ctx.props.config);
+	}
 }
 
 export default class AssetManager extends WorkerEntrypoint<Env> {
@@ -102,7 +116,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		if (runWorkerFirst && project.hasServerCode) {
 			// Run server code first, let it handle everything including static files
-			return this.runServerCode(rewrittenRequest, projectId);
+			return this.runServerCode(rewrittenRequest, projectId, project.config);
 		}
 
 		// Try to serve static assets first (default behavior)
@@ -116,7 +130,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		// If no asset found and project has server code, run dynamic worker
 		if (project.hasServerCode) {
-			return this.runServerCode(rewrittenRequest, projectId);
+			return this.runServerCode(rewrittenRequest, projectId, project.config);
 		}
 
 		return new Response('Not found', { status: 404 });
@@ -256,8 +270,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		const projects = await Promise.all(
 			keys.map(async (key: { name: string }) => {
-				const data = await this.env.PROJECTS_KV_NAMESPACE.get(key.name);
-				return data ? JSON.parse(data) : null;
+				return await this.env.PROJECTS_KV_NAMESPACE.get<ProjectMetadata>(key.name, 'json');
 			})
 		);
 
@@ -430,31 +443,33 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	 * Get project metadata from KV
 	 */
 	private async getProject(projectId: string): Promise<ProjectMetadata | null> {
-		const data = await this.env.PROJECTS_KV_NAMESPACE.get(`project:${projectId}`);
-		return data ? JSON.parse(data) : null;
+		return await this.env.PROJECTS_KV_NAMESPACE.get<ProjectMetadata>(`project:${projectId}`, 'json');
 	}
 
 	/**
 	 * Run server code for a project using dynamic worker loading
 	 */
-	private async runServerCode(request: Request, projectId: string): Promise<Response> {
-		const serverCodeData = await this.env.SERVER_CODE_KV_NAMESPACE.get(projectId);
+	private async runServerCode(request: Request, projectId: string, assetConfig?: AssetConfig): Promise<Response> {
+		const serverCodeData = await this.env.SERVER_CODE_KV_NAMESPACE.get<ServerCodeData>(projectId, 'json');
 
 		if (!serverCodeData) {
 			return new Response('Server code not found', { status: 404 });
 		}
 
-		const { entrypoint, modules, compatibilityDate, env: envVars = {} } = JSON.parse(serverCodeData);
+		const { entrypoint, modules, compatibilityDate, env = {} } = serverCodeData;
 
 		// Use content hash of the code as the worker key for caching
-		const codeHash = await computeContentHash(new TextEncoder().encode(serverCodeData));
+		const codeHash = await computeContentHash(new TextEncoder().encode(JSON.stringify(serverCodeData)));
 
 		const worker = this.env.LOADER.get(codeHash, () => {
 			return {
 				compatibilityDate: compatibilityDate || '2025-11-09',
 				mainModule: entrypoint,
 				modules,
-				env: envVars,
+				env: {
+					...env,
+					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: assetConfig } }),
+				},
 				globalOutbound: null,
 			};
 		});
