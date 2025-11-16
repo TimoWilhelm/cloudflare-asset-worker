@@ -7,18 +7,13 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"kv_namespaces": [
 		{
-			"binding": "ASSETS_KV_NAMESPACE",
-			"id": "todo"
+			"binding": "ASSETS_KV_NAMESPACE"
 		},
 		{
-			"binding": "MANIFEST_KV_NAMESPACE",
-			"id": "todo"
+			"binding": "MANIFEST_KV_NAMESPACE"
 		}
 	],
 	"version_metadata": {
 		"binding": "VERSION_METADATA"
-	},
-	"vars": {
-		"ENVIRONMENT": "development"
 	}
 }

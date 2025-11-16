@@ -108,23 +108,10 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		// Try to serve static assets first (default behavior)
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 
-		// Create request with project ID and config headers for asset serving
-		const modifiedHeaders = {
-			...Object.fromEntries(rewrittenRequest.headers.entries()),
-			'X-Project-ID': projectId,
-			'X-Project-Config': JSON.stringify(project.config || {}),
-		};
-
-		const modifiedRequest = new Request(rewrittenRequest.url, {
-			method: rewrittenRequest.method,
-			headers: modifiedHeaders,
-			body: rewrittenRequest.body,
-		});
-
-		const canServeAsset = await assets.canFetch(modifiedRequest);
+		const canServeAsset = await assets.canFetch(rewrittenRequest, projectId, project.config);
 
 		if (canServeAsset) {
-			return await assets.fetch(modifiedRequest);
+			return await assets.serveAsset(rewrittenRequest, projectId, project.config);
 		}
 
 		// If no asset found and project has server code, run dynamic worker

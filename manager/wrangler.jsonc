@@ -8,11 +8,9 @@
 	"kv_namespaces": [
 		{
 			"binding": "PROJECTS_KV_NAMESPACE",
-			"id": "todo"
 		},
 		{
 			"binding": "SERVER_CODE_KV_NAMESPACE",
-			"id": "todo"
 		}
 	],
 	"services": [
@@ -25,5 +23,5 @@
 		{
 			"binding": "LOADER"
 		}
-	]
+	],
 }

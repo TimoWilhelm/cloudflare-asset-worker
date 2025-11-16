@@ -15,6 +15,10 @@ export interface ManifestEntry {
 const KV_CACHE_HIT_THRESHOLD_MS = 100;
 
 export default class AssetApi extends WorkerEntrypoint<Env> {
+	public override async fetch(request: Request): Promise<Response> {
+		return new Response("Not Found", { status: 404 });
+	}
+
 	/**
 	 * Get the namespaced key for a given key and project ID
 	 * @param projectId - The project ID to use as namespace
@@ -35,40 +39,14 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	}
 
 	/**
-	 * Extract project ID from request headers
-	 * @param request - The incoming HTTP request
-	 * @returns The project ID if present, undefined otherwise
-	 */
-	private extractProjectId(request: Request): string | undefined {
-		return request.headers.get('X-Project-ID') || undefined;
-	}
-
-	/**
-	 * Extract project config from request headers
-	 * @param request - The incoming HTTP request
-	 * @returns The project config if present, undefined otherwise
-	 */
-	private extractProjectConfig(request: Request): AssetConfig | undefined {
-		const configHeader = request.headers.get('X-Project-Config');
-		if (!configHeader) {
-			return undefined;
-		}
-		try {
-			return JSON.parse(configHeader);
-		} catch {
-			return undefined;
-		}
-	}
-
-	/**
-	 * Handles incoming HTTP requests to serve static assets
-	 * @param request - The incoming HTTP request
+	 * RPC method to serve static assets
+	 * @param request - The incoming HTTP request (already rewritten)
+	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectConfig - Optional project configuration
 	 * @returns A Response object with the requested asset or an error response
 	 */
-	override async fetch(request: Request): Promise<Response> {
+	async serveAsset(request: Request, projectId?: string, projectConfig?: AssetConfig): Promise<Response> {
 		try {
-			const projectId = this.extractProjectId(request);
-			const projectConfig = this.extractProjectConfig(request);
 			const config = normalizeConfiguration(projectConfig);
 			const response = await handleRequest(
 				request,
@@ -87,11 +65,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	/**
 	 * Check if the worker can fetch a given request based on the configuration and asset manifest
 	 * @param request - The HTTP request to check
+	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectConfig - Optional project configuration
 	 * @returns True if the worker can handle this request, false otherwise
 	 */
-	async canFetch(request: Request): Promise<boolean> {
-		const projectId = this.extractProjectId(request);
-		const projectConfig = this.extractProjectConfig(request);
+	async canFetch(request: Request, projectId?: string, projectConfig?: AssetConfig): Promise<boolean> {
 		const config = normalizeConfiguration(projectConfig);
 		return handleCanFetch(
 			request,
