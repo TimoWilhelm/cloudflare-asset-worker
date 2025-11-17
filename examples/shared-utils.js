@@ -1,4 +1,49 @@
-const MANAGER_URL = 'http://127.0.0.1:8787';
+import readline from 'node:readline';
+
+let MANAGER_URL = null;
+let API_TOKEN = null;
+
+/**
+ * Prompt user for input
+ * @param {string} question - The question to ask
+ * @param {string} defaultValue - Default value if user presses enter
+ * @returns {Promise<string>} User's input
+ */
+function prompt(question, defaultValue = '') {
+	return new Promise((resolve) => {
+		const rl = readline.createInterface({
+			input: process.stdin,
+			output: process.stdout,
+		});
+
+		const displayQuestion = defaultValue ? `${question} [${defaultValue}]: ` : `${question}: `;
+
+		rl.question(displayQuestion, (answer) => {
+			rl.close();
+			resolve(answer.trim() || defaultValue);
+		});
+	});
+}
+
+/**
+ * Initialize configuration by prompting user
+ */
+async function initConfig() {
+	if (MANAGER_URL && API_TOKEN) {
+		return; // Already initialized
+	}
+
+	console.log('\n🔧 Configuration Setup\n');
+
+	MANAGER_URL = await prompt('Enter the manager endpoint URL', 'http://127.0.0.1:8787');
+	API_TOKEN = await prompt('Enter the API token');
+
+	if (!API_TOKEN) {
+		throw new Error('API token is required');
+	}
+
+	console.log('\n✓ Configuration complete\n');
+}
 
 /**
  * Create a new project
@@ -6,9 +51,14 @@ const MANAGER_URL = 'http://127.0.0.1:8787';
  * @returns {Promise<Object>} The created project object
  */
 async function createProject(name) {
+	await initConfig();
+
 	const response = await fetch(`${MANAGER_URL}/__api/projects`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: {
+			'Content-Type': 'application/json',
+			'Authorization': API_TOKEN,
+		},
 		body: JSON.stringify({ name }),
 	});
 
@@ -31,9 +81,14 @@ async function createProject(name) {
  * @returns {Promise<Object>} Deployment result
  */
 async function deployApplication(projectId, deployment) {
+	await initConfig();
+
 	const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
+		headers: {
+			'Content-Type': 'application/json',
+			'Authorization': API_TOKEN,
+		},
 		body: JSON.stringify(deployment),
 	});
 
@@ -54,7 +109,13 @@ async function deployApplication(projectId, deployment) {
  * @returns {Promise<Array>} Array of projects
  */
 async function listProjects() {
-	const response = await fetch(`${MANAGER_URL}/__api/projects`);
+	await initConfig();
+
+	const response = await fetch(`${MANAGER_URL}/__api/projects`, {
+		headers: {
+			'Authorization': API_TOKEN,
+		},
+	});
 	const result = await response.json();
 
 	if (!result.success) {
@@ -70,6 +131,9 @@ async function listProjects() {
  * @returns {string} The project URL
  */
 function getProjectUrl(projectId) {
+	if (!MANAGER_URL) {
+		throw new Error('Configuration not initialized');
+	}
 	return `${MANAGER_URL}/__project/${projectId}/`;
 }
 

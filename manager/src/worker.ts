@@ -89,6 +89,34 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		if (url.pathname.startsWith('/__api/')) {
 			const app = new Hono<{ Bindings: Env }>();
 
+			// Authentication middleware - validate API_TOKEN
+			app.use('/__api/*', async (c, next) => {
+				const authHeader = c.req.header('Authorization');
+				const apiToken = c.env.API_TOKEN;
+
+				if (!apiToken) {
+					return c.json(
+						{
+							success: false,
+							error: 'API_TOKEN not configured',
+						},
+						500
+					);
+				}
+
+				if (!authHeader || authHeader !== apiToken) {
+					return c.json(
+						{
+							success: false,
+							error: 'Unauthorized: Invalid or missing Authorization header',
+						},
+						401
+					);
+				}
+
+				await next();
+			});
+
 			app.post('/__api/projects', async (c) => {
 				return this.createProject(c.req.raw);
 			});

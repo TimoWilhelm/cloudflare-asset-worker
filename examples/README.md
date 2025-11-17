@@ -6,11 +6,26 @@ This directory contains example scripts demonstrating how to use the Cloudflare 
 
 All examples use the management API running at `http://127.0.0.1:8787` by default.
 
+When you run an example, you'll be prompted to provide:
+1. **Manager endpoint URL** (default: `http://127.0.0.1:8787`)
+2. **API token** (required for authentication)
+
 ```bash
 # From the examples directory
 node deploy-example.js
 node static-site-example.js
 ```
+
+### Setting up API Authentication
+
+The management API requires authentication. For local development, create a `.env.local` file in the `manager` directory:
+
+```bash
+# manager/.env.local
+API_TOKEN=your-secret-token-here
+```
+
+**Security Note:** Never commit `.env.local` to version control. The `.env.local` file is gitignored by default.
 
 ## Available Examples
 
@@ -41,7 +56,10 @@ All examples follow this pattern:
 // 1. Create a project
 const response = await fetch(`${MANAGER_URL}/__api/projects`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'your-api-token-here'
+  },
   body: JSON.stringify({ name: 'My Project' })
 });
 
@@ -73,7 +91,10 @@ const deployment = {
 // 3. Deploy
 await fetch(`${MANAGER_URL}/__api/projects/${project.id}/deploy`, {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'your-api-token-here'
+  },
   body: JSON.stringify(deployment)
 });
 ```
@@ -163,6 +184,10 @@ const deployment = {
 
 await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
   method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'your-api-token-here'
+  },
   body: JSON.stringify(deployment)
 });
 ```
