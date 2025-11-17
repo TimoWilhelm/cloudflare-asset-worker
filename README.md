@@ -17,10 +17,32 @@ This project demonstrates how to build a multi-tenant platform similar to Vercel
 
 ## Architecture
 
-This repository contains two workers working together:
+This repository contains two workers working together via Service Bindings (RPC):
 
-- **`api/`** - Asset serving worker that handles static assets with project namespacing. Core functionality remains focused on efficient asset storage and retrieval.
-- **`manager/`** - Platform management worker that orchestrates deployments, manages projects, routes requests, and executes dynamic server code.
+- **`api/`** - Asset serving worker (`AssetApi`) that handles static assets with project namespacing. Exposes RPC methods for serving, uploading, and managing assets.
+- **`manager/`** - Platform management worker (`AssetManager`) that orchestrates deployments, manages projects, routes requests, and executes dynamic server code. Calls the Asset API via RPC.
+
+The manager worker uses Cloudflare's Service Bindings to communicate with the API worker, and WorkerLoaders to dynamically execute user-provided server code.
+
+## Prerequisites
+
+1. **Deploy both workers** to Cloudflare:
+   ```bash
+   cd api && npm run deploy
+   cd ../manager && npm run deploy
+   ```
+
+2. **Configure API Token** - Set the `API_TOKEN` environment variable in your manager worker:
+   ```bash
+   wrangler secret put API_TOKEN
+   ```
+   Or via wrangler.toml:
+   ```toml
+   [env.production]
+   vars = { API_TOKEN = "your-secret-token" }
+   ```
+
+3. **Configure KV Namespaces** - Update `wrangler.jsonc` in both `api/` and `manager/` with your KV namespace IDs
 
 ## Quick Start
 
@@ -29,6 +51,7 @@ This repository contains two workers working together:
 ```bash
 curl -X POST https://your-manager.workers.dev/__api/projects \
   -H "Content-Type: application/json" \
+  -H "Authorization: your-api-token" \
   -d '{"name": "My Full-Stack App"}'
 ```
 
@@ -52,6 +75,7 @@ Response:
 ```bash
 curl -X POST https://your-manager.workers.dev/__api/projects/550e8400-e29b-41d4-a716-446655440000/deploy \
   -H "Content-Type: application/json" \
+  -H "Authorization: your-api-token" \
   -d @deployment.json
 ```
 
@@ -74,9 +98,17 @@ Example `deployment.json`:
   "serverCode": {
     "entrypoint": "index.js",
     "modules": {
-      "index.js": "export default { async fetch(req) { return new Response('API!'); } }"
+      "index.js": "export default { async fetch(req, env) { return new Response('API: ' + env.ENVIRONMENT); } }"
     },
     "compatibilityDate": "2025-11-09"
+  },
+  "config": {
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  },
+  "run_worker_first": ["/api/*"],
+  "env": {
+    "ENVIRONMENT": "production"
   }
 }
 ```
@@ -90,10 +122,13 @@ Example `deployment.json`:
 
 ### Project Management
 
+All API endpoints require an `Authorization` header matching the `API_TOKEN` environment variable.
+
 #### Create Project
 ```
 POST /__api/projects
 Content-Type: application/json
+Authorization: your-api-token
 
 {
   "name": "Project Name" // optional
@@ -103,22 +138,26 @@ Content-Type: application/json
 #### List Projects
 ```
 GET /__api/projects
+Authorization: your-api-token
 ```
 
 #### Get Project Info
 ```
 GET /__api/projects/:projectId
+Authorization: your-api-token
 ```
 
 #### Delete Project
 ```
 DELETE /__api/projects/:projectId
+Authorization: your-api-token
 ```
 
 #### Deploy Project
 ```
 POST /__api/projects/:projectId/deploy
 Content-Type: application/json
+Authorization: your-api-token
 
 {
   "projectName": "Optional new name",
@@ -136,6 +175,15 @@ Content-Type: application/json
       "utils.js": "code..."
     },
     "compatibilityDate": "2025-11-09"
+  },
+  "config": { // optional - per-project asset configuration
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  },
+  "run_worker_first": false, // optional - boolean or string[] of patterns
+  "env": { // optional - environment variables for server code
+    "API_KEY": "value",
+    "ENVIRONMENT": "production"
   }
 }
 ```
@@ -145,12 +193,13 @@ Content-Type: application/json
 ### Request Flow
 
 1. **Request arrives** at the manager worker
-2. **Project ID extracted** from subdomain or path
-3. **Project existence verified** from `PROJECTS_KV_NAMESPACE`
-4. **Asset check**: Manager checks if AssetApi can serve the request
-5. **Asset serving**: If asset exists, it's served with proper caching headers
-6. **Server code fallback**: If no asset and server code exists, dynamic worker is loaded
-7. **Dynamic execution**: Server code runs with isolated environment
+2. **API routing**: Requests to `/__api/*` go to management API (requires authentication)
+3. **Project ID extracted** from subdomain or path
+4. **Project existence verified** from `PROJECTS_KV_NAMESPACE`
+5. **Routing decision**: Based on `run_worker_first` configuration:
+   - **Assets-first** (default): Check if asset exists → serve asset → fallback to server code
+   - **Worker-first**: Execute server code → server code can call `env.ASSETS.fetch()`
+6. **Response**: Asset or dynamic worker response with proper headers
 
 ### Storage Strategy
 
@@ -161,29 +210,117 @@ Content-Type: application/json
 
 ### Asset Serving Configuration
 
-Configure via `wrangler.jsonc` in the `api/` directory:
+Asset configuration is **per-project** and passed during deployment via the `config` field:
 
-```jsonc
+```json
 {
-  "vars": {
-    "CONFIG": {
-      "html_handling": "auto-trailing-slash",
-      "not_found_handling": "single-page-application",
-      "redirects": {
-        "version": 1,
-        "staticRules": {
-          "/old": { "to": "/new", "status": 301 }
-        }
+  "config": {
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application",
+    "redirects": {
+      "version": 1,
+      "staticRules": {
+        "/old": { "to": "/new", "status": 301, "lineNumber": 1 }
       },
-      "headers": {
-        "version": 2,
-        "rules": {
-          "/*": { "X-Custom-Header": "value" }
+      "rules": {}
+    },
+    "headers": {
+      "version": 2,
+      "rules": {
+        "/*.html": {
+          "set": { "Cache-Control": "public, max-age=3600" },
+          "unset": ["X-Powered-By"]
         }
       }
     }
   }
 }
+```
+
+#### Configuration Options
+
+- **`html_handling`**: `"auto-trailing-slash"` | `"force-trailing-slash"` | `"drop-trailing-slash"` | `"none"`
+- **`not_found_handling`**: `"single-page-application"` | `"404-page"` | `"none"`
+- **`redirects`**: Static and dynamic redirect rules with status codes (301, 302, 303, 307, 308)
+- **`headers`**: Custom headers per pathname pattern (glob-based matching)
+
+### Request Routing Configuration
+
+Control the order of asset vs. worker execution per project:
+
+```json
+{
+  "run_worker_first": false  // Default: check assets first, fallback to worker
+}
+```
+
+Or use glob patterns to run worker first only for specific paths:
+
+```json
+{
+  "run_worker_first": ["/api/*", "/admin/**"]
+}
+```
+
+### Environment Variables
+
+Pass environment variables to your server code:
+
+```json
+{
+  "env": {
+    "ENVIRONMENT": "production",
+    "API_KEY": "secret-value",
+    "DATABASE_URL": "postgres://..."
+  }
+}
+```
+
+Access in server code via `env` parameter:
+
+```javascript
+export default {
+  async fetch(request, env) {
+    console.log(env.ENVIRONMENT); // "production"
+    console.log(env.API_KEY);     // "secret-value"
+  }
+};
+```
+
+## Examples
+
+The `examples/` directory contains ready-to-run deployment scripts:
+
+- **`static-site-example.js`** - Deploy a static website (HTML, CSS only)
+- **`deploy-example.js`** - Deploy a full-stack app with assets, server code, and environment variables
+
+Run examples with Node.js:
+
+```bash
+# Static site
+node examples/static-site-example.js
+
+# Full-stack app
+node examples/deploy-example.js
+```
+
+Configure the manager URL and API token in `examples/shared-utils.js`.
+
+## Project Structure
+
+```
+.
+├── api/              # Asset API worker (RPC service)
+│   ├── src/          # Source code for asset serving
+│   ├── tests/        # Tests for asset API
+│   └── README.md     # API documentation
+├── manager/          # Manager worker (main orchestrator)
+│   ├── src/          # Source code for project management
+│   └── README.md     # Manager documentation
+└── examples/         # Deployment examples
+    ├── deploy-example.js          # Full-stack deployment
+    ├── static-site-example.js     # Static site deployment
+    └── shared-utils.js            # Shared utilities
 ```
 
 ## License
