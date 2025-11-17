@@ -3,6 +3,7 @@ import type AssetApi from '../../api/src/worker';
 import type { ManifestEntry } from '../../api/src/worker';
 import type { AssetConfig } from '../../api/src/configuration';
 import { minimatch } from 'minimatch';
+import { Hono } from 'hono';
 
 interface ProjectMetadata {
 	id: string;
@@ -86,7 +87,42 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		// Management API routes
 		if (url.pathname.startsWith('/__api/')) {
-			return this.handleApiRequest(request, url);
+			const app = new Hono<{ Bindings: Env }>();
+
+			app.post('/__api/projects', async (c) => {
+				return this.createProject(c.req.raw);
+			});
+
+			app.get('/__api/projects', async (c) => {
+				return this.listProjects();
+			});
+
+			app.get('/__api/projects/:projectId', async (c) => {
+				const projectId = c.req.param('projectId');
+				return this.getProjectInfo(projectId);
+			});
+
+			app.delete('/__api/projects/:projectId', async (c) => {
+				const projectId = c.req.param('projectId');
+				return this.deleteProject(projectId);
+			});
+
+			app.post('/__api/projects/:projectId/deploy', async (c) => {
+				const projectId = c.req.param('projectId');
+				return this.deployProject(projectId, c.req.raw);
+			});
+
+			app.onError((err, c) => {
+				return c.json(
+					{
+						success: false,
+						error: err instanceof Error ? err.message : 'Unknown error',
+					},
+					500
+				);
+			});
+
+			return app.fetch(request, this.env);
 		}
 
 		// Project serving - extract project ID from subdomain or path
@@ -134,56 +170,6 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		}
 
 		return new Response('Not found', { status: 404 });
-	}
-
-	/**
-	 * Handle API management requests
-	 */
-	private async handleApiRequest(request: Request, url: URL): Promise<Response> {
-		const { pathname } = url;
-
-		try {
-			if (pathname === '/__api/projects' && request.method === 'POST') {
-				return this.createProject(request);
-			}
-
-			if (pathname === '/__api/projects' && request.method === 'GET') {
-				return this.listProjects();
-			}
-
-			if (pathname.startsWith('/__api/projects/')) {
-				const projectId = pathname.split('/')[3];
-
-				if (!projectId) {
-					return new Response('Project ID required', { status: 400 });
-				}
-
-				if (request.method === 'GET') {
-					return this.getProjectInfo(projectId);
-				}
-
-				if (request.method === 'DELETE') {
-					return this.deleteProject(projectId);
-				}
-
-				if (pathname.endsWith('/deploy') && request.method === 'POST') {
-					return this.deployProject(projectId, request);
-				}
-			}
-
-			return new Response('Not found', { status: 404 });
-		} catch (error) {
-			return new Response(
-				JSON.stringify({
-					success: false,
-					error: error instanceof Error ? error.message : 'Unknown error',
-				}),
-				{
-					status: 500,
-					headers: { 'Content-Type': 'application/json' },
-				}
-			);
-		}
 	}
 
 	/**
