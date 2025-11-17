@@ -36,11 +36,6 @@ The manager worker uses Cloudflare's Service Bindings to communicate with the AP
    ```bash
    wrangler secret put API_TOKEN
    ```
-   Or via wrangler.toml:
-   ```toml
-   [env.production]
-   vars = { API_TOKEN = "your-secret-token" }
-   ```
 
 3. **Configure KV Namespaces** - Update `wrangler.jsonc` in both `api/` and `manager/` with your KV namespace IDs
 
