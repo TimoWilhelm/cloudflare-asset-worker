@@ -17,6 +17,7 @@
 		"wrangler": "^4.48.0"
 	},
 	"dependencies": {
+		"@stablelib/base64": "^2.0.1",
 		"hono": "^4.6.14",
 		"minimatch": "^10.1.1"
 	}

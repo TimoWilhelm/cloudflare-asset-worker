@@ -2,6 +2,24 @@
 
 This directory contains example scripts demonstrating how to use the Cloudflare Multi-Project Deployment Platform.
 
+## Three-Phase Upload Flow
+
+All examples in this directory automatically use the **three-phase upload flow**, which follows Cloudflare's official Workers API pattern:
+
+1. **Phase 1: Register Manifest** - Creates manifest with SHA-256 hashes and receives upload instructions
+2. **Phase 2: Upload Assets** - Uploads only new files in optimized buckets with JWT authentication
+3. **Phase 3: Deploy** - Finalizes deployment with completion JWT
+
+**Benefits:**
+- ✅ **Automatic deduplication** - Skips unchanged files
+- ✅ **Optimized batching** - Groups files in buckets (max 10 per request)
+- ✅ **Secure** - JWT-based session authentication
+- ✅ **Progress tracking** - See which files are uploading
+
+The three-phase flow is handled automatically by the `deployApplication()` function in `shared-utils.js`. You don't need to implement it yourself!
+
+📖 **For advanced usage and direct API access, see [UPLOAD_FLOW.md](../UPLOAD_FLOW.md)**
+
 ## Running the Examples
 
 All examples use the management API running at `http://127.0.0.1:8787` by default.
@@ -14,6 +32,24 @@ When you run an example, you'll be prompted to provide:
 # From the examples directory
 node deploy-example.js
 node static-site-example.js
+```
+
+You'll see output showing each phase:
+```
+📝 Phase 1: Creating asset manifest...
+  Created manifest with 3 files
+
+🔄 Phase 2: Starting upload session...
+  Uploading 1 bucket(s) with 2 new files...
+  Uploading bucket 1/1 (2 files)...
+  ✓ All assets uploaded
+
+🚀 Phase 3: Finalizing deployment...
+
+✓ Deployment complete!
+  - Assets deployed: 3
+  - New assets: 2
+  - Cached assets: 1
 ```
 
 ### Setting up API Authentication

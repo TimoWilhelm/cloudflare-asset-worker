@@ -63,6 +63,75 @@ Projects use three KV namespaces:
 
 All API endpoints require an `Authorization` header matching the `API_TOKEN` environment variable.
 
+### Asset Upload Flow (Three-Phase)
+
+The platform implements a three-phase upload flow for efficient asset deployment:
+
+#### Phase 1: Create Upload Session
+
+```http
+POST /__api/projects/{projectId}/assets-upload-session
+Content-Type: application/json
+Authorization: your-api-token
+
+{
+  "manifest": {
+    "/index.html": { "hash": "abc123...", "size": 1234 },
+    "/style.css": { "hash": "def456...", "size": 567 }
+  }
+}
+```
+
+Response includes JWT token and buckets of hashes to upload:
+```json
+{
+  "result": {
+    "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "buckets": [["abc123...", "def456..."]]
+  },
+  "success": true
+}
+```
+
+#### Phase 2: Upload Assets
+
+```http
+POST /__api/projects/{projectId}/assets/upload
+Content-Type: application/json
+Authorization: Bearer <JWT_FROM_PHASE_1>
+
+{
+  "abc123...": "base64-encoded-content",
+  "def456...": "base64-encoded-content"
+}
+```
+
+Returns completion JWT when all buckets uploaded:
+```json
+{
+  "result": {
+    "jwt": "completion-jwt-token"
+  },
+  "success": true
+}
+```
+
+#### Phase 3: Deploy with Completion JWT
+
+```http
+POST /__api/projects/{projectId}/deploy
+Content-Type: application/json
+Authorization: your-api-token
+
+{
+  "completionJwt": "completion-jwt-token",
+  "serverCode": { ... },
+  "config": { ... }
+}
+```
+
+**Note:** The three-phase flow is automatically handled by the example scripts in `examples/`. For manual implementation, see [UPLOAD_FLOW.md](../UPLOAD_FLOW.md).
+
 ### Create Project
 
 ```http
@@ -112,40 +181,6 @@ Authorization: your-api-token
 ```
 
 Deletes all project data: metadata, assets, manifest, and server code.
-
-### Deploy Project
-
-```http
-POST /__api/projects/{projectId}/deploy
-Content-Type: application/json
-Authorization: your-api-token
-
-{
-  "projectName": "Updated Name",
-  "assets": [
-    {
-      "pathname": "/index.html",
-      "content": "base64-encoded-content",
-      "contentType": "text/html"
-    }
-  ],
-  "serverCode": {
-    "entrypoint": "index.js",
-    "modules": {
-      "index.js": "export default { async fetch(request, env) { ... } }"
-    },
-    "compatibilityDate": "2025-11-09"
-  },
-  "config": {
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application"
-  },
-  "run_worker_first": false,
-  "env": {
-    "API_KEY": "secret-value"
-  }
-}
-```
 
 ## Request Routing
 

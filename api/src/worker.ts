@@ -266,6 +266,27 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	}
 
 	/**
+	 * Check if assets exist in KV storage by their eTags (content hashes)
+	 * This is an efficient RPC method that returns existence status for multiple assets
+	 * @param eTags - Array of eTags (content hashes) to check
+	 * @param projectId - Optional project ID for namespaced assets
+	 * @returns Array of objects with hash and exists boolean
+	 */
+	async checkAssetsExist(
+		eTags: string[],
+		projectId?: string
+	): Promise<Array<{ hash: string; exists: boolean }>> {
+		const results = await Promise.all(
+			eTags.map(async (hash) => {
+				const namespacedKey = this.getNamespacedKey(projectId, hash);
+				const exists = await this.env.ASSETS_KV_NAMESPACE.get(namespacedKey, 'stream');
+				return { hash, exists: exists !== null };
+			})
+		);
+		return results;
+	}
+
+	/**
 	 * Delete all assets and manifest for a project
 	 * This is an RPC method that can be called from the manager
 	 * @param projectId - The project ID to delete assets for

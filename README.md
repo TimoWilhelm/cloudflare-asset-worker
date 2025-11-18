@@ -282,24 +282,42 @@ export default {
 };
 ```
 
+## Asset Upload Flow
+
+This platform implements a three-phase upload flow following Cloudflare's official Workers API pattern:
+
+1. **Phase 1: Register Manifest** - Submit asset metadata and receive upload instructions
+2. **Phase 2: Upload Assets** - Upload files in optimized buckets with JWT authentication
+3. **Phase 3: Deploy** - Finalize deployment with completion JWT
+
+Benefits:
+- **Deduplication** - Skip uploading unchanged files automatically
+- **Optimized batching** - Files grouped in buckets for efficient uploads
+- **Security** - JWT-based authentication per upload session
+- **Efficiency** - Only upload what's needed
+
+**The three-phase flow is automatically used by all examples** through the `deployApplication()` function in `shared-utils.js`.
+
+📖 **See [UPLOAD_FLOW.md](./UPLOAD_FLOW.md) for complete API documentation and advanced usage**
+
 ## Examples
 
-The `examples/` directory contains ready-to-run deployment scripts:
+The `examples/` directory contains ready-to-run deployment scripts that automatically use the three-phase upload flow:
 
-- **`static-site-example.js`** - Deploy a static website (HTML, CSS only)
 - **`deploy-example.js`** - Deploy a full-stack app with assets, server code, and environment variables
+- **`static-site-example.js`** - Deploy a static website (HTML, CSS only)
 
 Run examples with Node.js:
 
 ```bash
-# Static site
-node examples/static-site-example.js
-
 # Full-stack app
 node examples/deploy-example.js
+
+# Static site
+node examples/static-site-example.js
 ```
 
-Configure the manager URL and API token in `examples/shared-utils.js`.
+Both examples will show the three-phase upload progress automatically. The `shared-utils.js` module handles all the complexity internally.
 
 ## Project Structure
 
