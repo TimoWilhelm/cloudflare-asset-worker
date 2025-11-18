@@ -170,6 +170,97 @@ export default {
 }
 ```
 
+## Server Code Module Types
+
+Server code modules support multiple types matching Cloudflare Workers API:
+
+| Type | Extension | Format | Use Case |
+|------|-----------|--------|----------|
+| `js` | `.js`, `.mjs` | `{ js: string }` | ES modules with import/export |
+| `cjs` | `.cjs` | `{ cjs: string }` | CommonJS with require() |
+| `py` | `.py` | `{ py: string }` | Python modules |
+| `text` | `.txt` | `{ text: string }` | Importable text strings |
+| `data` | - | `{ data: ArrayBuffer }` | Binary data |
+| `json` | `.json` | `{ json: object }` | Parsed JSON objects |
+
+### Module Encoding
+
+All modules must be **base64-encoded** for transfer:
+
+```javascript
+serverCode: {
+  entrypoint: 'index.js',
+  modules: {
+    // Simple format - type auto-detected from extension
+    'index.js': Buffer.from(codeString, 'utf-8').toString('base64'),
+    'utils.cjs': Buffer.from(cjsCode, 'utf-8').toString('base64'),
+
+    // Explicit type format (type overrides extension)
+    'config.json': {
+      content: Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'),
+      type: 'json'
+    },
+    'template': {
+      content: Buffer.from(htmlTemplate, 'utf-8').toString('base64'),
+      type: 'text'
+    },
+    'data.bin': {
+      content: Buffer.from(binaryData).toString('base64'),
+      type: 'data'
+    }
+  }
+}
+```
+
+### Using Different Module Types
+
+**JSON modules** (parsed objects):
+```javascript
+// config.json
+const config = { apiUrl: 'https://api.example.com', version: '1.0.0' };
+
+modules: {
+  'config.json': {
+    content: Buffer.from(JSON.stringify(config), 'utf-8').toString('base64'),
+    type: 'json'
+  }
+}
+
+// In worker code:
+import config from './config.json';
+console.log(config.apiUrl); // Direct object access
+```
+
+**Text modules** (importable strings):
+```javascript
+modules: {
+  'template.txt': {
+    content: Buffer.from('Hello {{name}}!', 'utf-8').toString('base64'),
+    type: 'text'
+  }
+}
+
+// In worker code:
+import template from './template.txt';
+const output = template.replace('{{name}}', 'World');
+```
+
+**Binary data** (ArrayBuffer):
+```javascript
+const binaryData = new Uint8Array([0x4D, 0x54, 0x59, 0x50]);
+
+modules: {
+  'data.bin': {
+    content: Buffer.from(binaryData).toString('base64'),
+    type: 'data'
+  }
+}
+
+// In worker code:
+import binaryData from './data.bin';
+const view = new Uint8Array(binaryData); // ArrayBuffer
+```
+
 ## Multiple Modules
 
 You can include multiple JavaScript modules:
@@ -178,19 +269,19 @@ You can include multiple JavaScript modules:
 serverCode: {
   entrypoint: 'index.js',
   modules: {
-    'index.js': `
+    'index.js': Buffer.from(`
       import { helper } from './utils.js';
       export default {
         async fetch() {
           return new Response(helper());
         }
       }
-    `,
-    'utils.js': `
+    `, 'utf-8').toString('base64'),
+    'utils.js': Buffer.from(`
       export function helper() {
         return 'Hello from utility!';
       }
-    `
+    `, 'utf-8').toString('base64')
   }
 }
 ```

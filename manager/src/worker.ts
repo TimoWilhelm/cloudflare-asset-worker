@@ -17,10 +17,12 @@ interface ProjectMetadata {
 	run_worker_first?: boolean | string[];
 }
 
+type ModuleType = 'js' | 'cjs' | 'py' | 'text' | 'data' | 'json';
+
 interface ServerCodeManifest {
 	entrypoint: string;
-	// Map of module path to content hash
-	modules: Record<string, string>;
+	// Map of module path to { hash, type }
+	modules: Record<string, { hash: string; type: ModuleType }>;
 	compatibilityDate?: string;
 	env?: Record<string, string>;
 }
@@ -44,7 +46,9 @@ interface DeploymentPayload {
 	completionJwt?: string;
 	serverCode?: {
 		entrypoint: string;
-		modules: Record<string, string>;
+		// Modules are base64-encoded with optional type specification
+		// Can be: string (base64) or { content: string, type: ModuleType }
+		modules: Record<string, string | { content: string; type: ModuleType }>;
 		compatibilityDate?: string;
 	};
 	config?: AssetConfig;
@@ -788,12 +792,25 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		let newServerCodeModules = 0;
 		if (payload.serverCode) {
 			// Compute content hash for each module and store them separately
-			const moduleManifest: Record<string, string> = {};
-			const modulesToUpload: { hash: string; content: string }[] = [];
+			const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
+			const modulesToUpload: { hash: string; content: string; type: ModuleType }[] = [];
 
-			for (const [modulePath, moduleContent] of Object.entries(payload.serverCode.modules)) {
-				const contentHash = await computeContentHash(new TextEncoder().encode(moduleContent));
-				moduleManifest[modulePath] = contentHash;
+			for (const [modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
+				// Handle both formats: string (base64) or { content: base64, type: ModuleType }
+				const base64Content = typeof moduleData === 'string' ? moduleData : moduleData.content;
+				let moduleType: ModuleType;
+
+				if (typeof moduleData === 'object' && moduleData.type) {
+					// Explicit type provided
+					moduleType = moduleData.type;
+				} else {
+					// Infer type from file extension
+					moduleType = this.inferModuleType(modulePath);
+				}
+
+				// Compute hash from base64 content (content-addressed storage)
+				const contentHash = await computeContentHash(base64.decode(base64Content));
+				moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
 				totalServerCodeModules++;
 
 				// Check if module already exists in KV
@@ -801,13 +818,14 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				const existingModule = await this.env.SERVER_CODE_KV_NAMESPACE.get(moduleKey);
 
 				if (!existingModule) {
-					modulesToUpload.push({ hash: contentHash, content: moduleContent });
+					// Store base64-encoded content in KV
+					modulesToUpload.push({ hash: contentHash, content: base64Content, type: moduleType });
 				}
 			}
 
 			newServerCodeModules = modulesToUpload.length;
 
-			// Upload new modules
+			// Upload new modules (stored as base64)
 			await Promise.all(
 				modulesToUpload.map(async ({ hash, content }) => {
 					const moduleKey = this.getServerCodeKey(projectId, hash);
@@ -1010,6 +1028,28 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	}
 
 	/**
+	 * Infer module type from file extension
+	 */
+	private inferModuleType(modulePath: string): ModuleType {
+		const ext = modulePath.split('.').pop()?.toLowerCase();
+		switch (ext) {
+			case 'js':
+			case 'mjs':
+				return 'js';
+			case 'cjs':
+				return 'cjs';
+			case 'py':
+				return 'py';
+			case 'txt':
+				return 'text';
+			case 'json':
+				return 'json';
+			default:
+				return 'js'; // Default to ES modules
+		}
+	}
+
+	/**
 	 * Get the server code prefix for a project
 	 */
 	private getServerCodePrefix(projectId: string): string {
@@ -1030,18 +1070,44 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		const { entrypoint, modules: moduleManifest, compatibilityDate, env = {} } = manifest;
 
-		// Load all modules from KV by their content hashes
-		const modules: Record<string, string> = {};
+		// Load all modules from KV by their content hashes and decode based on type
+		const modules: Record<string, any> = {};
 		await Promise.all(
-			Object.entries(moduleManifest).map(async ([modulePath, contentHash]) => {
+			Object.entries(moduleManifest).map(async ([modulePath, { hash: contentHash, type }]) => {
 				const moduleKey = this.getServerCodeKey(projectId, contentHash);
-				const moduleContent = await this.env.SERVER_CODE_KV_NAMESPACE.get(moduleKey, 'text');
+				const base64Content = await this.env.SERVER_CODE_KV_NAMESPACE.get(moduleKey, 'text');
 
-				if (!moduleContent) {
+				if (!base64Content) {
 					throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);
 				}
 
-				modules[modulePath] = moduleContent;
+				// Decode base64 content and format according to module type
+				const decodedBytes = base64.decode(base64Content);
+
+				switch (type) {
+					case 'js':
+						modules[modulePath] = { js: new TextDecoder().decode(decodedBytes) };
+						break;
+					case 'cjs':
+						modules[modulePath] = { cjs: new TextDecoder().decode(decodedBytes) };
+						break;
+					case 'py':
+						modules[modulePath] = { py: new TextDecoder().decode(decodedBytes) };
+						break;
+					case 'text':
+						modules[modulePath] = { text: new TextDecoder().decode(decodedBytes) };
+						break;
+					case 'data':
+						modules[modulePath] = { data: decodedBytes.buffer };
+						break;
+					case 'json':
+						const jsonString = new TextDecoder().decode(decodedBytes);
+						modules[modulePath] = { json: JSON.parse(jsonString) };
+						break;
+					default:
+						// Fallback to plain string for unknown types
+						modules[modulePath] = new TextDecoder().decode(decodedBytes);
+				}
 			})
 		);
 

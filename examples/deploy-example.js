@@ -118,7 +118,8 @@ button:hover {
 			serverCode: {
 				entrypoint: 'index.js',
 				modules: {
-					'index.js': serverCode,
+					// Server code modules are base64-encoded for transfer (like assets)
+					'index.js': Buffer.from(serverCode, 'utf-8').toString('base64'),
 				},
 				compatibilityDate: '2025-11-09',
 			},

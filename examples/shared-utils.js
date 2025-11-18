@@ -225,12 +225,26 @@ async function finalizeDeployment(projectId, completionJwt, deployment) {
  * @param {string} projectId - The project ID
  * @param {Object} deployment - Deployment configuration
  * @param {string} deployment.projectName - Project name
- * @param {Array} deployment.assets - Array of assets to deploy
+ * @param {Array} deployment.assets - Array of assets to deploy (content should be base64-encoded)
  * @param {Object} [deployment.serverCode] - Optional server code configuration
+ * @param {string} deployment.serverCode.entrypoint - Main module filename (e.g., 'index.js')
+ * @param {Object} deployment.serverCode.modules - Module name to base64-encoded content mapping
  * @param {Object} [deployment.config] - Optional asset configuration
  * @param {boolean|Array} [deployment.run_worker_first] - Optional routing config
  * @param {Object} [deployment.env] - Optional environment variables
  * @returns {Promise<Object>} Deployment result
+ *
+ * @example
+ * // Server code modules must be base64-encoded for transfer:
+ * await deployApplication(projectId, {
+ *   assets: [{ pathname: '/index.html', content: Buffer.from(html).toString('base64') }],
+ *   serverCode: {
+ *     entrypoint: 'index.js',
+ *     modules: {
+ *       'index.js': Buffer.from(code).toString('base64')  // Must be base64
+ *     }
+ *   }
+ * });
  */
 async function deployApplication(projectId, deployment) {
 	await initConfig();

@@ -300,12 +300,46 @@ Benefits:
 
 📖 **See [UPLOAD_FLOW.md](./UPLOAD_FLOW.md) for complete API documentation and advanced usage**
 
+## Server Code Module Types
+
+Server code modules support multiple types matching Cloudflare Workers API:
+
+- **`js`** - ES modules with import/export (`.js`, `.mjs`)
+- **`cjs`** - CommonJS modules with require() (`.cjs`)
+- **`py`** - Python modules (`.py`)
+- **`text`** - Importable text strings (`.txt`)
+- **`data`** - Binary data as ArrayBuffer
+- **`json`** - Parsed JSON objects (`.json`)
+
+### Module Encoding
+
+Modules need to be **base64-encoded** for transfer:
+
+```javascript
+serverCode: {
+  entrypoint: 'index.js',
+  modules: {
+    // Simple format - type inferred from extension
+    'index.js': Buffer.from(codeString, 'utf-8').toString('base64'),
+
+    // Explicit type format
+    'config.json': {
+      content: Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'),
+      type: 'json'
+    }
+  }
+}
+```
+
 ## Examples
 
 The `examples/` directory contains ready-to-run deployment scripts that automatically use the three-phase upload flow:
 
 - **`deploy-example.js`** - Deploy a full-stack app with assets, server code, and environment variables
 - **`static-site-example.js`** - Deploy a static website (HTML, CSS only)
+- **`test-module-types.js`** - Test all module types (js, json, text, data)
+- **`test-servercode-encoding.js`** - Test base64 encoding/decoding
+- **`test-redeployment.js`** - Test asset caching optimization
 
 Run examples with Node.js:
 
