@@ -5,6 +5,9 @@
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+	"observability": {
+		"enabled": true
+	},
 	"kv_namespaces": [
 		{
 			"binding": "PROJECTS_KV_NAMESPACE"
@@ -23,5 +26,5 @@
 		{
 			"binding": "LOADER"
 		}
-	],
+	]
 }
