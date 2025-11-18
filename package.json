@@ -1,6 +1,7 @@
 {
 	"name": "cloudflare-asset-worker",
 	"version": "0.0.0",
+	"type": "module",
 	"description": "A Cloudflare Worker for serving static assets from KV storage",
 	"scripts": {
 		"dev": "wrangler dev -c ./manager/wrangler.jsonc -c ./api/wrangler.jsonc"
