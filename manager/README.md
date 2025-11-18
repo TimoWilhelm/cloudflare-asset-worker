@@ -1,38 +1,6 @@
-# Cloudflare Asset Worker Manager
+# Asset Manager Worker
 
-A multi-tenant project management system for deploying and serving full-stack applications on Cloudflare Workers, combining static assets with optional dynamic server code.
-
-## Overview
-
-The Asset Manager provides a complete platform for hosting multiple projects on a single Cloudflare Worker deployment. It handles:
-
-- Project lifecycle management (create, deploy, delete)
-- Static asset serving via RPC calls to the Asset API
-- Dynamic worker code execution using Cloudflare's DynamicDispatch (WorkerLoader)
-- Flexible routing with subdomain-based or path-based URLs
-- Intelligent request routing between static assets and server code
-
-## Key Features
-
-### Multi-Tenant Architecture
-- **Project isolation** - Each project has its own namespace in KV storage
-- **Subdomain routing** - `project-id.yourdomain.com`
-- **Path-based routing** - `yourdomain.com/__project/project-id/`
-
-### Full-Stack Support
-- **Static assets** - HTML, CSS, JS, images, etc. via Asset API
-- **Server code** - Optional dynamic worker code per project
-- **Asset binding** - Server code can access static assets via `env.ASSETS`
-
-### Intelligent Request Routing
-- **Configurable order** - Choose between assets-first or worker-first handling
-- **Glob pattern matching** - Route specific paths to worker using minimatch patterns
-- **Fallback handling** - Automatic fallback from assets to worker or vice versa
-
-### Management API
-- **RESTful API** - Complete CRUD operations for projects
-- **Token authentication** - Secure API access via `Authorization` header
-- **Atomic deployments** - Deploy assets and server code together
+The manager worker is the main orchestrator for the Cloudflare Multi-Project Deployment Platform. It handles project management, asset uploads, deployment, and dynamic request routing.
 
 ## Architecture
 
@@ -45,19 +13,18 @@ The Asset Manager provides a complete platform for hosting multiple projects on 
 
 ### Storage
 
-Projects use three KV namespaces:
+The manager worker uses two KV namespaces:
 
-1. **`PROJECTS_KV_NAMESPACE`** - Project metadata
-   - Project name, creation date, asset count, configuration
-   - Key format: `project:{projectId}`
+1. **`PROJECTS_KV_NAMESPACE`** - Project metadata and upload sessions
+   - Project metadata: `project:projectId`
+   - Upload sessions: `session:sessionId` (temporary, 1 hour TTL)
 
-2. **`MANIFEST_KV_NAMESPACE`** - Asset manifests (managed by Asset API)
-   - Binary manifest files mapping paths to content hashes
-   - Key format: `{projectId}:ASSETS_MANIFEST`
+2. **`SERVER_CODE_KV_NAMESPACE`** - Dynamic worker code
+   - Manifest: `projectId:MANIFEST`
+   - Modules: `projectId:contentHash` (content-addressed, deduplicated)
+   - Stores base64-encoded module content
 
-3. **`SERVER_CODE_KV_NAMESPACE`** - Dynamic worker code
-   - Entrypoint module, dependencies, environment variables
-   - Key format: `{projectId}`
+**Note:** Asset storage is handled by the separate Asset API worker via RPC service binding. See `api/README.md` for details.
 
 ## Management API
 
@@ -83,6 +50,7 @@ Authorization: your-api-token
 ```
 
 Response includes JWT token and buckets of hashes to upload:
+
 ```json
 {
   "result": {
@@ -107,6 +75,7 @@ Authorization: Bearer <JWT_FROM_PHASE_1>
 ```
 
 Returns completion JWT when all buckets uploaded:
+
 ```json
 {
   "result": {
@@ -145,6 +114,7 @@ Authorization: your-api-token
 ```
 
 Response:
+
 ```json
 {
   "success": true,
@@ -313,44 +283,51 @@ npm run cf-typegen
 
 ### Environment Setup
 
-Configure in `wrangler.toml`:
+Configure in `wrangler.jsonc`:
 
-```toml
-name = "asset-manager"
-main = "src/worker.ts"
-compatibility_date = "2025-11-09"
-
-[env.production]
-vars = { API_TOKEN = "your-secure-token" }
-
-[[kv_namespaces]]
-binding = "PROJECTS_KV_NAMESPACE"
-id = "your-kv-namespace-id"
-
-[[kv_namespaces]]
-binding = "MANIFEST_KV_NAMESPACE"
-id = "your-kv-namespace-id"
-
-[[kv_namespaces]]
-binding = "SERVER_CODE_KV_NAMESPACE"
-id = "your-kv-namespace-id"
-
-[[services]]
-binding = "ASSET_WORKER"
-service = "asset-api"
+```jsonc
+{
+  "name": "asset-worker-manager",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-11-11",
+  "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+  "kv_namespaces": [
+    {
+      "binding": "PROJECTS_KV_NAMESPACE"
+      // id: "your-kv-namespace-id"
+    },
+    {
+      "binding": "SERVER_CODE_KV_NAMESPACE"
+      // id: "your-kv-namespace-id"
+    }
+  ],
+  "services": [
+    {
+      "binding": "ASSET_WORKER",
+      "service": "asset-worker-api"
+    }
+  ],
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ]
+}
 ```
 
 ## Dependencies
 
 - **[Hono](https://hono.dev/)** - Lightweight web framework for management API
 - **[minimatch](https://github.com/isaacs/minimatch)** - Glob pattern matching for routing
+- **[@stablelib/base64](https://github.com/StableLib/stablelib)** - Base64 encoding/decoding
 
 ## Security
 
 - API endpoints require `Authorization` header matching `API_TOKEN`
-- Project isolation via KV namespacing
+- Project isolation via KV namespacing with required `projectId` parameter
 - Server code runs in isolated worker contexts
 - Content-based asset addressing prevents cache poisoning
+- JWTs for upload sessions expire after 1 hour
 
 ## License
 

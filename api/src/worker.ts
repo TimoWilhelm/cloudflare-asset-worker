@@ -16,7 +16,7 @@ const KV_CACHE_HIT_THRESHOLD_MS = 100;
 
 export default class AssetApi extends WorkerEntrypoint<Env> {
 	public override async fetch(request: Request): Promise<Response> {
-		return new Response("Not Found", { status: 404 });
+		return new Response('Not Found', { status: 404 });
 	}
 
 	/**
@@ -25,15 +25,15 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @param key - The key to namespace
 	 * @returns The namespaced key
 	 */
-	private getNamespacedKey(projectId: string | undefined, key: string): string {
-		return projectId ? `${projectId}:${key}` : key;
+	private getNamespacedKey(projectId: string, key: string): string {
+		return `${projectId}:${key}`;
 	}
 
-	private async getAssetsManifest(projectId?: string): Promise<AssetsManifest> {
+	private async getAssetsManifest(projectId: string): Promise<AssetsManifest> {
 		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
-		const manifestBuffer = await this.env.MANIFEST_KV_NAMESPACE.get(manifestKey, 'arrayBuffer');
+		const manifestBuffer = await this.env.ASSETS_KV_NAMESPACE.get(manifestKey, 'arrayBuffer');
 		if (!manifestBuffer) {
-			throw new Error(`Failed to load assets manifest${projectId ? ` for project ${projectId}` : ''}`);
+			throw new Error(`Failed to load assets manifest for project ${projectId}`);
 		}
 		return new AssetsManifest(new Uint8Array(manifestBuffer));
 	}
@@ -41,11 +41,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	/**
 	 * RPC method to serve static assets
 	 * @param request - The incoming HTTP request (already rewritten)
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @param projectConfig - Optional project configuration
 	 * @returns A Response object with the requested asset or an error response
 	 */
-	async serveAsset(request: Request, projectId?: string, projectConfig?: AssetConfig): Promise<Response> {
+	async serveAsset(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<Response> {
 		try {
 			const config = normalizeConfiguration(projectConfig);
 			const response = await handleRequest(
@@ -53,7 +53,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				this.env,
 				config,
 				(pathname: string, req: Request) => this.exists(pathname, req, projectId),
-				(eTag: string, req?: Request) => this.getByETag(eTag, req, projectId)
+				(eTag: string, req?: Request) => this.getByETag(eTag, projectId, req)
 			);
 
 			return response;
@@ -65,32 +65,27 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	/**
 	 * Check if the worker can fetch a given request based on the configuration and asset manifest
 	 * @param request - The HTTP request to check
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @param projectConfig - Optional project configuration
 	 * @returns True if the worker can handle this request, false otherwise
 	 */
-	async canFetch(request: Request, projectId?: string, projectConfig?: AssetConfig): Promise<boolean> {
+	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<boolean> {
 		const config = normalizeConfiguration(projectConfig);
-		return handleCanFetch(
-			request,
-			this.env,
-			config,
-			(pathname: string, req: Request) => this.exists(pathname, req, projectId)
-		);
+		return handleCanFetch(request, this.env, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
 	}
 
 	/**
 	 * Fetch an asset by its eTag (content hash) from KV storage
 	 * @param eTag - The content hash of the asset to retrieve
+	 * @param projectId - The project ID for namespaced assets
 	 * @param _request - Optional request object (currently unused)
-	 * @param projectId - Optional project ID for namespaced assets
 	 * @returns An object containing the asset's readable stream, content type, and cache status
 	 * @throws Error if the asset exists in the manifest but not in KV storage
 	 */
 	async getByETag(
 		eTag: string,
-		_request?: Request,
-		projectId?: string
+		projectId: string,
+		_request?: Request
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -104,7 +99,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 		if (!asset || !asset.value) {
 			throw new Error(
-				`Requested asset ${eTag} exists in the asset manifest but not in the KV namespace${projectId ? ` for project ${projectId}` : ''}.`
+				`Requested asset ${eTag} exists in the asset manifest but not in the KV namespace for project ${projectId}.`
 			);
 		}
 
@@ -121,13 +116,13 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * Fetch an asset by its pathname by first resolving the pathname to an eTag
 	 * @param pathname - The URL pathname of the asset (e.g., "/index.html")
 	 * @param request - Request object passed to exists() and getByETag()
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @returns An object containing the asset's readable stream, content type, and cache status, or null if not found
 	 */
 	async getByPathname(
 		pathname: string,
 		request: Request,
-		projectId?: string
+		projectId: string
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -139,17 +134,17 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			return null;
 		}
 
-		return this.getByETag(eTag, request, projectId);
+		return this.getByETag(eTag, projectId, request);
 	}
 
 	/**
 	 * Check if an asset exists for the given pathname in the manifest
 	 * @param pathname - The URL pathname to look up (e.g., "/index.html")
 	 * @param request - Request object (currently unused)
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @returns The eTag (content hash) if the asset exists, null otherwise
 	 */
-	async exists(pathname: string, request: Request, projectId?: string): Promise<string | null> {
+	async exists(pathname: string, request: Request, projectId: string): Promise<string | null> {
 		const manifest = await this.getAssetsManifest(projectId);
 		const eTag = await manifest.get(pathname);
 		return eTag;
@@ -159,16 +154,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * Upload an asset file to KV storage with optional metadata
 	 * @param eTag - The eTag (content hash) that will be used as the key in KV
 	 * @param content - The asset content as ArrayBuffer or ReadableStream
+	 * @param projectId - The project ID for namespaced assets
 	 * @param contentType - Optional MIME type of the asset (e.g., "text/html", "image/png")
-	 * @param projectId - Optional project ID for namespaced assets
 	 * @returns A promise that resolves when the upload is complete
 	 */
-	async uploadAsset(
-		eTag: string,
-		content: ArrayBuffer | ReadableStream,
-		contentType?: string,
-		projectId?: string
-	): Promise<void> {
+	async uploadAsset(eTag: string, content: ArrayBuffer | ReadableStream, projectId: string, contentType?: string): Promise<void> {
 		const metadata = contentType ? { contentType } : undefined;
 		const namespacedETag = this.getNamespacedKey(projectId, eTag);
 
@@ -184,10 +174,10 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * - Entries are sorted by path hash
 	 *
 	 * @param entries - Array of manifest entries with pathname and contentHash
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @returns Array of ManifestEntry objects that need to be uploaded (entries whose contentHash doesn't exist in KV)
 	 */
-	async uploadManifest(entries: ManifestEntry[], projectId?: string): Promise<ManifestEntry[]> {
+	async uploadManifest(entries: ManifestEntry[], projectId: string): Promise<ManifestEntry[]> {
 		// Validate entries
 		for (const entry of entries) {
 			// Validate content hash: must be 64 hex characters (SHA-256 = 32 bytes = 64 hex chars)
@@ -222,7 +212,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const manifestBuffer = await this.generateManifestBuffer(entries);
 
 		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
-		await this.env.MANIFEST_KV_NAMESPACE.put(manifestKey, manifestBuffer);
+		await this.env.ASSETS_KV_NAMESPACE.put(manifestKey, manifestBuffer);
 
 		return newEntries;
 	}
@@ -269,13 +259,10 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * Check if assets exist in KV storage by their eTags (content hashes)
 	 * This is an efficient RPC method that returns existence status for multiple assets
 	 * @param eTags - Array of eTags (content hashes) to check
-	 * @param projectId - Optional project ID for namespaced assets
+	 * @param projectId - The project ID for namespaced assets
 	 * @returns Array of objects with hash and exists boolean
 	 */
-	async checkAssetsExist(
-		eTags: string[],
-		projectId?: string
-	): Promise<Array<{ hash: string; exists: boolean }>> {
+	async checkAssetsExist(eTags: string[], projectId: string): Promise<Array<{ hash: string; exists: boolean }>> {
 		const results = await Promise.all(
 			eTags.map(async (hash) => {
 				const namespacedKey = this.getNamespacedKey(projectId, hash);
@@ -304,11 +291,6 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
 			deletedAssets++;
 		}
-
-		// Delete the manifest
-		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
-		await this.env.MANIFEST_KV_NAMESPACE.delete(manifestKey);
-		deletedManifest = true;
 
 		return { deletedAssets, deletedManifest };
 	}

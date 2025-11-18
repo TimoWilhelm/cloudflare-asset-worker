@@ -1,132 +1,143 @@
-# Cloudflare Asset Worker API
+# Asset API Worker
 
-A Cloudflare Workers-based static asset serving API that efficiently stores and serves static files using Cloudflare KV storage.
-
-## Overview
-
-This project is heavily based on the [asset-worker](https://github.com/cloudflare/workers-sdk/tree/main/packages/workers-shared/asset-worker) repository from Cloudflare Workers SDK. The asset-worker is responsible for serving static assets for Cloudflare Workers, providing efficient content delivery with advanced features like HTML handling, redirects, and custom headers.
-
-The API provides a WorkerEntrypoint (`AssetApi`) that can be called via RPC from other workers, enabling multi-tenant static asset serving with project namespacing.
-
-## Key Features
-
-- **Binary manifest format** for efficient asset lookup using SHA-256 hashed pathnames
-- **Multi-tenant support** with project-based namespacing in KV storage
-- **HTML handling modes**:
-  - `auto-trailing-slash` - Automatically handle trailing slashes based on file existence
-  - `force-trailing-slash` - Force all HTML pages to have trailing slashes
-  - `drop-trailing-slash` - Remove trailing slashes from HTML pages
-  - `none` - Serve files exactly as requested
-- **Not-found handling**:
-  - `single-page-application` - Serve `/index.html` for all 404s (SPA mode)
-  - `404-page` - Serve nearest `/404.html` in the directory tree
-  - `none` - Return 404 responses
-- **Static and dynamic redirects** with support for 301, 302, 303, 307, 308 status codes
-- **Custom headers** per route/pathname
-- **ETag-based caching** with If-None-Match support for 304 responses
-- **Content-based deduplication** - Same content is stored once even across multiple files
+The Asset API worker is an RPC service that handles all static asset storage and serving for the platform. It's called by the manager worker via Cloudflare Service Bindings.
 
 ## Architecture
 
 ### Components
 
-- **`AssetApi`** - Main WorkerEntrypoint class exposing RPC methods
-- **Binary Manifest** - Efficient binary format for storing pathname → content hash mappings
-  - 16-byte header
-  - 48-byte entries: 16-byte path hash + 32-byte content hash
-  - Sorted by path hash for binary search lookup
-- **KV Namespaces**:
-  - `MANIFEST_KV_NAMESPACE` - Stores binary manifests per project
-  - `ASSETS_KV_NAMESPACE` - Stores actual asset content with content-type metadata
+- **`AssetApi`** - Main WorkerEntrypoint exposing RPC methods for asset operations
+- **Binary Manifest** - Efficient binary format for storing path-to-hash mappings
+- **Content-addressed Storage** - Assets stored by content hash for deduplication
 
-### RPC Methods
+### Storage
 
-#### `serveAsset(request, projectId?, projectConfig?)`
-Serves a static asset for a given request with optional project namespace and configuration.
+The API worker manages one KV namespace:
 
-#### `canFetch(request, projectId?, projectConfig?)`
-Checks if an asset exists for the given request without fetching it.
+**`ASSETS_KV_NAMESPACE`** - All project assets and manifests
+- Assets: `projectId:contentHash` (SHA-256 hash of content)
+- Manifest: `projectId:ASSETS_MANIFEST` (binary manifest file)
 
-#### `uploadAsset(eTag, content, contentType?, projectId?)`
-Uploads an asset to KV storage with optional content type metadata.
+All keys are namespaced by `projectId` to ensure complete project isolation.
 
-#### `uploadManifest(entries, projectId?)`
-Uploads a manifest and returns entries that need asset uploads (content deduplication).
+## RPC Methods
 
-#### `deleteProjectAssets(projectId)`
-Deletes all assets and manifest for a specific project.
+The Asset API worker exposes the following methods via Service Binding:
 
-#### `exists(pathname, request, projectId?)`
-Checks if an asset exists for a given pathname and returns its eTag.
+### `serveAsset(request, projectId, projectConfig?)`
 
-#### `getByETag(eTag, request?, projectId?)`
-Fetches an asset by its eTag (content hash) with cache status.
+Serve a static asset from KV storage.
 
-#### `getByPathname(pathname, request, projectId?)`
-Fetches an asset by pathname (convenience method combining exists + getByETag).
+**Parameters:**
+- `request: Request` - The incoming HTTP request
+- `projectId: string` - The project ID for namespacing
+- `projectConfig?: AssetConfig` - Optional configuration (redirects, headers, html_handling, etc.)
 
-## Usage
+**Returns:** `Response` - The asset response or error
 
-### Deploying Assets
+### `canFetch(request, projectId, projectConfig?)`
 
-```javascript
-const assets = env.ASSET_WORKER as Service<AssetApi>;
+Check if an asset exists for the given request.
 
-// Upload manifest
-const manifestEntries = [
-  { pathname: '/index.html', contentHash: 'abc123...' },
-  { pathname: '/style.css', contentHash: 'def456...' }
-];
+**Parameters:**
+- `request: Request` - The request to check
+- `projectId: string` - The project ID
+- `projectConfig?: AssetConfig` - Optional configuration
 
-const newEntries = await assets.uploadManifest(manifestEntries, projectId);
+**Returns:** `boolean` - True if asset can be served
 
-// Upload only new assets (content deduplication)
-for (const entry of newEntries) {
-  await assets.uploadAsset(entry.contentHash, content, contentType, projectId);
-}
-```
+### `uploadAsset(eTag, content, projectId, contentType?)`
 
-### Serving Assets
+Upload a single asset to KV storage.
 
-```javascript
-const assets = env.ASSET_WORKER as Service<AssetApi>;
+**Parameters:**
+- `eTag: string` - Content hash (64 hex characters, SHA-256)
+- `content: ArrayBuffer | ReadableStream` - The asset content
+- `projectId: string` - The project ID for namespacing
+- `contentType?: string` - Optional MIME type
 
-// Check if we can serve this request
-const canServe = await assets.canFetch(request, projectId, config);
+**Returns:** `Promise<void>`
 
-if (canServe) {
-  // Serve the asset
-  return await assets.serveAsset(request, projectId, config);
-}
-```
+### `uploadManifest(entries, projectId)`
 
-## Configuration
+Upload asset manifest and return list of assets that need uploading.
 
-See [`configuration.ts`](./src/configuration.ts) for the full `AssetConfig` interface.
+**Parameters:**
+- `entries: ManifestEntry[]` - Array of `{pathname, contentHash}` objects
+- `projectId: string` - The project ID for namespacing
 
-Example configuration:
+**Returns:** `Promise<ManifestEntry[]>` - Entries that don't exist in KV (need upload)
 
-```typescript
-const config: AssetConfig = {
-  html_handling: 'auto-trailing-slash',
-  not_found_handling: 'single-page-application',
-  redirects: {
-    version: 1,
-    staticRules: {
-      '/old-path': { status: 301, to: '/new-path', lineNumber: 1 }
-    },
-    rules: {}
-  },
-  headers: {
-    version: 2,
-    rules: {
-      '/*.html': {
-        set: { 'Cache-Control': 'public, max-age=3600' }
-      }
-    }
-  }
-};
-```
+### `checkAssetsExist(eTags, projectId)`
+
+Efficiently check which assets already exist in KV.
+
+**Parameters:**
+- `eTags: string[]` - Array of content hashes to check
+- `projectId: string` - The project ID
+
+**Returns:** `Promise<Array<{hash: string, exists: boolean}>>` - Existence status for each hash
+
+### `deleteProjectAssets(projectId)`
+
+Delete all assets and manifest for a project.
+
+**Parameters:**
+- `projectId: string` - The project ID
+
+**Returns:** `Promise<{deletedAssets: number, deletedManifest: boolean}>` - Deletion statistics
+
+## Asset Configuration
+
+The Asset API supports advanced configuration options:
+
+### HTML Handling
+
+- `auto-trailing-slash` (default) - Automatically add/remove trailing slashes
+- `force-trailing-slash` - Always add trailing slash
+- `drop-trailing-slash` - Always remove trailing slash
+- `none` - No trailing slash handling
+
+### Not Found Handling
+
+- `single-page-application` - Serve `/index.html` for 404s
+- `404-page` - Serve `/404.html` if available
+- `none` (default) - Return 404 response
+
+### Redirects
+
+Static and dynamic redirect rules with status codes 301, 302, 303, 307, 308.
+
+### Headers
+
+Custom headers per pathname pattern using glob syntax.
+
+## Binary Manifest Format
+
+Assets are stored in an efficient binary format:
+
+- **Header:** 16 bytes (reserved)
+- **Entries:** 48 bytes each
+  - Path hash: 16 bytes (first 128 bits of SHA-256 of pathname)
+  - Content hash: 32 bytes (SHA-256 of content)
+- **Sorted:** Entries sorted by path hash for binary search
+
+This allows fast lookups with minimal memory usage.
+
+## Content Addressing
+
+Assets are stored by their SHA-256 content hash, enabling:
+
+- **Deduplication** - Same content across projects stored once
+- **Cache optimization** - Unchanged assets don't need re-upload
+- **Integrity** - Content hash verifies asset hasn't changed
+
+## Security
+
+- All operations require `projectId` parameter (enforced at type level)
+- Project isolation via namespace prefixes (`projectId:*`)
+- Content hash validation during upload
+- Pathname validation (must start with `/`, no invalid characters)
 
 ## Development
 
@@ -139,48 +150,28 @@ npm test
 # Deploy to Cloudflare
 npm run deploy
 
-# Local development
-npm run dev
-
 # Generate TypeScript types
 npm run cf-typegen
-
-# Regenerate test fixtures
-npm run generate-fixtures
 ```
 
-### Testing
+### Configuration
 
-Tests are located in [`tests/`](./tests/) and use Vitest with Cloudflare's Vitest pool workers:
+Configure in `wrangler.jsonc`:
 
-```bash
-npm test
+```jsonc
+{
+  "name": "asset-worker-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-11-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
+    {
+      "binding": "ASSETS_KV_NAMESPACE"
+      // id: "your-kv-namespace-id"
+    }
+  ]
+}
 ```
-
-## Technical Details
-
-### Binary Manifest Format
-
-The manifest uses a custom binary format for space efficiency and fast lookups:
-
-- **Header**: 16 bytes (reserved for metadata)
-- **Entries**: Each entry is 48 bytes:
-  - 16 bytes: SHA-256 hash of pathname (first 128 bits)
-  - 32 bytes: SHA-256 hash of content (full 256 bits)
-- Entries are sorted by path hash for binary search
-
-### Content Addressing
-
-Assets are stored by their SHA-256 content hash (eTag), enabling:
-- **Deduplication**: Same content stored once even if used in multiple files
-- **Immutability**: Content never changes for a given hash
-- **Cache-friendly**: ETags enable efficient HTTP caching
-
-### Project Namespacing
-
-All KV keys are prefixed with `{projectId}:` to enable multi-tenant isolation:
-- Manifest: `{projectId}:ASSETS_MANIFEST`
-- Assets: `{projectId}:{contentHash}`
 
 ## License
 

@@ -9,11 +9,5 @@
 		{
 			"binding": "ASSETS_KV_NAMESPACE"
 		},
-		{
-			"binding": "MANIFEST_KV_NAMESPACE"
-		}
-	],
-	"version_metadata": {
-		"binding": "VERSION_METADATA"
-	}
+	]
 }

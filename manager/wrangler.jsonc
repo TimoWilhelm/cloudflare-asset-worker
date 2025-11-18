@@ -7,10 +7,10 @@
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"kv_namespaces": [
 		{
-			"binding": "PROJECTS_KV_NAMESPACE",
+			"binding": "PROJECTS_KV_NAMESPACE"
 		},
 		{
-			"binding": "SERVER_CODE_KV_NAMESPACE",
+			"binding": "SERVER_CODE_KV_NAMESPACE"
 		}
 	],
 	"services": [
