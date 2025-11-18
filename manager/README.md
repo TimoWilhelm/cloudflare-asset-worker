@@ -130,7 +130,7 @@ Authorization: your-api-token
 }
 ```
 
-**Note:** The three-phase flow is automatically handled by the example scripts in `examples/`. For manual implementation, see [UPLOAD_FLOW.md](../UPLOAD_FLOW.md).
+**Note:** The three-phase flow is automatically handled by the example scripts in `examples/`. For manual implementation, see the API Reference section in the main README.md.
 
 ### Create Project
 

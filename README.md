@@ -67,46 +67,13 @@ Response:
 
 ### 2. Deploy Your Application
 
-```bash
-curl -X POST https://your-manager.workers.dev/__api/projects/550e8400-e29b-41d4-a716-446655440000/deploy \
-  -H "Content-Type: application/json" \
-  -H "Authorization: your-api-token" \
-  -d @deployment.json
-```
+Deployment uses a **three-phase upload flow**:
 
-Example `deployment.json`:
-```json
-{
-  "projectName": "My App",
-  "assets": [
-    {
-      "pathname": "/index.html",
-      "content": "PCFET0NUWVBFIGh0bWw+...",
-      "contentType": "text/html; charset=utf-8"
-    },
-    {
-      "pathname": "/style.css",
-      "content": "Ym9keSB7IG1hcmdpbjogMDsgfQ==",
-      "contentType": "text/css"
-    }
-  ],
-  "serverCode": {
-    "entrypoint": "index.js",
-    "modules": {
-      "index.js": "export default { async fetch(req, env) { return new Response('API: ' + env.ENVIRONMENT); } }"
-    },
-    "compatibilityDate": "2025-11-09"
-  },
-  "config": {
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application"
-  },
-  "run_worker_first": ["/api/*"],
-  "env": {
-    "ENVIRONMENT": "production"
-  }
-}
-```
+1. **Create upload session** with asset manifest
+2. **Upload asset buckets** with JWT authentication
+3. **Finalize deployment** with completion JWT
+
+See the [examples](#examples) directory for ready-to-use deployment scripts, or the [API Reference](#api-reference) section below for direct API usage.
 
 ### 3. Access Your Project
 
@@ -148,40 +115,119 @@ DELETE /__api/projects/:projectId
 Authorization: your-api-token
 ```
 
-#### Deploy Project
+#### Deploy Project (Three-Phase Upload Flow)
+
+Deployment uses a three-phase upload flow for efficiency and deduplication:
+
+**Phase 1: Create Upload Session**
+
+```http
+POST /__api/projects/:projectId/assets-upload-session
+Content-Type: application/json
+Authorization: your-api-token
+
+{
+  "manifest": {
+    "/index.html": {
+      "hash": "a1b2c3d4...",  // SHA-256 hash (64 hex chars)
+      "size": 1234
+    },
+    "/style.css": {
+      "hash": "e5f6g7h8...",
+      "size": 5678
+    }
+  }
+}
 ```
+
+Response includes JWT and buckets of hashes to upload:
+
+```json
+{
+  "result": {
+    "jwt": "<UPLOAD_TOKEN>",
+    "buckets": [
+      ["a1b2c3d4...", "e5f6g7h8..."]
+    ]
+  },
+  "success": true
+}
+```
+
+**Phase 2: Upload Assets**
+
+```http
+POST /__api/projects/:projectId/assets/upload
+Content-Type: application/json
+Authorization: Bearer <UPLOAD_TOKEN>
+
+{
+  "a1b2c3d4...": "<base64_encoded_content>",
+  "e5f6g7h8...": "<base64_encoded_content>"
+}
+```
+
+Upload each bucket sequentially. Last bucket returns completion JWT:
+
+```json
+{
+  "result": {
+    "jwt": "<COMPLETION_TOKEN>"
+  },
+  "success": true
+}
+```
+
+**Phase 3: Finalize Deployment**
+
+```http
 POST /__api/projects/:projectId/deploy
 Content-Type: application/json
 Authorization: your-api-token
 
 {
+  "completionJwt": "<COMPLETION_TOKEN>",
   "projectName": "Optional new name",
-  "assets": [
-    {
-      "pathname": "/path",
-      "content": "base64-encoded-content",
-      "contentType": "mime/type"
-    }
-  ],
-  "serverCode": { // optional
+  "serverCode": {  // optional
     "entrypoint": "index.js",
     "modules": {
-      "index.js": "code...",
-      "utils.js": "code..."
+      "index.js": "<base64-encoded-module>",
+      "utils.js": "<base64-encoded-module>"
     },
     "compatibilityDate": "2025-11-09"
   },
-  "config": { // optional - per-project asset configuration
+  "config": {  // optional
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "single-page-application"
   },
-  "run_worker_first": false, // optional - boolean or string[] of patterns
-  "env": { // optional - environment variables for server code
+  "run_worker_first": false,  // optional - boolean or string[] of patterns
+  "env": {  // optional - environment variables
     "API_KEY": "value",
     "ENVIRONMENT": "production"
   }
 }
 ```
+
+Response:
+
+```json
+{
+  "success": true,
+  "message": "Project deployed successfully",
+  "project": { ... },
+  "deployedAssets": 10,
+  "newAssets": 2,
+  "skippedAssets": 8
+}
+```
+
+**Key Points:**
+
+- Hashes must be 64-character SHA-256 hex strings
+- Assets and server code modules must be base64-encoded
+- If all assets cached, buckets array is empty and JWT is completion token immediately
+- JWTs expire after 1 hour
+- Upload buckets sequentially in provided order
 
 ## How It Works
 
@@ -203,133 +249,26 @@ Authorization: your-api-token
 - **Projects KV** (`PROJECTS_KV_NAMESPACE`): Stores project metadata with keys like `project:projectId`
 - **Server Code KV** (`SERVER_CODE_KV_NAMESPACE`): Stores server code configuration with key `projectId`
 
-### Asset Serving Configuration
+### Configuration
 
-Asset configuration is **per-project** and passed during deployment via the `config` field:
+**Asset Serving:**
+- `html_handling`: `"auto-trailing-slash"` | `"force-trailing-slash"` | `"drop-trailing-slash"` | `"none"`
+- `not_found_handling`: `"single-page-application"` | `"404-page"` | `"none"`
+- `redirects`: Static/dynamic redirect rules (301, 302, 303, 307, 308)
+- `headers`: Custom headers per pathname pattern (glob-based)
 
-```json
-{
-  "config": {
-    "html_handling": "auto-trailing-slash",
-    "not_found_handling": "single-page-application",
-    "redirects": {
-      "version": 1,
-      "staticRules": {
-        "/old": { "to": "/new", "status": 301, "lineNumber": 1 }
-      },
-      "rules": {}
-    },
-    "headers": {
-      "version": 2,
-      "rules": {
-        "/*.html": {
-          "set": { "Cache-Control": "public, max-age=3600" },
-          "unset": ["X-Powered-By"]
-        }
-      }
-    }
-  }
-}
-```
+**Request Routing:**
+- `run_worker_first: false` (default) - Check assets first, fallback to worker
+- `run_worker_first: ["/api/*"]` - Run worker first for matching paths
 
-#### Configuration Options
+**Environment Variables:**
+Pass via `env` field, access in worker via `env` parameter. Values are strings.
 
-- **`html_handling`**: `"auto-trailing-slash"` | `"force-trailing-slash"` | `"drop-trailing-slash"` | `"none"`
-- **`not_found_handling`**: `"single-page-application"` | `"404-page"` | `"none"`
-- **`redirects`**: Static and dynamic redirect rules with status codes (301, 302, 303, 307, 308)
-- **`headers`**: Custom headers per pathname pattern (glob-based matching)
+## Server Code
 
-### Request Routing Configuration
+### Module Types
 
-Control the order of asset vs. worker execution per project:
-
-```json
-{
-  "run_worker_first": false  // Default: check assets first, fallback to worker
-}
-```
-
-Or use glob patterns to run worker first only for specific paths:
-
-```json
-{
-  "run_worker_first": ["/api/*", "/admin/**"]
-}
-```
-
-### Environment Variables
-
-Pass environment variables to your server code:
-
-```json
-{
-  "env": {
-    "ENVIRONMENT": "production",
-    "API_KEY": "secret-value",
-    "DATABASE_URL": "postgres://..."
-  }
-}
-```
-
-Access in server code via `env` parameter:
-
-```javascript
-export default {
-  async fetch(request, env) {
-    console.log(env.ENVIRONMENT); // "production"
-    console.log(env.API_KEY);     // "secret-value"
-  }
-};
-```
-
-## Asset Upload Flow
-
-This platform implements a three-phase upload flow following Cloudflare's official Workers API pattern:
-
-1. **Phase 1: Register Manifest** - Submit asset metadata and receive upload instructions
-2. **Phase 2: Upload Assets** - Upload files in optimized buckets with JWT authentication
-3. **Phase 3: Deploy** - Finalize deployment with completion JWT
-
-Benefits:
-- **Deduplication** - Skip uploading unchanged files automatically
-- **Optimized batching** - Files grouped in buckets for efficient uploads
-- **Security** - JWT-based authentication per upload session
-- **Efficiency** - Only upload what's needed
-
-**The three-phase flow is automatically used by all examples** through the `deployApplication()` function in `shared-utils.js`.
-
-📖 **See [UPLOAD_FLOW.md](./UPLOAD_FLOW.md) for complete API documentation and advanced usage**
-
-## Server Code Module Types
-
-Server code modules support multiple types matching Cloudflare Workers API:
-
-- **`js`** - ES modules with import/export (`.js`, `.mjs`)
-- **`cjs`** - CommonJS modules with require() (`.cjs`)
-- **`py`** - Python modules (`.py`)
-- **`text`** - Importable text strings (`.txt`)
-- **`data`** - Binary data as ArrayBuffer
-- **`json`** - Parsed JSON objects (`.json`)
-
-### Module Encoding
-
-Modules need to be **base64-encoded** for transfer:
-
-```javascript
-serverCode: {
-  entrypoint: 'index.js',
-  modules: {
-    // Simple format - type inferred from extension
-    'index.js': Buffer.from(codeString, 'utf-8').toString('base64'),
-
-    // Explicit type format
-    'config.json': {
-      content: Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'),
-      type: 'json'
-    }
-  }
-}
-```
+Supports: `js` (ES modules), `cjs` (CommonJS), `py` (Python), `text` (strings), `data` (ArrayBuffer), `json` (objects). All modules must be **base64-encoded**. Type is inferred from extension or specified explicitly. See [examples/test-module-types.js](./examples/test-module-types.js) for usage.
 
 ## Examples
 
@@ -338,7 +277,6 @@ The `examples/` directory contains ready-to-run deployment scripts that automati
 - **`deploy-example.js`** - Deploy a full-stack app with assets, server code, and environment variables
 - **`static-site-example.js`** - Deploy a static website (HTML, CSS only)
 - **`test-module-types.js`** - Test all module types (js, json, text, data)
-- **`test-servercode-encoding.js`** - Test base64 encoding/decoding
 - **`test-redeployment.js`** - Test asset caching optimization
 
 Run examples with Node.js:
