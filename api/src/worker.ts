@@ -2,7 +2,7 @@ import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfig } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { handleError } from './utils/final-operations';
-import { getAssetWithMetadataFromKV } from './utils/kv';
+import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 
@@ -277,30 +277,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 		// List all keys with the project prefix in ASSETS_KV_NAMESPACE
 		const assetPrefix = `${projectId}:`;
-		const assetsList = await this.env.ASSETS_KV_NAMESPACE.list({ prefix: assetPrefix });
 
-		// Delete all assets
-		await Promise.all(
-			assetsList.keys.map(async (key: { name: string }) => {
-				await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
-				deletedAssets++;
-			})
-		);
-
-		// Handle pagination if there are more keys
-		let currentList = assetsList;
-		while (!currentList.list_complete) {
-			const moreAssets = await this.env.ASSETS_KV_NAMESPACE.list({
-				prefix: assetPrefix,
-				cursor: currentList.cursor
-			});
-			await Promise.all(
-				moreAssets.keys.map(async (key: { name: string }) => {
-					await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
-					deletedAssets++;
-				})
-			);
-			currentList = moreAssets;
+		// Delete all assets using listAllKeys for pagination
+		for await (const key of listAllKeys(this.env.ASSETS_KV_NAMESPACE, { prefix: assetPrefix })) {
+			await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
+			deletedAssets++;
 		}
 
 		// Delete the manifest

@@ -16,8 +16,9 @@ interface ProjectMetadata {
 	run_worker_first?: boolean | string[];
 }
 
-interface ServerCodeData {
+interface ServerCodeManifest {
 	entrypoint: string;
+	// Map of module path to content hash
 	modules: Record<string, string>;
 	compatibilityDate?: string;
 	env?: Record<string, string>;
@@ -280,7 +281,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	 * List all projects
 	 */
 	private async listProjects(): Promise<Response> {
-		const { keys } = await this.env.PROJECTS_KV_NAMESPACE.list({ prefix: 'project:' });
+		const { keys } = await this.env.PROJECTS_KV_NAMESPACE.list({ prefix: 'project:', limit: 100 });
 
 		const projects = await Promise.all(
 			keys.map(async (key: { name: string }) => {
@@ -336,9 +337,16 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 		const assetDeletion = await assets.deleteProjectAssets(projectId);
 
-		// Delete server code if exists (includes env vars)
+		// Delete server code if exists (modules + manifest)
+		let deletedServerCodeModules = 0;
 		if (project.hasServerCode) {
-			await this.env.SERVER_CODE_KV_NAMESPACE.delete(projectId);
+			const serverCodePrefix = this.getServerCodePrefix(projectId);
+
+			// Delete all server code modules and manifest using pagination
+			for await (const key of listAllKeys(this.env.SERVER_CODE_KV_NAMESPACE, { prefix: serverCodePrefix })) {
+				await this.env.SERVER_CODE_KV_NAMESPACE.delete(key.name);
+				deletedServerCodeModules++;
+			}
 		}
 
 		// Delete project metadata
@@ -351,6 +359,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				deletedAssets: assetDeletion.deletedAssets,
 				deletedManifest: assetDeletion.deletedManifest,
 				deletedServerCode: project.hasServerCode,
+				deletedServerCodeModules,
 			}),
 			{
 				status: 200,
@@ -409,15 +418,47 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		}
 
 		// Deploy server code if provided
+		let totalServerCodeModules = 0;
+		let newServerCodeModules = 0;
 		if (payload.serverCode) {
-			const serverCodeData = {
+			// Compute content hash for each module and store them separately
+			const moduleManifest: Record<string, string> = {};
+			const modulesToUpload: { hash: string; content: string }[] = [];
+
+			for (const [modulePath, moduleContent] of Object.entries(payload.serverCode.modules)) {
+				const contentHash = await computeContentHash(new TextEncoder().encode(moduleContent));
+				moduleManifest[modulePath] = contentHash;
+				totalServerCodeModules++;
+
+				// Check if module already exists in KV
+				const moduleKey = this.getServerCodeKey(projectId, contentHash);
+				const existingModule = await this.env.SERVER_CODE_KV_NAMESPACE.get(moduleKey);
+
+				if (!existingModule) {
+					modulesToUpload.push({ hash: contentHash, content: moduleContent });
+				}
+			}
+
+			newServerCodeModules = modulesToUpload.length;
+
+			// Upload new modules
+			await Promise.all(
+				modulesToUpload.map(async ({ hash, content }) => {
+					const moduleKey = this.getServerCodeKey(projectId, hash);
+					await this.env.SERVER_CODE_KV_NAMESPACE.put(moduleKey, content);
+				})
+			);
+
+			// Store the manifest
+			const manifest: ServerCodeManifest = {
 				entrypoint: payload.serverCode.entrypoint,
-				modules: payload.serverCode.modules,
+				modules: moduleManifest,
 				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
 				env: { ...payload.env },
 			};
 
-			await this.env.SERVER_CODE_KV_NAMESPACE.put(projectId, JSON.stringify(serverCodeData));
+			const manifestKey = this.getServerCodeKey(projectId, 'MANIFEST');
+			await this.env.SERVER_CODE_KV_NAMESPACE.put(manifestKey, JSON.stringify(manifest));
 			project.hasServerCode = true;
 		}
 
@@ -445,6 +486,9 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				deployedAssets: manifestEntries.length,
 				newAssets: newEntries.length,
 				skippedAssets: manifestEntries.length - newEntries.length,
+				deployedServerCodeModules: totalServerCodeModules,
+				newServerCodeModules,
+				skippedServerCodeModules: totalServerCodeModules - newServerCodeModules,
 			}),
 			{
 				status: 200,
@@ -461,19 +505,50 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 	}
 
 	/**
+	 * Get the namespaced key for server code
+	 */
+	private getServerCodeKey(projectId: string, key: string): string {
+		return `${projectId}:servercode:${key}`;
+	}
+
+	/**
+	 * Get the server code prefix for a project
+	 */
+	private getServerCodePrefix(projectId: string): string {
+		return `${projectId}:servercode:`;
+	}
+
+	/**
 	 * Run server code for a project using dynamic worker loading
 	 */
 	private async runServerCode(request: Request, projectId: string, assetConfig?: AssetConfig): Promise<Response> {
-		const serverCodeData = await this.env.SERVER_CODE_KV_NAMESPACE.get<ServerCodeData>(projectId, 'json');
+		// Load the manifest
+		const manifestKey = this.getServerCodeKey(projectId, 'MANIFEST');
+		const manifest = await this.env.SERVER_CODE_KV_NAMESPACE.get<ServerCodeManifest>(manifestKey, 'json');
 
-		if (!serverCodeData) {
+		if (!manifest) {
 			return new Response('Server code not found', { status: 404 });
 		}
 
-		const { entrypoint, modules, compatibilityDate, env = {} } = serverCodeData;
+		const { entrypoint, modules: moduleManifest, compatibilityDate, env = {} } = manifest;
 
-		// Use content hash of the code as the worker key for caching
-		const codeHash = await computeContentHash(new TextEncoder().encode(JSON.stringify(serverCodeData)));
+		// Load all modules from KV by their content hashes
+		const modules: Record<string, string> = {};
+		await Promise.all(
+			Object.entries(moduleManifest).map(async ([modulePath, contentHash]) => {
+				const moduleKey = this.getServerCodeKey(projectId, contentHash);
+				const moduleContent = await this.env.SERVER_CODE_KV_NAMESPACE.get(moduleKey, 'text');
+
+				if (!moduleContent) {
+					throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);
+				}
+
+				modules[modulePath] = moduleContent;
+			})
+		);
+
+		// Use content hash of the manifest as the worker key for caching
+		const codeHash = await computeContentHash(new TextEncoder().encode(JSON.stringify(manifest)));
 
 		const worker = this.env.LOADER.get(codeHash, () => {
 			return {
@@ -484,7 +559,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 					...env,
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: assetConfig } }),
 				},
-				globalOutbound: null,
+				globalOutbound: null, // disable internet access
 			};
 		});
 
@@ -500,4 +575,28 @@ async function computeContentHash(content: ArrayBuffer | ArrayBufferView): Promi
 		.map((b) => b.toString(16).padStart(2, '0'))
 		.join('');
 	return contentHash;
+}
+
+async function* listAllKeys<TMetadata, TKey extends string = string>(
+	namespace: KVNamespace<TKey>,
+	options: KVNamespaceListOptions
+): AsyncGenerator<KVNamespaceListKey<TMetadata, TKey>, void, undefined> {
+	let complete = false;
+	let cursor: string | undefined;
+
+	while (!complete) {
+		// eslint-disable-next-line no-await-in-loop
+		const result = await namespace.list<TMetadata>({
+			...options,
+			cursor,
+		});
+
+		yield* result.keys;
+
+		if (result.list_complete) {
+			complete = true;
+		} else {
+			({ cursor } = result);
+		}
+	}
 }
