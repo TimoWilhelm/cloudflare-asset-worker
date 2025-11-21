@@ -66,7 +66,7 @@ export const generateRuleRegExp = (rule: string) => {
 
 export const generateRulesMatcher = <T>(
 	rules?: Record<string, T>,
-	replacerFn: (match: T, replacements: Replacements) => T = (match) => match
+	replacerFn: (match: T, replacements: Replacements) => T = (match) => match,
 ) => {
 	if (!rules) {
 		return () => [];
@@ -143,7 +143,7 @@ export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =
 					to: target.replace(/\/+/g, '/'),
 				};
 			}
-		}
+		},
 	);
 
 export const generateStaticRoutingRuleMatcher =

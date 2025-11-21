@@ -24,7 +24,7 @@ const encode = async (assetEntries: { path: string; contentHash: string }[]) => 
 			path: entry.path,
 			contentHash: entry.contentHash,
 			pathHashBytes: await SHA_256(entry.path, PATH_HASH_SIZE),
-		}))
+		})),
 	);
 	entries.sort((a, b) => compare(a.pathHashBytes, b.pathHashBytes));
 
@@ -59,7 +59,7 @@ describe('encode()', () => {
 					path: '/path3',
 					contentHash: 'ABCDEF01231230123131231FDFFEDFDFABCDEF01231230123131231FDFFEDFDF',
 				},
-			])
+			]),
 		);
 		expect(compare(computedValue, snapshotValue)).toBe(0);
 
@@ -77,7 +77,7 @@ describe('encode()', () => {
 					path: '/path3',
 					contentHash: 'ABCDEF01231230123131231FDFFEDFDFABCDEF01231230123131231FDFFEDFDF',
 				},
-			])
+			]),
 		);
 		expect(compare(invalidContentHashValue, snapshotValue)).not.toBe(0);
 
@@ -95,7 +95,7 @@ describe('encode()', () => {
 					path: '/path3',
 					contentHash: 'ABCDEF01231230123131231FDFFEDFDFABCDEF01231230123131231FDFFEDFDF',
 				},
-			])
+			]),
 		);
 		expect(compare(invalidPathValue, snapshotValue)).not.toBe(0);
 	});

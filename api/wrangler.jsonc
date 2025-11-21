@@ -6,11 +6,11 @@
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
 	},
 	"kv_namespaces": [
 		{
-			"binding": "ASSETS_KV_NAMESPACE"
-		}
-	]
+			"binding": "ASSETS_KV_NAMESPACE",
+		},
+	],
 }

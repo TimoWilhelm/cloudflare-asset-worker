@@ -59,7 +59,7 @@ describe('JWT utilities', () => {
 			const token1 = await generateJWT({ data: 'same' }, secret);
 
 			// Wait enough to ensure different timestamp (1 second precision)
-			await new Promise(resolve => setTimeout(resolve, 1100));
+			await new Promise((resolve) => setTimeout(resolve, 1100));
 
 			const token2 = await generateJWT({ data: 'same' }, secret);
 

@@ -1,9 +1,7 @@
 import type { ServerCodeManifest } from './types';
-import type { AssetConfig } from '../../api/src/configuration';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash } from './content-utils';
 import { getServerCodeKey } from './project-manager';
-import { WorkerEntrypoint } from 'cloudflare:workers';
 
 /**
  * Run server code for a project using dynamic worker loading
@@ -14,7 +12,6 @@ export async function runServerCode(
 	serverCodeKv: KVNamespace,
 	loader: WorkerLoader,
 	bindings: any,
-	assetConfig?: AssetConfig
 ): Promise<Response> {
 	// Load the manifest
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
@@ -64,7 +61,7 @@ export async function runServerCode(
 					// Fallback to plain string for unknown types
 					modules[modulePath] = new TextDecoder().decode(decodedBytes);
 			}
-		})
+		}),
 	);
 
 	// Use content hash of the manifest as the worker key for caching

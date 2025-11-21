@@ -45,7 +45,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			env,
 			configuration,
 			exists,
-			getByETag
+			getByETag,
 		);
 
 		expect(response.status).toBe(304);
@@ -71,7 +71,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			env,
 			configuration,
 			exists,
-			getByETag
+			getByETag,
 		);
 
 		expect(response.status).toBe(304);
@@ -97,7 +97,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			env,
 			configuration,
 			exists,
-			getByETag
+			getByETag,
 		);
 
 		expect(response.status).toBe(200);
@@ -128,7 +128,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				readableStream: new ReadableStream(),
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
-			})
+			}),
 		);
 
 		expect(response.status).toBe(404);
@@ -150,7 +150,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				readableStream: new ReadableStream(),
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
-			})
+			}),
 		);
 
 		expect(response.status).toBe(404);
@@ -336,7 +336,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				env,
 				configuration,
 				exists,
-				getByETag
+				getByETag,
 			);
 
 			expect(response.headers.has('Set-Cookie')).toBeFalsy();
@@ -353,7 +353,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 
 					return null;
 				},
-				getByETag
+				getByETag,
 			);
 
 			expect(response.headers.get('Location')).toBe('/foo');
@@ -367,7 +367,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				env,
 				configuration,
 				exists,
-				getByETag
+				getByETag,
 			);
 
 			expect(response.status).toBe(304);
@@ -388,7 +388,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				() => Promise.resolve(null),
 				() => {
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(301);
@@ -508,7 +508,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				() => Promise.resolve(null),
 				() => {
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(301);
@@ -540,7 +540,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						};
 					}
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(200);
@@ -572,7 +572,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						};
 					}
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(200);
@@ -604,7 +604,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						};
 					}
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(200);
@@ -636,7 +636,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						};
 					}
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(404);
@@ -650,7 +650,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				async () => null,
 				() => {
 					throw new Error('bang');
-				}
+				},
 			);
 
 			expect(response.status).toBe(404);
@@ -688,7 +688,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				env,
 				configuration,
 				exists,
-				getByETag
+				getByETag,
 			);
 
 			expect(response.status).toBe(200);
@@ -787,16 +787,21 @@ describe('[Asset Worker] `canFetch`', () => {
 				new Request('https://example.com/foo.html'),
 				env,
 				normalizeConfiguration({ html_handling: 'auto-trailing-slash' }),
-				exists
-			)
+				exists,
+			),
 		).toBeTruthy();
 
 		expect(
-			await canFetch(new Request('https://example.com/foo'), env, normalizeConfiguration({ html_handling: 'auto-trailing-slash' }), exists)
+			await canFetch(new Request('https://example.com/foo'), env, normalizeConfiguration({ html_handling: 'auto-trailing-slash' }), exists),
 		).toBeTruthy();
 
 		expect(
-			await canFetch(new Request('https://example.com/foo/'), env, normalizeConfiguration({ html_handling: 'auto-trailing-slash' }), exists)
+			await canFetch(
+				new Request('https://example.com/foo/'),
+				env,
+				normalizeConfiguration({ html_handling: 'auto-trailing-slash' }),
+				exists,
+			),
 		).toBeTruthy();
 	});
 
@@ -815,8 +820,8 @@ describe('[Asset Worker] `canFetch`', () => {
 					new Request('https://example.com/foo'),
 					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
-					exists
-				)
+					exists,
+				),
 			).toBeTruthy();
 
 			expect(
@@ -824,12 +829,12 @@ describe('[Asset Worker] `canFetch`', () => {
 					new Request('https://example.com/bar'),
 					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
-					exists
-				)
+					exists,
+				),
 			).toBeFalsy();
 
 			expect(
-				await canFetch(new Request('https://example.com/'), env, normalizeConfiguration({ not_found_handling: notFoundHandling }), exists)
+				await canFetch(new Request('https://example.com/'), env, normalizeConfiguration({ not_found_handling: notFoundHandling }), exists),
 			).toBeTruthy();
 
 			expect(
@@ -837,8 +842,8 @@ describe('[Asset Worker] `canFetch`', () => {
 					new Request('https://example.com/404'),
 					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
-					exists
-				)
+					exists,
+				),
 			).toBeTruthy();
 		}
 	});
@@ -927,8 +932,8 @@ describe('[Asset Worker] `canFetch`', () => {
 				new Request('https://example.com/proxy-invalid'),
 				env,
 				{ ...configuration, not_found_handling: 'none' },
-				async () => null
-			)
+				async () => null,
+			),
 		).toBeTruthy();
 
 		expect(
@@ -936,8 +941,8 @@ describe('[Asset Worker] `canFetch`', () => {
 				new Request('https://example.com/proxy-invalid'),
 				env,
 				{ ...configuration, not_found_handling: '404-page' },
-				async () => null
-			)
+				async () => null,
+			),
 		).toBeTruthy();
 	});
 
@@ -963,8 +968,8 @@ describe('[Asset Worker] `canFetch`', () => {
 					}),
 					env,
 					config,
-					exists
-				)
+					exists,
+				),
 			).toBe(true);
 		});
 

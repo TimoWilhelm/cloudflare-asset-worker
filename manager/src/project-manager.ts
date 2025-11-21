@@ -5,10 +5,7 @@ import { listAllKeys } from './util/kv';
 /**
  * Create a new project
  */
-export async function createProject(
-	request: Request,
-	projectsKv: KVNamespace
-): Promise<Response> {
+export async function createProject(request: Request, projectsKv: KVNamespace): Promise<Response> {
 	const body = await request.json<{ name?: string }>();
 	const projectId = crypto.randomUUID();
 
@@ -31,7 +28,7 @@ export async function createProject(
 		{
 			status: 201,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }
 
@@ -44,7 +41,7 @@ export async function listProjects(projectsKv: KVNamespace): Promise<Response> {
 	const projects = await Promise.all(
 		keys.map(async (key: { name: string }) => {
 			return await projectsKv.get<ProjectMetadata>(key.name, 'json');
-		})
+		}),
 	);
 
 	return new Response(
@@ -55,7 +52,7 @@ export async function listProjects(projectsKv: KVNamespace): Promise<Response> {
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }
 
@@ -77,7 +74,7 @@ export async function getProjectInfo(projectId: string, projectsKv: KVNamespace)
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }
 
@@ -88,7 +85,7 @@ export async function deleteProject(
 	projectId: string,
 	projectsKv: KVNamespace,
 	serverCodeKv: KVNamespace,
-	assetWorker: Service<AssetApi>
+	assetWorker: Service<AssetApi>,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
 
@@ -126,7 +123,7 @@ export async function deleteProject(
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }
 

@@ -53,11 +53,11 @@ Response includes JWT token and buckets of hashes to upload:
 
 ```json
 {
-  "result": {
-    "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "buckets": [["abc123...", "def456..."]]
-  },
-  "success": true
+	"result": {
+		"jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+		"buckets": [["abc123...", "def456..."]]
+	},
+	"success": true
 }
 ```
 
@@ -78,10 +78,10 @@ Returns completion JWT when all buckets uploaded:
 
 ```json
 {
-  "result": {
-    "jwt": "completion-jwt-token"
-  },
-  "success": true
+	"result": {
+		"jwt": "completion-jwt-token"
+	},
+	"success": true
 }
 ```
 
@@ -117,15 +117,15 @@ Response:
 
 ```json
 {
-  "success": true,
-  "project": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "My Project",
-    "createdAt": "2025-01-01T00:00:00.000Z",
-    "updatedAt": "2025-01-01T00:00:00.000Z",
-    "hasServerCode": false,
-    "assetsCount": 0
-  }
+	"success": true,
+	"project": {
+		"id": "550e8400-e29b-41d4-a716-446655440000",
+		"name": "My Project",
+		"createdAt": "2025-01-01T00:00:00.000Z",
+		"updatedAt": "2025-01-01T00:00:00.000Z",
+		"hasServerCode": false,
+		"assetsCount": 0
+	}
 }
 ```
 
@@ -175,14 +175,10 @@ Deletes all project data: metadata, assets, manifest, and server code.
 
 ```javascript
 // Always run worker first
-run_worker_first: true
+run_worker_first: true;
 
 // Run worker first for specific patterns (glob syntax)
-run_worker_first: [
-  '/api/*',
-  '/admin/**',
-  '/*.json'
-]
+run_worker_first: ['/api/*', '/admin/**', '/*.json'];
 ```
 
 The manager uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
@@ -193,17 +189,17 @@ The manager uses [minimatch](https://github.com/isaacs/minimatch) for glob patte
 
 ```javascript
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+	async fetch(request, env, ctx) {
+		const url = new URL(request.url);
 
-    // Handle API requests
-    if (url.pathname.startsWith('/api/')) {
-      return new Response('API response');
-    }
+		// Handle API requests
+		if (url.pathname.startsWith('/api/')) {
+			return new Response('API response');
+		}
 
-    // Fallback to static assets
-    return env.ASSETS.fetch(request);
-  }
+		// Fallback to static assets
+		return env.ASSETS.fetch(request);
+	},
 };
 ```
 
@@ -211,18 +207,18 @@ export default {
 
 ```javascript
 export default {
-  async fetch(request, env, ctx) {
-    // Custom logic
-    const data = await fetch('https://api.example.com/data');
+	async fetch(request, env, ctx) {
+		// Custom logic
+		const data = await fetch('https://api.example.com/data');
 
-    // Get static asset and modify it
-    const response = await env.ASSETS.fetch(request);
+		// Get static asset and modify it
+		const response = await env.ASSETS.fetch(request);
 
-    // Or build dynamic response
-    return new Response(html, {
-      headers: { 'Content-Type': 'text/html' }
-    });
-  }
+		// Or build dynamic response
+		return new Response(html, {
+			headers: { 'Content-Type': 'text/html' },
+		});
+	},
 };
 ```
 
@@ -232,10 +228,10 @@ Pass environment variables in the deployment payload:
 
 ```json
 {
-  "env": {
-    "DATABASE_URL": "postgres://...",
-    "API_KEY": "secret"
-  }
+	"env": {
+		"DATABASE_URL": "postgres://...",
+		"API_KEY": "secret"
+	}
 }
 ```
 
@@ -243,10 +239,10 @@ Access them in your worker:
 
 ```javascript
 export default {
-  async fetch(request, env) {
-    console.log(env.DATABASE_URL);
-    console.log(env.API_KEY);
-  }
+	async fetch(request, env) {
+		console.log(env.DATABASE_URL);
+		console.log(env.API_KEY);
+	},
 };
 ```
 
@@ -287,31 +283,31 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
-  "name": "asset-worker-manager",
-  "main": "src/worker.ts",
-  "compatibility_date": "2025-11-11",
-  "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
-  "kv_namespaces": [
-    {
-      "binding": "PROJECTS_KV_NAMESPACE"
-      // id: "your-kv-namespace-id"
-    },
-    {
-      "binding": "SERVER_CODE_KV_NAMESPACE"
-      // id: "your-kv-namespace-id"
-    }
-  ],
-  "services": [
-    {
-      "binding": "ASSET_WORKER",
-      "service": "asset-worker-api"
-    }
-  ],
-  "worker_loaders": [
-    {
-      "binding": "LOADER"
-    }
-  ]
+	"name": "asset-worker-manager",
+	"main": "src/worker.ts",
+	"compatibility_date": "2025-11-11",
+	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+	"kv_namespaces": [
+		{
+			"binding": "PROJECTS_KV_NAMESPACE",
+			// id: "your-kv-namespace-id"
+		},
+		{
+			"binding": "SERVER_CODE_KV_NAMESPACE",
+			// id: "your-kv-namespace-id"
+		},
+	],
+	"services": [
+		{
+			"binding": "ASSET_WORKER",
+			"service": "asset-worker-api",
+		},
+	],
+	"worker_loaders": [
+		{
+			"binding": "LOADER",
+		},
+	],
 }
 ```
 

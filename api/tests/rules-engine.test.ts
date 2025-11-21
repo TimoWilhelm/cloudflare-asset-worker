@@ -20,12 +20,12 @@ describe('rules engine', () => {
 		expect(
 			matcher({
 				request: new Request('https://example.com//fake.host/actually-a-path'),
-			})
+			}),
 		).toEqual([5]);
 		expect(
 			matcher({
 				request: new Request('other://custom.domain:123/test'),
-			})
+			}),
 		).toEqual([1, 3]);
 	});
 
@@ -36,7 +36,7 @@ describe('rules engine', () => {
 		expect(
 			matcher({
 				request: new Request('https://example.com/$~. \\!+-/[bo|{o}]...()'),
-			})
+			}),
 		).toEqual([1]);
 	});
 
@@ -50,7 +50,7 @@ describe('rules engine', () => {
 				'https://:subdomain.pages.:tld/*': '5/:subdomain/:tld/:splat',
 				'https://next.:subdomain.pages.:tld/*': '6/:subdomain/',
 			},
-			(match, replacements) => replacer(match, replacements)
+			(match, replacements) => replacer(match, replacements),
 		);
 		expect(matcher({ request: new Request('https://example.com/foo/test/yes') })).toEqual(['1/yes', '2/test/yes']);
 		expect(matcher({ request: new Request('https://example.com/foo/test/') })).toEqual(['1/', '2/test/']);
@@ -78,7 +78,7 @@ describe('replacer', () => {
 
 	test('should replace all instances of placeholders', () => {
 		expect(
-			replacer('Link: </assets/:value/main.js>; rel=preload; as=script, </assets/:value/lang.js>; rel=preload; as=script', { value: 'js' })
+			replacer('Link: </assets/:value/main.js>; rel=preload; as=script, </assets/:value/lang.js>; rel=preload; as=script', { value: 'js' }),
 		).toEqual('Link: </assets/js/main.js>; rel=preload; as=script, </assets/js/lang.js>; rel=preload; as=script');
 	});
 });
@@ -88,19 +88,19 @@ describe('static routing rules', () => {
 		expect(
 			generateStaticRoutingRuleMatcher(['/some/path'])({
 				request: new Request('https://site.com/some/path'),
-			})
+			}),
 		).toEqual(true);
 
 		expect(
 			generateStaticRoutingRuleMatcher(['/some/*'])({
 				request: new Request('https://site.com/some/path'),
-			})
+			}),
 		).toEqual(true);
 
 		expect(
 			generateStaticRoutingRuleMatcher(['/no/match', '/some/*'])({
 				request: new Request('https://site.com/some/path'),
-			})
+			}),
 		).toEqual(true);
 	});
 
@@ -108,25 +108,25 @@ describe('static routing rules', () => {
 		expect(
 			generateStaticRoutingRuleMatcher(['/some/path'])({
 				request: new Request('https://site.com'),
-			})
+			}),
 		).toEqual(false);
 
 		expect(
 			generateStaticRoutingRuleMatcher(['/some/*'])({
 				request: new Request('https://site.com/path'),
-			})
+			}),
 		).toEqual(false);
 
 		expect(
 			generateStaticRoutingRuleMatcher(['/some/path', '/other/path'])({
 				request: new Request('https://site.com/path'),
-			})
+			}),
 		).toEqual(false);
 
 		expect(
 			generateStaticRoutingRuleMatcher([])({
 				request: new Request('https://site.com/some/path'),
-			})
+			}),
 		).toEqual(false);
 	});
 
@@ -185,7 +185,7 @@ describe('static routing rules', () => {
 			expect(
 				matcher({
 					request: new Request('http://example.com/foo?bar=baz/login/foo'),
-				})
+				}),
 			).toEqual(false);
 		}
 
@@ -195,12 +195,12 @@ describe('static routing rules', () => {
 			expect(
 				matcher({
 					request: new Request('http://example2.com/foo.example.com/baz'),
-				})
+				}),
 			).toEqual(true);
 			expect(
 				matcher({
 					request: new Request('http://example2.com/?q=foo.example.com/baz'),
-				})
+				}),
 			).toEqual(true);
 			expect(matcher({ request: new Request('https://example.com/foo.html') })).toEqual(true);
 			expect(matcher({ request: new Request('https://example.com/foo/bar.html') })).toEqual(true);
@@ -220,12 +220,12 @@ describe('static routing rules', () => {
 			expect(
 				matcher({
 					request: new Request('http://example2.com/foo.example.com/baz'),
-				})
+				}),
 			).toEqual(true);
 			expect(
 				matcher({
 					request: new Request('http://example2.com/?q=foo.example.com/baz'),
-				})
+				}),
 			).toEqual(true);
 			expect(matcher({ request: new Request('https://example.com/foo.html') })).toEqual(true);
 			expect(matcher({ request: new Request('https://example.com/foo/bar.html') })).toEqual(true);

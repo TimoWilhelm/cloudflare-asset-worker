@@ -6,25 +6,25 @@
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
 	},
 	"kv_namespaces": [
 		{
-			"binding": "PROJECTS_KV_NAMESPACE"
+			"binding": "PROJECTS_KV_NAMESPACE",
 		},
 		{
-			"binding": "SERVER_CODE_KV_NAMESPACE"
-		}
+			"binding": "SERVER_CODE_KV_NAMESPACE",
+		},
 	],
 	"services": [
 		{
 			"binding": "ASSET_WORKER",
-			"service": "asset-worker-api"
-		}
+			"service": "asset-worker-api",
+		},
 	],
 	"worker_loaders": [
 		{
-			"binding": "LOADER"
-		}
-	]
+			"binding": "LOADER",
+		},
+	],
 }

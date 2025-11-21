@@ -14,7 +14,7 @@ export async function createAssetUploadSession(
 	request: Request,
 	projectsKv: KVNamespace,
 	assetWorker: Service<AssetApi>,
-	jwtSecret: string
+	jwtSecret: string,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
 
@@ -37,10 +37,7 @@ export async function createAssetUploadSession(
 		return new Response('Empty manifest', { status: 400 });
 	}
 	if (manifestSize > MAX_MANIFEST_ENTRIES) {
-		return new Response(
-			`Manifest too large: ${manifestSize} files exceeds ${MAX_MANIFEST_ENTRIES}`,
-			{ status: 413 }
-		);
+		return new Response(`Manifest too large: ${manifestSize} files exceeds ${MAX_MANIFEST_ENTRIES}`, { status: 413 });
 	}
 
 	// Validate each manifest entry
@@ -53,10 +50,7 @@ export async function createAssetUploadSession(
 
 		// Validate hash format (must be 64 hex characters for SHA-256)
 		if (!data.hash || !/^[0-9a-f]{64}$/i.test(data.hash)) {
-			return new Response(
-				`Invalid hash for "${pathname}": must be 64 hexadecimal characters`,
-				{ status: 400 }
-			);
+			return new Response(`Invalid hash for "${pathname}": must be 64 hexadecimal characters`, { status: 400 });
 		}
 
 		// Validate size (must be non-negative integer)
@@ -67,10 +61,7 @@ export async function createAssetUploadSession(
 		// Validate reasonable size limit (e.g., 100MB per file)
 		const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 		if (data.size > MAX_FILE_SIZE) {
-			return new Response(
-				`File too large "${pathname}": ${data.size} bytes exceeds ${MAX_FILE_SIZE} bytes`,
-				{ status: 413 }
-			);
+			return new Response(`File too large "${pathname}": ${data.size} bytes exceeds ${MAX_FILE_SIZE} bytes`, { status: 413 });
 		}
 
 		totalSize += data.size;
@@ -79,10 +70,7 @@ export async function createAssetUploadSession(
 	// Validate total manifest size (e.g., 1GB total)
 	const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 1GB
 	if (totalSize > MAX_TOTAL_SIZE) {
-		return new Response(
-			`Total manifest size too large: ${totalSize} bytes exceeds ${MAX_TOTAL_SIZE} bytes`,
-			{ status: 413 }
-		);
+		return new Response(`Total manifest size too large: ${totalSize} bytes exceeds ${MAX_TOTAL_SIZE} bytes`, { status: 413 });
 	}
 
 	// Check which hashes already exist in KV via AssetApi's efficient checkAssetsExist method
@@ -120,13 +108,9 @@ export async function createAssetUploadSession(
 
 		// Still need to store session for deployment phase to verify the completion token
 		const sessionKey = `session:${sessionId}`;
-		await projectsKv.put(
-			sessionKey,
-			JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }),
-			{
-				expirationTtl: 3600, // 1 hour
-			}
-		);
+		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+			expirationTtl: 3600, // 1 hour
+		});
 
 		return new Response(
 			JSON.stringify({
@@ -141,19 +125,15 @@ export async function createAssetUploadSession(
 			{
 				status: 200,
 				headers: { 'Content-Type': 'application/json' },
-			}
+			},
 		);
 	}
 
 	// Store session in KV with 1 hour expiration
 	const sessionKey = `session:${sessionId}`;
-	await projectsKv.put(
-		sessionKey,
-		JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }),
-		{
-			expirationTtl: 3600, // 1 hour
-		}
-	);
+	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+		expirationTtl: 3600, // 1 hour
+	});
 
 	return new Response(
 		JSON.stringify({
@@ -168,7 +148,7 @@ export async function createAssetUploadSession(
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }
 
@@ -181,7 +161,7 @@ export async function uploadAssets(
 	request: Request,
 	projectsKv: KVNamespace,
 	assetWorker: Service<AssetApi>,
-	jwtSecret: string
+	jwtSecret: string,
 ): Promise<Response> {
 	// Extract JWT from Authorization header
 	const authHeader = request.headers.get('Authorization');
@@ -217,10 +197,7 @@ export async function uploadAssets(
 	// Validate number of files (shouldn't exceed bucket size)
 	const MAX_FILES_PER_REQUEST = 50; // Conservative limit
 	if (Object.keys(payload).length > MAX_FILES_PER_REQUEST) {
-		return new Response(
-			`Too many files in request: ${Object.keys(payload).length} exceeds ${MAX_FILES_PER_REQUEST}`,
-			{ status: 413 }
-		);
+		return new Response(`Too many files in request: ${Object.keys(payload).length} exceeds ${MAX_FILES_PER_REQUEST}`, { status: 413 });
 	}
 
 	// Upload each asset
@@ -242,10 +219,7 @@ export async function uploadAssets(
 		// Verify the uploaded content matches the claimed hash
 		const actualHash = await computeContentHash(content);
 		if (actualHash !== hash) {
-			return new Response(
-				`Content hash mismatch: expected ${hash}, got ${actualHash}`,
-				{ status: 400 }
-			);
+			return new Response(`Content hash mismatch: expected ${hash}, got ${actualHash}`, { status: 400 });
 		}
 
 		// Verify size matches manifest (optional but recommended)
@@ -253,10 +227,7 @@ export async function uploadAssets(
 		if (manifestEntry) {
 			const [pathname, data] = manifestEntry;
 			if (data.size && content.length !== data.size) {
-				return new Response(
-					`Size mismatch for ${pathname}: expected ${data.size}, got ${content.length}`,
-					{ status: 400 }
-				);
+				return new Response(`Size mismatch for ${pathname}: expected ${data.size}, got ${content.length}`, { status: 400 });
 			}
 		}
 
@@ -277,28 +248,27 @@ export async function uploadAssets(
 	const allUploaded = allHashesInBuckets.every((hash) => session.uploadedHashes.has(hash));
 
 	// Update session
-	await projectsKv.put(
-		sessionKey,
-		JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }),
-		{ expirationTtl: 3600 }
-	);
+	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+		expirationTtl: 3600,
+	});
 
 	// If all uploads complete, return completion JWT
 	if (allUploaded) {
-		const completionJwt = await generateJWT({
-			sessionId: session.sessionId,
-			projectId,
-			phase: 'complete',
-			manifest: session.manifest,
-		}, jwtSecret);
+		const completionJwt = await generateJWT(
+			{
+				sessionId: session.sessionId,
+				projectId,
+				phase: 'complete',
+				manifest: session.manifest,
+			},
+			jwtSecret,
+		);
 
 		// Update session with completion token
 		session.completionToken = completionJwt;
-		await projectsKv.put(
-			sessionKey,
-			JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }),
-			{ expirationTtl: 3600 }
-		);
+		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+			expirationTtl: 3600,
+		});
 
 		return new Response(
 			JSON.stringify({
@@ -312,7 +282,7 @@ export async function uploadAssets(
 			{
 				status: 201,
 				headers: { 'Content-Type': 'application/json' },
-			}
+			},
 		);
 	}
 
@@ -329,6 +299,6 @@ export async function uploadAssets(
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }

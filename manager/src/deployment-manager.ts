@@ -16,7 +16,7 @@ export async function deployProject(
 	projectsKv: KVNamespace,
 	serverCodeKv: KVNamespace,
 	assetWorker: Service<AssetApi>,
-	jwtSecret: string
+	jwtSecret: string,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
 
@@ -117,7 +117,7 @@ export async function deployProject(
 			modulesToUpload.map(async ({ hash, content }) => {
 				const moduleKey = getServerCodeKey(projectId, hash);
 				await serverCodeKv.put(moduleKey, content);
-			})
+			}),
 		);
 
 		// Store the manifest
@@ -164,6 +164,6 @@ export async function deployProject(
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
-		}
+		},
 	);
 }

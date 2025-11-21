@@ -253,7 +253,7 @@ describe('routing utilities', () => {
 			const request = new Request('https://example.com/__project/my-project/api', {
 				headers: {
 					'Content-Type': 'application/json',
-					'Authorization': 'Bearer token123',
+					Authorization: 'Bearer token123',
 				},
 			});
 			const rewritten = rewriteRequestUrl(request, 'my-project');

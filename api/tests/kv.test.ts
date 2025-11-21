@@ -26,7 +26,7 @@ describe('[Asset Worker] Fetching assets from KV', () => {
 					metadata: {
 						contentType: 'text/html',
 					},
-				}) as unknown as Promise<KVNamespaceGetWithMetadataResult<ReadableStream, AssetMetadata>>
+				}) as unknown as Promise<KVNamespaceGetWithMetadataResult<ReadableStream, AssetMetadata>>,
 			);
 
 			const asset = await getAssetWithMetadataFromKV(mockKVNamespace, 'abcd');
@@ -62,7 +62,7 @@ describe('[Asset Worker] Fetching assets from KV', () => {
 			spy.mockReturnValue(Promise.reject(new Error('Oeps! Something went wrong')));
 
 			await expect(() => getAssetWithMetadataFromKV(mockKVNamespace, 'abcd')).rejects.toThrowError(
-				'KV GET abcd failed: Oeps! Something went wrong'
+				'KV GET abcd failed: Oeps! Something went wrong',
 			);
 			expect(spy).toHaveBeenCalledTimes(2);
 		});

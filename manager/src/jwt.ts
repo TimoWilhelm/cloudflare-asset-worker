@@ -18,19 +18,9 @@ export async function generateJWT(payload: any, secret: string): Promise<string>
 
 	// Create signature using HMAC-SHA256
 	const encoder = new TextEncoder();
-	const key = await crypto.subtle.importKey(
-		'raw',
-		encoder.encode(secret),
-		{ name: 'HMAC', hash: 'SHA-256' },
-		false,
-		['sign']
-	);
+	const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
 
-	const signature = await crypto.subtle.sign(
-		'HMAC',
-		key,
-		encoder.encode(`${encodedHeader}.${encodedPayload}`)
-	);
+	const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(`${encodedHeader}.${encodedPayload}`));
 
 	const encodedSignature = base64.encode(new Uint8Array(signature));
 	return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
@@ -48,21 +38,10 @@ export async function verifyJWT(token: string, secret: string): Promise<any | nu
 
 		// Verify signature
 		const encoder = new TextEncoder();
-		const key = await crypto.subtle.importKey(
-			'raw',
-			encoder.encode(secret),
-			{ name: 'HMAC', hash: 'SHA-256' },
-			false,
-			['verify']
-		);
+		const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
 
 		const signatureBytes = base64.decode(encodedSignature);
-		const isValid = await crypto.subtle.verify(
-			'HMAC',
-			key,
-			signatureBytes,
-			encoder.encode(`${encodedHeader}.${encodedPayload}`)
-		);
+		const isValid = await crypto.subtle.verify('HMAC', key, signatureBytes, encoder.encode(`${encodedHeader}.${encodedPayload}`));
 
 		if (!isValid) {
 			return null;

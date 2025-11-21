@@ -31,7 +31,7 @@ describe('asset-manager', () => {
 			uploadAsset: async (hash: string, content: ArrayBuffer, projectId: string, contentType?: string) => {
 				existingHashes.add(hash);
 			},
-		} as any);
+		}) as any;
 
 	describe('createAssetUploadSession', () => {
 		it('creates upload session with valid manifest', async () => {
@@ -386,7 +386,7 @@ describe('asset-manager', () => {
 					projectId: 'proj-123',
 					phase: 'complete',
 				},
-				jwtSecret
+				jwtSecret,
 			);
 
 			const request = new Request('http://example.com', {

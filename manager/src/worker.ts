@@ -43,7 +43,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 							success: false,
 							error: 'API_TOKEN not configured',
 						},
-						500
+						500,
 					);
 				}
 
@@ -53,7 +53,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 							success: false,
 							error: 'Unauthorized: Invalid or missing Authorization header',
 						},
-						401
+						401,
 					);
 				}
 
@@ -100,7 +100,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 					this.env.PROJECTS_KV_NAMESPACE,
 					this.env.SERVER_CODE_KV_NAMESPACE,
 					assets,
-					this.env.JWT_SECRET
+					this.env.JWT_SECRET,
 				);
 			});
 
@@ -110,7 +110,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 						success: false,
 						error: err instanceof Error ? err.message : 'Unknown error',
 					},
-					500
+					500,
 				);
 			});
 
@@ -140,16 +140,9 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		// Helper to run server code with common parameters
 		const executeServerCode = () =>
-			runServerCode(
-				rewrittenRequest,
-				projectId,
-				this.env.SERVER_CODE_KV_NAMESPACE,
-				this.env.LOADER,
-				{
-					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
-				},
-				project.config
-			);
+			runServerCode(rewrittenRequest, projectId, this.env.SERVER_CODE_KV_NAMESPACE, this.env.LOADER, {
+				ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
+			});
 
 		// Decide whether to check assets first or run worker first based on config
 		const rewrittenUrl = new URL(rewrittenRequest.url);

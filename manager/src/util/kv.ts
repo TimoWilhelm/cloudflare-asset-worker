@@ -1,6 +1,6 @@
 export async function* listAllKeys<TMetadata, TKey extends string = string>(
 	namespace: KVNamespace<TKey>,
-	options: KVNamespaceListOptions
+	options: KVNamespaceListOptions,
 ): AsyncGenerator<KVNamespaceListKey<TMetadata, TKey>, void, undefined> {
 	let complete = false;
 	let cursor: string | undefined;

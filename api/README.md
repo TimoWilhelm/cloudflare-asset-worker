@@ -15,6 +15,7 @@ The Asset API worker is an RPC service that handles all static asset storage and
 The API worker manages one KV namespace:
 
 **`ASSETS_KV_NAMESPACE`** - All project assets and manifests
+
 - Assets: `projectId:contentHash` (SHA-256 hash of content)
 - Manifest: `projectId:ASSETS_MANIFEST` (binary manifest file)
 
@@ -29,6 +30,7 @@ The Asset API worker exposes the following methods via Service Binding:
 Serve a static asset from KV storage.
 
 **Parameters:**
+
 - `request: Request` - The incoming HTTP request
 - `projectId: string` - The project ID for namespacing
 - `projectConfig?: AssetConfig` - Optional configuration (redirects, headers, html_handling, etc.)
@@ -40,6 +42,7 @@ Serve a static asset from KV storage.
 Check if an asset exists for the given request.
 
 **Parameters:**
+
 - `request: Request` - The request to check
 - `projectId: string` - The project ID
 - `projectConfig?: AssetConfig` - Optional configuration
@@ -51,6 +54,7 @@ Check if an asset exists for the given request.
 Upload a single asset to KV storage.
 
 **Parameters:**
+
 - `eTag: string` - Content hash (64 hex characters, SHA-256)
 - `content: ArrayBuffer | ReadableStream` - The asset content
 - `projectId: string` - The project ID for namespacing
@@ -63,6 +67,7 @@ Upload a single asset to KV storage.
 Upload asset manifest and return list of assets that need uploading.
 
 **Parameters:**
+
 - `entries: ManifestEntry[]` - Array of `{pathname, contentHash}` objects
 - `projectId: string` - The project ID for namespacing
 
@@ -73,6 +78,7 @@ Upload asset manifest and return list of assets that need uploading.
 Efficiently check which assets already exist in KV.
 
 **Parameters:**
+
 - `eTags: string[]` - Array of content hashes to check
 - `projectId: string` - The project ID
 
@@ -83,6 +89,7 @@ Efficiently check which assets already exist in KV.
 Delete all assets and manifest for a project.
 
 **Parameters:**
+
 - `projectId: string` - The project ID
 
 **Returns:** `Promise<{deletedAssets: number, deletedManifest: boolean}>` - Deletion statistics
@@ -160,16 +167,16 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
-  "name": "asset-worker-api",
-  "main": "src/worker.ts",
-  "compatibility_date": "2025-11-11",
-  "compatibility_flags": ["nodejs_compat"],
-  "kv_namespaces": [
-    {
-      "binding": "ASSETS_KV_NAMESPACE"
-      // id: "your-kv-namespace-id"
-    }
-  ]
+	"name": "asset-worker-api",
+	"main": "src/worker.ts",
+	"compatibility_date": "2025-11-11",
+	"compatibility_flags": ["nodejs_compat"],
+	"kv_namespaces": [
+		{
+			"binding": "ASSETS_KV_NAMESPACE",
+			// id: "your-kv-namespace-id"
+		},
+	],
 }
 ```
 
