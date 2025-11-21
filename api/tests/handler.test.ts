@@ -3,14 +3,7 @@
 import { vi } from 'vitest';
 import { normalizeConfiguration } from '../src/configuration';
 import { canFetch, handleRequest } from '../src/handler';
-
-const mockEnv: Env = {
-	ASSETS_KV_NAMESPACE: {} as KVNamespace,
-	ENVIRONMENT: 'development',
-	ASSETS_MANIFEST: 'todo',
-	CONFIG: {},
-	VERSION_METADATA: {} as WorkerVersionMetadata,
-};
+import { env } from 'cloudflare:test';
 
 describe('[Asset Worker] `handleRequest`', () => {
 	it('attaches ETag headers to responses', async () => {
@@ -26,7 +19,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			cacheStatus: 'HIT',
 		});
 
-		const response = await handleRequest(new Request('https://example.com/'), mockEnv, configuration, exists, getByETag);
+		const response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag);
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get('ETag')).toBe(`"${eTag}"`);
@@ -49,7 +42,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			new Request('https://example.com/', {
 				headers: { 'If-None-Match': `"${eTag}"` },
 			}),
-			mockEnv,
+			env,
 			configuration,
 			exists,
 			getByETag
@@ -75,7 +68,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			new Request('https://example.com/', {
 				headers: { 'If-None-Match': `W/"${eTag}"` },
 			}),
-			mockEnv,
+			env,
 			configuration,
 			exists,
 			getByETag
@@ -101,7 +94,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			new Request('https://example.com/', {
 				headers: { 'If-None-Match': 'a fake etag!' },
 			}),
-			mockEnv,
+			env,
 			configuration,
 			exists,
 			getByETag
@@ -121,7 +114,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		// Attempt to path traverse down to the root /test within asset-server
 		let response = await handleRequest(
 			new Request('https://example.com/blog/../test'),
-			mockEnv,
+			env,
 			normalizeConfiguration({}),
 			async (pathname: string) => {
 				if (pathname.startsWith('/blog/')) {
@@ -143,7 +136,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		// Attempt to path traverse down to the root /test within asset-server
 		response = await handleRequest(
 			new Request('https://example.com/blog/%2E%2E/test'),
-			mockEnv,
+			env,
 			normalizeConfiguration({}),
 			async (pathname: string) => {
 				if (pathname.startsWith('/blog/')) {
@@ -183,11 +176,11 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 
 		// first malformed URL should return 404 as no match above
-		const response = await handleRequest(new Request('https://example.com/%A0'), mockEnv, configuration, exists, getByEtag);
+		const response = await handleRequest(new Request('https://example.com/%A0'), env, configuration, exists, getByEtag);
 		expect(response.status).toBe(404);
 
 		// but second malformed URL should return 307 as it matches and then redirects
-		const response2 = await handleRequest(new Request('https://example.com/%A0%A0'), mockEnv, configuration, exists, getByEtag);
+		const response2 = await handleRequest(new Request('https://example.com/%A0%A0'), env, configuration, exists, getByEtag);
 		expect(response2.status).toBe(307);
 	});
 
@@ -205,7 +198,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 
 		// Test cache HIT
-		const cacheHitResponse = await handleRequest(new Request('https://example.com/'), mockEnv, configuration, exists, getByEtag);
+		const cacheHitResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag);
 
 		expect(cacheHitResponse.status).toBe(200);
 		expect(cacheHitResponse.headers.get('CF-Cache-Status')).toBe('HIT');
@@ -217,7 +210,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			cacheStatus: 'MISS',
 		});
 
-		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), mockEnv, configuration, exists, getByEtag);
+		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag);
 
 		expect(cacheMissResponse.status).toBe(200);
 		expect(cacheMissResponse.headers.get('CF-Cache-Status')).toBe('MISS');
@@ -290,63 +283,57 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Static header on root
-			let response = await handleRequest(new Request('https://example.com/'), mockEnv, configuration, exists, getByETag);
+			let response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('X-Custom-Header')).toBe('Custom-Value');
 			expect(response.headers.has('X-Custom-Foo-Header')).toBeFalsy();
 
 			// Static header on path
-			response = await handleRequest(new Request('https://example.com/foo'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('X-Custom-Foo-Header')).toBe('Custom-Foo-Value');
 			expect(response.headers.has('X-Custom-Header')).toBeFalsy();
 
 			// Placeholder header
-			response = await handleRequest(new Request('https://example.com/bang/baz'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/bang/baz'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('X-Custom-Bang-Header')).toBe('Custom-Bang-Value baz');
 
 			// Placeholder doesn't catch children
-			response = await handleRequest(new Request('https://example.com/bang/baz/abba'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/bang/baz/abba'), env, configuration, exists, getByETag);
 
 			expect(response.headers.has('X-Custom-Bang-Header')).toBeFalsy();
 
 			// Splat header
-			response = await handleRequest(
-				new Request('https://example.com/art/attack/by/Neil/Buchanan'),
-				mockEnv,
-				configuration,
-				exists,
-				getByETag
-			);
+			response = await handleRequest(new Request('https://example.com/art/attack/by/Neil/Buchanan'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('X-Custom-Art-Header')).toBe('Custom-Art-Value attack/by/Neil/Buchanan');
 			expect(response.headers.get('Set-Cookie')).toBe('me');
 
 			// Headers are appended
-			response = await handleRequest(new Request('https://example.com/art/nested/attack'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/art/nested/attack'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('Set-Cookie')).toBe('me, me too');
 
 			// System headers are overwritten
-			response = await handleRequest(new Request('https://example.com/system/override'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/system/override'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('ETag')).toBe('very rogue');
 
 			// System headers can be unset
-			response = await handleRequest(new Request('https://example.com/system/underride'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/system/underride'), env, configuration, exists, getByETag);
 
 			expect(response.headers.has('ETag')).toBeFalsy();
 
 			// Custom headers can be unset and redefined
-			response = await handleRequest(new Request('https://example.com/art/nested/unset/attack'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/art/nested/unset/attack'), env, configuration, exists, getByETag);
 
 			expect(response.headers.get('Set-Cookie')).toBe('hijack');
 
 			// Custom headers can entirely unset
 			response = await handleRequest(
 				new Request('https://example.com/art/nested/unset/attack/totalunset'),
-				mockEnv,
+				env,
 				configuration,
 				exists,
 				getByETag
@@ -357,7 +344,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Custom headers are applied even to redirect responses
 			response = await handleRequest(
 				new Request('https://example.com/foo.html'),
-				mockEnv,
+				env,
 				{ ...configuration, html_handling: 'auto-trailing-slash' },
 				async (pathname: string) => {
 					if (pathname === '/foo.html') {
@@ -377,7 +364,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				new Request('https://example.com/foo', {
 					headers: { 'If-None-Match': `"${eTag}"` },
 				}),
-				mockEnv,
+				env,
 				configuration,
 				exists,
 				getByETag
@@ -389,7 +376,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Custom headers are applied even to custom redirect responses
 			response = await handleRequest(
 				new Request('https://example.com/foo'),
-				mockEnv,
+				env,
 				{
 					...configuration,
 					redirects: {
@@ -508,7 +495,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Static redirect in front of an asset
-			let response = await handleRequest(new Request('https://example.com/foo'), mockEnv, configuration, exists, getByETag);
+			let response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(301);
 			expect(response.headers.get('Location')).toBe('/bar');
@@ -516,7 +503,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Static redirect with no underlying asset
 			response = await handleRequest(
 				new Request('https://example.com/foo'),
-				mockEnv,
+				env,
 				configuration,
 				() => Promise.resolve(null),
 				() => {
@@ -530,7 +517,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Proxy to another non-HTML asset
 			response = await handleRequest(
 				new Request('https://example.com/proxy'),
-				mockEnv,
+				env,
 				configuration,
 				async (pathname: string) => {
 					if (pathname === '/other') {
@@ -562,7 +549,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Proxy to another nearby HTML asset implicitly
 			response = await handleRequest(
 				new Request('https://example.com/proxy'),
-				mockEnv,
+				env,
 				{ ...configuration, html_handling: 'auto-trailing-slash' },
 				async (pathname: string) => {
 					if (pathname === '/other.html') {
@@ -594,7 +581,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Proxy to another HTML asset explicitly
 			response = await handleRequest(
 				new Request('https://example.com/proxy-explicit'),
-				mockEnv,
+				env,
 				configuration,
 				async (pathname: string) => {
 					if (pathname === '/other.html') {
@@ -626,7 +613,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Proxy a non-existent asset with not_found_handling
 			response = await handleRequest(
 				new Request('https://example.com/proxy'),
-				mockEnv,
+				env,
 				{ ...configuration, not_found_handling: '404-page' },
 				async (pathname: string) => {
 					if (pathname === '/404.html') {
@@ -658,7 +645,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			// Proxy a non-existent asset without not_found_handling
 			response = await handleRequest(
 				new Request('https://example.com/proxy'),
-				mockEnv,
+				env,
 				{ ...configuration, not_found_handling: 'none' },
 				async () => null,
 				() => {
@@ -670,35 +657,35 @@ describe('[Asset Worker] `handleRequest`', () => {
 			expect(await response.text()).toBe('');
 
 			// Static redirects evaluate in line order
-			response = await handleRequest(new Request('https://example.com/competeForwards'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/competeForwards'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/hostless');
 
-			response = await handleRequest(new Request('https://example.com/competeBackwards'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/competeBackwards'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/withhost');
 
-			response = await handleRequest(new Request('https://example.com/wonkyObjectOrder'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/wonkyObjectOrder'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/withhost');
 
 			// Dynamic placeholders work
-			response = await handleRequest(new Request('https://example.com/dynamic/foo'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/dynamic/foo'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/new-dynamic/?with#params');
 
-			response = await handleRequest(new Request('https://example.com/dynamic/bar/baz/qux'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/dynamic/bar/baz/qux'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('https://fakehost/qux/bar/baz/new-dynamic/?with#params');
 
 			response = await handleRequest(
 				new Request('https://example.com/dynamic/bar/baz/qux/too/many/segments'),
-				mockEnv,
+				env,
 				configuration,
 				exists,
 				getByETag
@@ -707,44 +694,44 @@ describe('[Asset Worker] `handleRequest`', () => {
 			expect(response.status).toBe(200);
 
 			// Dynamic splats work
-			response = await handleRequest(new Request('https://example.com/splat/foo/bar/baz'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/foo/bar/baz'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/bar/baz/new-splat');
 
-			response = await handleRequest(new Request('https://example.com/splat/'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-splat');
 
 			// Dynamic rules are first-come-first-serve
-			response = await handleRequest(new Request('https://example.com/splat/foo/nope'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/foo/nope'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/nope/new-splat');
 
-			response = await handleRequest(new Request('https://example.com/but/this/match'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/but/this/match'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/will');
 
-			response = await handleRequest(new Request('https://example.com/but/this/will/match'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/but/this/will/match'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/too');
 
 			// Partial splats and placeholders work
-			response = await handleRequest(new Request('https://example.com/partialSplatfoo/bar/baz'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialSplatfoo/bar/baz'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-partialSplatfoo/bar/baz');
 
-			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-partialPlaceholderfoo');
 
-			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo/'), mockEnv, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo/'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(200);
 		});
@@ -771,7 +758,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Test the vulnerability: double slash should not create external redirect
-			const response = await handleRequest(new Request('https://example.com/foo//google.com'), mockEnv, configuration, exists, getByETag);
+			const response = await handleRequest(new Request('https://example.com/foo//google.com'), env, configuration, exists, getByETag);
 
 			expect(response.status).toBe(302);
 			const location = response.headers.get('Location');
@@ -798,28 +785,18 @@ describe('[Asset Worker] `canFetch`', () => {
 		expect(
 			await canFetch(
 				new Request('https://example.com/foo.html'),
-				mockEnv,
+				env,
 				normalizeConfiguration({ html_handling: 'auto-trailing-slash' }),
 				exists
 			)
 		).toBeTruthy();
 
 		expect(
-			await canFetch(
-				new Request('https://example.com/foo'),
-				mockEnv,
-				normalizeConfiguration({ html_handling: 'auto-trailing-slash' }),
-				exists
-			)
+			await canFetch(new Request('https://example.com/foo'), env, normalizeConfiguration({ html_handling: 'auto-trailing-slash' }), exists)
 		).toBeTruthy();
 
 		expect(
-			await canFetch(
-				new Request('https://example.com/foo/'),
-				mockEnv,
-				normalizeConfiguration({ html_handling: 'auto-trailing-slash' }),
-				exists
-			)
+			await canFetch(new Request('https://example.com/foo/'), env, normalizeConfiguration({ html_handling: 'auto-trailing-slash' }), exists)
 		).toBeTruthy();
 	});
 
@@ -836,7 +813,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			expect(
 				await canFetch(
 					new Request('https://example.com/foo'),
-					mockEnv,
+					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
 					exists
 				)
@@ -845,25 +822,20 @@ describe('[Asset Worker] `canFetch`', () => {
 			expect(
 				await canFetch(
 					new Request('https://example.com/bar'),
-					mockEnv,
+					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
 					exists
 				)
 			).toBeFalsy();
 
 			expect(
-				await canFetch(
-					new Request('https://example.com/'),
-					mockEnv,
-					normalizeConfiguration({ not_found_handling: notFoundHandling }),
-					exists
-				)
+				await canFetch(new Request('https://example.com/'), env, normalizeConfiguration({ not_found_handling: notFoundHandling }), exists)
 			).toBeTruthy();
 
 			expect(
 				await canFetch(
 					new Request('https://example.com/404'),
-					mockEnv,
+					env,
 					normalizeConfiguration({ not_found_handling: notFoundHandling }),
 					exists
 				)
@@ -886,13 +858,13 @@ describe('[Asset Worker] `canFetch`', () => {
 				has_static_routing: true,
 			});
 
-			expect(await canFetch(new Request('https://example.com/foo'), mockEnv, config, exists)).toBeTruthy();
+			expect(await canFetch(new Request('https://example.com/foo'), env, config, exists)).toBeTruthy();
 
-			expect(await canFetch(new Request('https://example.com/bar'), mockEnv, config, exists)).toBeTruthy();
+			expect(await canFetch(new Request('https://example.com/bar'), env, config, exists)).toBeTruthy();
 
-			expect(await canFetch(new Request('https://example.com/'), mockEnv, config, exists)).toBeTruthy();
+			expect(await canFetch(new Request('https://example.com/'), env, config, exists)).toBeTruthy();
 
-			expect(await canFetch(new Request('https://example.com/404'), mockEnv, config, exists)).toBeTruthy();
+			expect(await canFetch(new Request('https://example.com/404'), env, config, exists)).toBeTruthy();
 		});
 	});
 
@@ -904,13 +876,9 @@ describe('[Asset Worker] `canFetch`', () => {
 			return null;
 		};
 
-		expect(
-			await canFetch(new Request('https://example.com/foo', { method: 'POST' }), mockEnv, normalizeConfiguration(), exists)
-		).toBeTruthy();
+		expect(await canFetch(new Request('https://example.com/foo', { method: 'POST' }), env, normalizeConfiguration(), exists)).toBeTruthy();
 
-		expect(
-			await canFetch(new Request('https://example.com/bar', { method: 'POST' }), mockEnv, normalizeConfiguration(), exists)
-		).toBeFalsy();
+		expect(await canFetch(new Request('https://example.com/bar', { method: 'POST' }), env, normalizeConfiguration(), exists)).toBeFalsy();
 	});
 
 	it('should return "true" for custom redirects without underlying assets', async () => {
@@ -946,18 +914,18 @@ describe('[Asset Worker] `canFetch`', () => {
 			},
 		});
 
-		expect(await canFetch(new Request('https://example.com/does-exist'), mockEnv, configuration, exists)).toBeTruthy();
+		expect(await canFetch(new Request('https://example.com/does-exist'), env, configuration, exists)).toBeTruthy();
 
-		expect(await canFetch(new Request('https://example.com/no-match'), mockEnv, configuration, exists)).toBeFalsy();
+		expect(await canFetch(new Request('https://example.com/no-match'), env, configuration, exists)).toBeFalsy();
 
-		expect(await canFetch(new Request('https://example.com/redirect'), mockEnv, configuration, exists)).toBeTruthy();
+		expect(await canFetch(new Request('https://example.com/redirect'), env, configuration, exists)).toBeTruthy();
 
-		expect(await canFetch(new Request('https://example.com/proxy-valid'), mockEnv, configuration, exists)).toBeTruthy();
+		expect(await canFetch(new Request('https://example.com/proxy-valid'), env, configuration, exists)).toBeTruthy();
 
 		expect(
 			await canFetch(
 				new Request('https://example.com/proxy-invalid'),
-				mockEnv,
+				env,
 				{ ...configuration, not_found_handling: 'none' },
 				async () => null
 			)
@@ -966,7 +934,7 @@ describe('[Asset Worker] `canFetch`', () => {
 		expect(
 			await canFetch(
 				new Request('https://example.com/proxy-invalid'),
-				mockEnv,
+				env,
 				{ ...configuration, not_found_handling: '404-page' },
 				async () => null
 			)
@@ -993,7 +961,7 @@ describe('[Asset Worker] `canFetch`', () => {
 					new Request('https://example.com/bar', {
 						headers: { 'Sec-Fetch-Mode': 'navigate' },
 					}),
-					mockEnv,
+					env,
 					config,
 					exists
 				)
@@ -1007,7 +975,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			});
 
 			// Should return false for missing asset without navigate header
-			expect(await canFetch(new Request('https://example.com/bar'), mockEnv, config, exists)).toBe(false);
+			expect(await canFetch(new Request('https://example.com/bar'), env, config, exists)).toBe(false);
 		});
 
 		it('always respects not_found_handling with has_static_routing enabled', async () => {
@@ -1017,7 +985,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			});
 
 			// Should return true regardless of header when has_static_routing is true
-			expect(await canFetch(new Request('https://example.com/bar'), mockEnv, config, exists)).toBe(true);
+			expect(await canFetch(new Request('https://example.com/bar'), env, config, exists)).toBe(true);
 		});
 	});
 });
