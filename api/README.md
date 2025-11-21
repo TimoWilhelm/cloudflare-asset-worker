@@ -167,16 +167,16 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
-	"name": "asset-worker-api",
-	"main": "src/worker.ts",
-	"compatibility_date": "2025-11-11",
-	"compatibility_flags": ["nodejs_compat"],
-	"kv_namespaces": [
-		{
-			"binding": "ASSETS_KV_NAMESPACE",
-			// id: "your-kv-namespace-id"
-		},
-	],
+ "name": "asset-worker-api",
+ "main": "src/worker.ts",
+ "compatibility_date": "2025-11-11",
+ "compatibility_flags": ["nodejs_compat"],
+ "kv_namespaces": [
+  {
+   "binding": "ASSETS_KV_NAMESPACE",
+   // id: "your-kv-namespace-id"
+  },
+ ],
 }
 ```
 

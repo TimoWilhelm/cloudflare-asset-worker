@@ -15,6 +15,7 @@ await deployApplication(projectId, {
 ```
 
 This automatically:
+
 1. Calculates SHA-256 hashes and creates manifest
 2. Uploads only new/changed files in optimized buckets
 3. Finalizes deployment with JWT authentication
@@ -28,6 +29,7 @@ For API details, see the main [README.md](../README.md#deploy-project-three-phas
 All examples use the management API running at `http://127.0.0.1:8787` by default.
 
 When you run an example, you'll be prompted to provide:
+
 1. **Manager endpoint URL** (default: `http://127.0.0.1:8787`)
 2. **API token** (required for authentication)
 
@@ -38,6 +40,7 @@ node static-site-example.js
 ```
 
 You'll see output showing each phase:
+
 ```
 📝 Phase 1: Creating asset manifest...
   Created manifest with 3 files
@@ -126,6 +129,7 @@ await deployApplication(project.id, deployment);
 ```
 
 The `deployApplication()` function automatically:
+
 1. Creates asset manifest with SHA-256 hashes
 2. Uploads assets in optimized buckets
 3. Finalizes deployment with completion JWT
@@ -261,6 +265,7 @@ See main [README.md](../README.md) for detailed configuration options.
 ## Common Patterns
 
 **SPA (Single Page Application):**
+
 ```javascript
 config: {
   html_handling: 'auto-trailing-slash',
@@ -269,6 +274,7 @@ config: {
 ```
 
 **Static Site + API:**
+
 ```javascript
 {
   serverCode: { entrypoint: 'api.js', modules: {...} },
