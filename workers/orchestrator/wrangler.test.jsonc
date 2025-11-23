@@ -1,18 +1,18 @@
 {
-	"$schema": "../node_modules/wrangler/config-schema.json",
-	"name": "asset-worker-manager-test",
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "asset-worker-orchestrator-test",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-09",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"observability": {
-		"enabled": true,
+		"enabled": true
 	},
 	"kv_namespaces": [
 		{
-			"binding": "KV_PROJECTS",
+			"binding": "KV_PROJECTS"
 		},
 		{
-			"binding": "KV_SERVER_CODE",
-		},
-	],
+			"binding": "KV_SERVER_CODE"
+		}
+	]
 }

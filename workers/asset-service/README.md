@@ -1,6 +1,6 @@
-# Asset API Worker
+# Asset Service Worker
 
-The Asset API worker is an RPC service that handles all static asset storage and serving for the platform. It's called by the manager worker via Cloudflare Service Bindings.
+The Asset Service worker is an RPC service that handles all static asset storage and serving for the platform. It's called by the orchestrator worker via Cloudflare Service Bindings.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ The Asset API worker is an RPC service that handles all static asset storage and
 
 ### Storage
 
-The API worker manages one KV namespace:
+The Asset Service worker manages one KV namespace:
 
 **`KV_ASSETS`** - All project assets and manifests
 
@@ -23,7 +23,7 @@ All keys are namespaced by `projectId` to ensure complete project isolation.
 
 ## RPC Methods
 
-The Asset API worker exposes the following methods via Service Binding:
+The Asset Service worker exposes the following methods via Service Binding:
 
 ### `serveAsset(request, projectId, projectConfig?)`
 
@@ -167,7 +167,7 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
- "name": "asset-worker-api",
+ "name": "asset-worker-asset-service",
  "main": "src/worker.ts",
  "compatibility_date": "2025-11-11",
  "compatibility_flags": ["nodejs_compat"],

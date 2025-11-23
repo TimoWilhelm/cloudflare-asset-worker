@@ -1,6 +1,6 @@
-# Asset Manager Worker
+# Orchestrator Worker
 
-The manager worker is the main orchestrator for the Cloudflare Multi-Project Deployment Platform. It handles project management, asset uploads, deployment, and dynamic request routing.
+The orchestrator worker is the main orchestrator for the Cloudflare Multi-Project Deployment Platform. It handles project management, asset uploads, deployment, and dynamic request routing.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ The manager worker is the main orchestrator for the Cloudflare Multi-Project Dep
 
 ### Storage
 
-The manager worker uses two KV namespaces:
+The orchestrator worker uses two KV namespaces:
 
 1. **`KV_PROJECTS`** - Project metadata and upload sessions
    - Project metadata: `project:projectId`
@@ -24,7 +24,7 @@ The manager worker uses two KV namespaces:
    - Modules: `projectId:contentHash` (content-addressed, deduplicated)
    - Stores base64-encoded module content
 
-**Note:** Asset storage is handled by the separate Asset API worker via RPC service binding. See `api/README.md` for details.
+**Note:** Asset storage is handled by the separate Asset Service worker via RPC service binding. See `../asset-service/README.md` for details.
 
 ## Management API
 
@@ -181,7 +181,7 @@ run_worker_first: true;
 run_worker_first: ['/api/*', '/admin/**', '/*.json'];
 ```
 
-The manager uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
+The orchestrator uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
 
 ## Server Code
 
@@ -283,7 +283,7 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
- "name": "asset-worker-manager",
+ "name": "asset-worker-orchestrator",
  "main": "src/worker.ts",
  "compatibility_date": "2025-11-11",
  "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
@@ -300,7 +300,7 @@ Configure in `wrangler.jsonc`:
  "services": [
   {
    "binding": "ASSET_WORKER",
-   "service": "asset-worker-api",
+   "service": "asset-worker-asset-service",
   },
  ],
  "worker_loaders": [

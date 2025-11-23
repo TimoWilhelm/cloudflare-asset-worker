@@ -1,6 +1,6 @@
 import type { DeploymentPayload, ProjectMetadata, ServerCodeManifest, ModuleType } from './types';
-import type AssetApi from '../../api/src/worker';
-import type { ManifestEntry } from '../../api/src/worker';
+import type AssetApi from '../../asset-service/src/worker';
+import type { ManifestEntry } from '../../asset-service/src/worker';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash, inferModuleType } from './content-utils';
 import { verifyJWT } from './jwt';

@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import type AssetApi from '../../api/src/worker';
-import type { AssetConfig } from '../../api/src/configuration';
+import type AssetApi from '../../asset-service/src/worker';
+import type { AssetConfig } from '../../asset-service/src/configuration';
 import { Hono } from 'hono';
 import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';

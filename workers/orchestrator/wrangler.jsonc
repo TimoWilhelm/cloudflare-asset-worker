@@ -1,29 +1,29 @@
 {
-	"$schema": "../node_modules/wrangler/config-schema.json",
-	"name": "asset-worker-manager",
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "asset-worker-orchestrator",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"observability": {
-		"enabled": true,
+		"enabled": true
 	},
 	"kv_namespaces": [
 		{
-			"binding": "KV_PROJECTS",
+			"binding": "KV_PROJECTS"
 		},
 		{
-			"binding": "KV_SERVER_CODE",
-		},
+			"binding": "KV_SERVER_CODE"
+		}
 	],
 	"services": [
 		{
 			"binding": "ASSET_WORKER",
-			"service": "asset-worker-api",
-		},
+			"service": "asset-worker-asset-service"
+		}
 	],
 	"worker_loaders": [
 		{
-			"binding": "LOADER",
-		},
-	],
+			"binding": "LOADER"
+		}
+	]
 }

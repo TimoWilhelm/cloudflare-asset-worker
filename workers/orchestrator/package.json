@@ -1,5 +1,5 @@
 {
-	"name": "cloudflare-asset-worker-api",
+	"name": "cloudflare-asset-worker-orchestrator",
 	"version": "0.0.0",
 	"main": "src/worker.ts",
 	"type": "module",
@@ -7,15 +7,18 @@
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"test": "vitest",
-		"cf-typegen": "wrangler types",
-		"generate-fixtures": "tsx ./scripts/regenerate-fixture.mts"
+		"cf-typegen": "wrangler types"
 	},
 	"license": "MIT",
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.10.7",
-		"tsx": "^4.20.6",
 		"typescript": "^5.9.3",
 		"vitest": "^3.2.4",
 		"wrangler": "^4.48.0"
+	},
+	"dependencies": {
+		"@stablelib/base64": "^2.0.1",
+		"hono": "^4.6.14",
+		"minimatch": "^10.1.1"
 	}
 }

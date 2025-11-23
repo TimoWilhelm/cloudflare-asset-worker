@@ -1,7 +1,7 @@
 import readline from 'node:readline';
 import crypto from 'crypto';
 
-let MANAGER_URL = null;
+let ORCHESTRATOR_URL = null;
 let API_TOKEN = null;
 
 /**
@@ -30,13 +30,13 @@ function prompt(question, defaultValue = '') {
  * Initialize configuration by prompting user
  */
 async function initConfig() {
-	if (MANAGER_URL && API_TOKEN) {
+	if (ORCHESTRATOR_URL && API_TOKEN) {
 		return; // Already initialized
 	}
 
 	console.log('\n🔧 Configuration Setup\n');
 
-	MANAGER_URL = await prompt('Enter the manager endpoint URL', 'http://127.0.0.1:8787');
+	ORCHESTRATOR_URL = await prompt('Enter the orchestrator endpoint URL', 'http://127.0.0.1:8787');
 	API_TOKEN = await prompt('Enter the API token');
 
 	if (!API_TOKEN) {
@@ -54,7 +54,7 @@ async function initConfig() {
 async function createProject(name) {
 	await initConfig();
 
-	const response = await fetch(`${MANAGER_URL}/__api/projects`, {
+	const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ function createManifestFromAssets(assets) {
  * @returns {Promise<Object>} Upload session with JWT and buckets
  */
 async function createUploadSession(projectId, manifest) {
-	const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/assets-upload-session`, {
+	const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects/${projectId}/assets-upload-session`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -152,7 +152,7 @@ async function uploadAssetBuckets(projectId, uploadJwt, buckets, manifest, asset
 			}
 		}
 
-		const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/assets/upload`, {
+		const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects/${projectId}/assets/upload`, {
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${uploadJwt}`,
@@ -191,7 +191,7 @@ async function uploadAssetBuckets(projectId, uploadJwt, buckets, manifest, asset
  * @returns {Promise<Object>} Deployment result
  */
 async function finalizeDeployment(projectId, completionJwt, deployment) {
-	const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
+	const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects/${projectId}/deploy`, {
 		method: 'POST',
 		headers: {
 			'Content-Type': 'application/json',
@@ -251,7 +251,7 @@ async function deployApplication(projectId, deployment) {
 
 	if (!deployment.assets || deployment.assets.length === 0) {
 		// No assets to deploy, just update server code/config
-		const response = await fetch(`${MANAGER_URL}/__api/projects/${projectId}/deploy`, {
+		const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects/${projectId}/deploy`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -310,7 +310,7 @@ async function deployApplication(projectId, deployment) {
 async function listProjects() {
 	await initConfig();
 
-	const response = await fetch(`${MANAGER_URL}/__api/projects`, {
+	const response = await fetch(`${ORCHESTRATOR_URL}/__api/projects`, {
 		headers: {
 			'Authorization': API_TOKEN,
 		},
@@ -330,10 +330,10 @@ async function listProjects() {
  * @returns {string} The project URL
  */
 function getProjectUrl(projectId) {
-	if (!MANAGER_URL) {
+	if (!ORCHESTRATOR_URL) {
 		throw new Error('Configuration not initialized');
 	}
-	return `${MANAGER_URL}/__project/${projectId}/`;
+	return `${ORCHESTRATOR_URL}/__project/${projectId}/`;
 }
 
-export { MANAGER_URL, createProject, deployApplication, listProjects, getProjectUrl };
+export { ORCHESTRATOR_URL, createProject, deployApplication, listProjects, getProjectUrl };

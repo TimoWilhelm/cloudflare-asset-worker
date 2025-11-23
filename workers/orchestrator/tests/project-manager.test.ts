@@ -9,7 +9,7 @@ import {
 } from '../src/project-manager';
 import { env } from 'cloudflare:test';
 import { ProjectMetadata } from '../src/types';
-import type AssetApi from '../../api/src/worker';
+import type AssetApi from '../../asset-service/src/worker';
 
 interface ProjectResponse {
 	success: boolean;

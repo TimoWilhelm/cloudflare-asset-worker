@@ -1,4 +1,4 @@
-import type { AssetConfig } from '../../api/src/configuration';
+import type { AssetConfig } from '../../asset-service/src/configuration';
 
 export interface ProjectMetadata {
 	id: string;

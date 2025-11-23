@@ -1,5 +1,5 @@
 import type { ProjectMetadata } from './types';
-import type AssetApi from '../../api/src/worker';
+import type AssetApi from '../../asset-service/src/worker';
 import { listAllKeys } from './util/kv';
 
 /**

@@ -30,7 +30,7 @@ All examples use the management API running at `http://127.0.0.1:8787` by defaul
 
 When you run an example, you'll be prompted to provide:
 
-1. **Manager endpoint URL** (default: `http://127.0.0.1:8787`)
+1. **Orchestrator endpoint URL** (default: `http://127.0.0.1:8787`)
 2. **API token** (required for authentication)
 
 ```bash
@@ -60,10 +60,10 @@ You'll see output showing each phase:
 
 ### Setting up API Authentication
 
-The management API requires authentication. For local development, create a `.env.local` file in the `manager` directory:
+The management API requires authentication. For local development, create a `.env.local` file in the `workers/orchestrator` directory:
 
 ```bash
-# manager/.env.local
+# workers/orchestrator/.env.local
 API_TOKEN=your-secret-token-here
 ```
 

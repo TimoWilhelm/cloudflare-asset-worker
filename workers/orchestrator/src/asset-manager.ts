@@ -1,5 +1,5 @@
 import type { AssetManifestRequest, UploadSession, ProjectMetadata } from './types';
-import type AssetApi from '../../api/src/worker';
+import type AssetApi from '../../asset-service/src/worker';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash, guessContentType, createBuckets } from './content-utils';
 import { generateJWT, verifyJWT } from './jwt';

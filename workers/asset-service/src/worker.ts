@@ -273,7 +273,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 	/**
 	 * Delete all assets and manifest for a project
-	 * This is an RPC method that can be called from the manager
+	 * This is an RPC method that can be called from the orchestrator
 	 * @param projectId - The project ID to delete assets for
 	 * @returns Object with deletion statistics
 	 */

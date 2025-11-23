@@ -1,15 +1,15 @@
 {
-	"$schema": "../node_modules/wrangler/config-schema.json",
-	"name": "asset-worker-api",
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "asset-worker-asset-service-test",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true,
+		"enabled": true
 	},
 	"kv_namespaces": [
 		{
-			"binding": "KV_ASSETS",
-		},
-	],
+			"binding": "KV_ASSETS"
+		}
+	]
 }
