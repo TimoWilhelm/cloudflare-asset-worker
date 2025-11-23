@@ -14,7 +14,7 @@ The Asset API worker is an RPC service that handles all static asset storage and
 
 The API worker manages one KV namespace:
 
-**`ASSETS_KV_NAMESPACE`** - All project assets and manifests
+**`KV_ASSETS`** - All project assets and manifests
 
 - Assets: `projectId:contentHash` (SHA-256 hash of content)
 - Manifest: `projectId:ASSETS_MANIFEST` (binary manifest file)
@@ -173,7 +173,7 @@ Configure in `wrangler.jsonc`:
  "compatibility_flags": ["nodejs_compat"],
  "kv_namespaces": [
   {
-   "binding": "ASSETS_KV_NAMESPACE",
+   "binding": "KV_ASSETS",
    // id: "your-kv-namespace-id"
   },
  ],

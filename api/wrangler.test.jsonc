@@ -1,6 +1,6 @@
 {
 	"$schema": "../node_modules/wrangler/config-schema.json",
-	"name": "asset-worker-api",
+	"name": "asset-worker-api-test",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat"],

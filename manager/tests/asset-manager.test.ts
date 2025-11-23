@@ -10,7 +10,7 @@ describe('asset-manager', () => {
 	const jwtSecret = 'test-secret-key';
 
 	beforeEach(async () => {
-		projectsKv = env.PROJECTS_KV_NAMESPACE;
+		projectsKv = env.KV_PROJECTS;
 
 		// Clear KV namespace before each test
 		const keys = await projectsKv.list();

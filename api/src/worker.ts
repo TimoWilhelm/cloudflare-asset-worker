@@ -31,7 +31,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 	private async getAssetsManifest(projectId: string): Promise<AssetsManifest> {
 		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
-		const manifestBuffer = await this.env.ASSETS_KV_NAMESPACE.get(manifestKey, 'arrayBuffer');
+		const manifestBuffer = await this.env.KV_ASSETS.get(manifestKey, 'arrayBuffer');
 		if (!manifestBuffer) {
 			throw new Error(`Failed to load assets manifest for project ${projectId}`);
 		}
@@ -93,7 +93,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	}> {
 		const startTime = performance.now();
 		const namespacedETag = this.getNamespacedKey(projectId, eTag);
-		const asset = await getAssetWithMetadataFromKV(this.env.ASSETS_KV_NAMESPACE, namespacedETag);
+		const asset = await getAssetWithMetadataFromKV(this.env.KV_ASSETS, namespacedETag);
 		const endTime = performance.now();
 		const assetFetchTime = endTime - startTime;
 
@@ -160,7 +160,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const metadata = contentType ? { contentType } : undefined;
 		const namespacedETag = this.getNamespacedKey(projectId, eTag);
 
-		await this.env.ASSETS_KV_NAMESPACE.put(namespacedETag, content, { metadata });
+		await this.env.KV_ASSETS.put(namespacedETag, content, { metadata });
 	}
 
 	/**
@@ -198,7 +198,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const existenceChecks = await Promise.all(
 			entries.map(async (entry) => {
 				const namespacedETag = this.getNamespacedKey(projectId, entry.contentHash);
-				const exists = await this.env.ASSETS_KV_NAMESPACE.get(namespacedETag, 'stream');
+				const exists = await this.env.KV_ASSETS.get(namespacedETag, 'stream');
 				return { entry, exists: exists !== null };
 			}),
 		);
@@ -210,7 +210,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const manifestBuffer = await this.generateManifestBuffer(entries);
 
 		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
-		await this.env.ASSETS_KV_NAMESPACE.put(manifestKey, manifestBuffer);
+		await this.env.KV_ASSETS.put(manifestKey, manifestBuffer);
 
 		return newEntries;
 	}
@@ -264,7 +264,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const results = await Promise.all(
 			eTags.map(async (hash) => {
 				const namespacedKey = this.getNamespacedKey(projectId, hash);
-				const exists = await this.env.ASSETS_KV_NAMESPACE.get(namespacedKey, 'stream');
+				const exists = await this.env.KV_ASSETS.get(namespacedKey, 'stream');
 				return { hash, exists: exists !== null };
 			}),
 		);
@@ -281,12 +281,12 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		let deletedAssets = 0;
 		let deletedManifest = false;
 
-		// List all keys with the project prefix in ASSETS_KV_NAMESPACE
+		// List all keys with the project prefix in KV_ASSETS
 		const assetPrefix = `${projectId}:`;
 
 		// Delete all assets using listAllKeys for pagination
-		for await (const key of listAllKeys(this.env.ASSETS_KV_NAMESPACE, { prefix: assetPrefix })) {
-			await this.env.ASSETS_KV_NAMESPACE.delete(key.name);
+		for await (const key of listAllKeys(this.env.KV_ASSETS, { prefix: assetPrefix })) {
+			await this.env.KV_ASSETS.delete(key.name);
 			deletedAssets++;
 		}
 

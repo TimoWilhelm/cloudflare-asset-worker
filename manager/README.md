@@ -15,11 +15,11 @@ The manager worker is the main orchestrator for the Cloudflare Multi-Project Dep
 
 The manager worker uses two KV namespaces:
 
-1. **`PROJECTS_KV_NAMESPACE`** - Project metadata and upload sessions
+1. **`KV_PROJECTS`** - Project metadata and upload sessions
    - Project metadata: `project:projectId`
    - Upload sessions: `session:sessionId` (temporary, 1 hour TTL)
 
-2. **`SERVER_CODE_KV_NAMESPACE`** - Dynamic worker code
+2. **`KV_SERVER_CODE`** - Dynamic worker code
    - Manifest: `projectId:MANIFEST`
    - Modules: `projectId:contentHash` (content-addressed, deduplicated)
    - Stores base64-encoded module content
@@ -289,11 +289,11 @@ Configure in `wrangler.jsonc`:
  "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
  "kv_namespaces": [
   {
-   "binding": "PROJECTS_KV_NAMESPACE",
+   "binding": "KV_PROJECTS",
    // id: "your-kv-namespace-id"
   },
   {
-   "binding": "SERVER_CODE_KV_NAMESPACE",
+   "binding": "KV_SERVER_CODE",
    // id: "your-kv-namespace-id"
   },
  ],

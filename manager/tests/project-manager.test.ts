@@ -28,8 +28,8 @@ describe('project-manager', () => {
 	let serverCodeKv: KVNamespace;
 
 	beforeEach(async () => {
-		projectsKv = env.PROJECTS_KV_NAMESPACE;
-		serverCodeKv = env.SERVER_CODE_KV_NAMESPACE;
+		projectsKv = env.KV_PROJECTS;
+		serverCodeKv = env.KV_SERVER_CODE;
 
 		// Clear KV namespaces before each test
 		const projectKeys = await projectsKv.list({ prefix: 'project:' });

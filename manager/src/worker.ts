@@ -61,34 +61,34 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 
 			app.post('/__api/projects', async (c) => {
-				return createProject(c.req.raw, this.env.PROJECTS_KV_NAMESPACE);
+				return createProject(c.req.raw, this.env.KV_PROJECTS);
 			});
 
 			app.get('/__api/projects', async (c) => {
-				return listProjects(this.env.PROJECTS_KV_NAMESPACE);
+				return listProjects(this.env.KV_PROJECTS);
 			});
 
 			app.get('/__api/projects/:projectId', async (c) => {
 				const projectId = c.req.param('projectId');
-				return getProjectInfo(projectId, this.env.PROJECTS_KV_NAMESPACE);
+				return getProjectInfo(projectId, this.env.KV_PROJECTS);
 			});
 
 			app.delete('/__api/projects/:projectId', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-				return deleteProject(projectId, this.env.PROJECTS_KV_NAMESPACE, this.env.SERVER_CODE_KV_NAMESPACE, assets);
+				return deleteProject(projectId, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets);
 			});
 
 			app.post('/__api/projects/:projectId/assets-upload-session', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-				return createAssetUploadSession(projectId, c.req.raw, this.env.PROJECTS_KV_NAMESPACE, assets, this.env.JWT_SECRET);
+				return createAssetUploadSession(projectId, c.req.raw, this.env.KV_PROJECTS, assets, this.env.JWT_SECRET);
 			});
 
 			app.post('/__api/projects/:projectId/assets/upload', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-				return uploadAssets(projectId, c.req.raw, this.env.PROJECTS_KV_NAMESPACE, assets, this.env.JWT_SECRET);
+				return uploadAssets(projectId, c.req.raw, this.env.KV_PROJECTS, assets, this.env.JWT_SECRET);
 			});
 
 			app.post('/__api/projects/:projectId/deploy', async (c) => {
@@ -97,8 +97,8 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				return deployProject(
 					projectId,
 					c.req.raw,
-					this.env.PROJECTS_KV_NAMESPACE,
-					this.env.SERVER_CODE_KV_NAMESPACE,
+					this.env.KV_PROJECTS,
+					this.env.KV_SERVER_CODE,
 					assets,
 					this.env.JWT_SECRET,
 				);
@@ -127,7 +127,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		}
 
 		// Verify project exists
-		const project = await getProject(projectId, this.env.PROJECTS_KV_NAMESPACE);
+		const project = await getProject(projectId, this.env.KV_PROJECTS);
 		if (!project) {
 			return new Response('Project not found', { status: 404 });
 		}
@@ -140,7 +140,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		// Helper to run server code with common parameters
 		const executeServerCode = () =>
-			runServerCode(rewrittenRequest, projectId, this.env.SERVER_CODE_KV_NAMESPACE, this.env.LOADER, {
+			runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, this.env.LOADER, {
 				ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
 			});
 

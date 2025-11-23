@@ -1,6 +1,5 @@
 {
 	"$schema": "../node_modules/wrangler/config-schema.json",
-	// Cloudflare Workers configuration file
 	"name": "asset-worker-manager",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
@@ -10,10 +9,10 @@
 	},
 	"kv_namespaces": [
 		{
-			"binding": "PROJECTS_KV_NAMESPACE",
+			"binding": "KV_PROJECTS",
 		},
 		{
-			"binding": "SERVER_CODE_KV_NAMESPACE",
+			"binding": "KV_SERVER_CODE",
 		},
 	],
 	"services": [
