@@ -5,7 +5,12 @@
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true
+		"logs": {
+			"enabled": true
+		},
+		"traces": {
+			"enabled": true
+		}
 	},
 	"kv_namespaces": [
 		{
