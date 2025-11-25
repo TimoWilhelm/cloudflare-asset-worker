@@ -6,7 +6,7 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"kv_namespaces": [
 		{
-			"binding": "KV_ASSETS"
-		}
-	]
+			"binding": "KV_ASSETS",
+		},
+	],
 }

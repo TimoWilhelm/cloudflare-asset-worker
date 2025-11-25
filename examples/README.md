@@ -1,285 +1,408 @@
 # Deployment Examples
 
-This directory contains example scripts demonstrating how to use the Cloudflare Multi-Project Deployment Platform.
+This directory contains example projects demonstrating how to deploy applications using the **`cf-deploy` CLI tool**.
 
-## Three-Phase Upload Flow
+Each example is a complete, ready-to-deploy project with actual source files and configuration.
 
-All examples use the **three-phase upload flow** automatically via the `deployApplication()` helper:
+## Prerequisites
 
-```javascript
-await deployApplication(projectId, {
-  assets: [...],
-  serverCode: {...},
-  config: {...}
-});
-```
+1. **Install dependencies** from workspace root:
 
-This automatically:
+   ```bash
+   npm install
+   ```
 
-1. Calculates SHA-256 hashes and creates manifest
-2. Uploads only new/changed files in optimized buckets
-3. Finalizes deployment with JWT authentication
+2. **Set your API token**:
 
-**Benefits:** Automatic deduplication, optimized batching, secure authentication, progress tracking.
+   ```bash
+   export CF_API_TOKEN=your-token
+   ```
 
-For API details, see the main [README.md](../README.md#deploy-project-three-phase-upload-flow).
+3. **Start the orchestrator worker**:
 
-## Running the Examples
-
-All examples use the management API running at `http://127.0.0.1:8787` by default.
-
-When you run an example, you'll be prompted to provide:
-
-1. **Orchestrator endpoint URL** (default: `http://127.0.0.1:8787`)
-2. **API token** (required for authentication)
-
-```bash
-# From the examples directory
-node deploy-example.js
-node static-site-example.js
-```
-
-You'll see output showing each phase:
-
-```
-📝 Phase 1: Creating asset manifest...
-  Created manifest with 3 files
-
-🔄 Phase 2: Starting upload session...
-  Uploading 1 bucket(s) with 2 new files...
-  Uploading bucket 1/1 (2 files)...
-  ✓ All assets uploaded
-
-🚀 Phase 3: Finalizing deployment...
-
-✓ Deployment complete!
-  - Assets deployed: 3
-  - New assets: 2
-  - Cached assets: 1
-```
-
-### Setting up API Authentication
-
-The management API requires authentication. For local development, create a `.env.local` file in the `workers/orchestrator` directory:
-
-```bash
-# workers/orchestrator/.env.local
-API_TOKEN=your-secret-token-here
-```
-
-**Security Note:** Never commit `.env.local` to version control. The `.env.local` file is gitignored by default.
+   ```bash
+   npm run dev
+   ```
 
 ## Available Examples
 
-### 1. Full-Stack Deployment (`deploy-example.js`)
+### 1. Static Site (`static-site/`)
 
-Demonstrates deploying a complete application with:
+A simple static website with HTML and CSS.
 
-- Static assets (HTML, CSS)
-- Server-side code (API endpoints)
-- Asset configuration
-- Path-based routing for APIs
-- Environment variables
-
-### 2. Static Site Deployment (`static-site-example.js`)
-
-Shows how to deploy a static website with:
+**Features:**
 
 - Multiple HTML pages
 - CSS styling
-- No server code required
-- Asset-only deployment
+- No server-side code
 
-## Usage Pattern
+**Deploy:**
 
-All examples use the `deployApplication()` helper from `shared-utils.js` which handles the three-phase flow automatically:
-
-```javascript
-import { createProject, deployApplication } from './shared-utils.js';
-
-// 1. Create a project
-const project = await createProject('My Project');
-
-// 2. Prepare deployment
-const deployment = {
-  projectName: 'My Project',
-  assets: [
-    {
-      pathname: '/index.html',
-      content: Buffer.from('<html>...</html>', 'utf-8').toString('base64'),
-      contentType: 'text/html; charset=utf-8'
-    }
-  ],
-  serverCode: { // Optional
-    entrypoint: 'index.js',
-    modules: {
-      // Modules MUST be base64-encoded
-      'index.js': Buffer.from('export default { async fetch() { ... } }', 'utf-8').toString('base64')
-    }
-  },
-  config: { // Optional - Asset serving configuration
-    html_handling: 'auto-trailing-slash',
-    not_found_handling: 'single-page-application'
-  },
-  run_worker_first: ['/api/*', '/admin/**'] // Optional - Glob patterns for worker-first routing
-};
-
-// 3. Deploy (automatically handles three-phase upload)
-await deployApplication(project.id, deployment);
+```bash
+cd examples/static-site
+npx cf-deploy deploy --create-project
 ```
 
-The `deployApplication()` function automatically:
+**Project Structure:**
 
-1. Creates asset manifest with SHA-256 hashes
-2. Uploads assets in optimized buckets
-3. Finalizes deployment with completion JWT
-
-For manual three-phase implementation, see the API Reference section in the main [README.md](../README.md#deploy-project-three-phase-upload-flow).
-
-## Base64 Encoding Assets
-
-Assets must be base64 encoded before upload. In Node.js, use `Buffer` for proper encoding:
-
-```javascript
-// String content (use Buffer, not btoa)
-const content = Buffer.from('Hello World', 'utf-8').toString('base64');
-
-// File content
-const fs = require('fs');
-const fileContent = fs.readFileSync('file.png');
-const content = fileContent.toString('base64');
+```
+static-site/
+├── deploy.config.json
+└── public/
+    ├── index.html
+    ├── about.html
+    └── styles.css
 ```
 
-**Note:** Do not use `btoa()` in Node.js - it's a browser API that doesn't handle Unicode properly. Always use `Buffer.from(string, 'utf-8').toString('base64')`.
+---
 
-## Server Code Format
+### 2. Fullstack Application (`fullstack-app/`)
+
+Complete application with both frontend assets and backend API.
+
+**Features:**
+
+- Static HTML/CSS frontend
+- Server-side API endpoints
+- Environment variables
+- Worker-first routing for API paths
+
+**Deploy:**
+
+```bash
+cd examples/fullstack-app
+npx cf-deploy deploy --create-project
+```
+
+**Project Structure:**
+
+```
+fullstack-app/
+├── deploy.config.json
+├── public/
+│   ├── index.html
+│   └── style.css
+└── server/
+    └── index.js
+```
+
+**Try it:**
+
+- Visit the deployed URL
+- Click "Test API" to call `/api/hello`
+- Click "Show Config" to see environment variables
+
+---
+
+### 3. API-Only Worker (`api-worker/`)
+
+Backend-only service with no static assets.
+
+**Features:**
+
+- REST API endpoints
+- Multiple route handlers
+- Modular code organization
+
+**Deploy:**
+
+```bash
+cd examples/api-worker
+npx cf-deploy deploy --create-project
+```
+
+**Project Structure:**
+
+```
+api-worker/
+├── deploy.config.json
+└── src/
+    ├── index.js
+    └── handlers/
+        ├── users.js
+        └── posts.js
+```
+
+**API Endpoints:**
+
+- `GET /health` - Health check
+- `GET /api/users` - List all users
+- `GET /api/users/:id` - Get specific user
+- `GET /api/posts` - List all posts
+- `GET /api/posts/:id` - Get specific post
+
+---
+
+## Common Deployment Patterns
+
+### Basic Deployment
+
+```bash
+cd examples/<example-name>
+export CF_API_TOKEN=your-token
+npx cf-deploy deploy --create-project
+```
+
+### Dry Run (Preview)
+
+See what would be deployed without actually deploying:
+
+```bash
+npx cf-deploy deploy --dry-run
+```
+
+### Update Existing Project
+
+Deploy to an existing project by its ID:
+
+```bash
+npx cf-deploy deploy --project-id your-project-id
+```
+
+### List All Projects
+
+```bash
+npx cf-deploy list
+```
+
+## Configuration File (`deploy.config.json`)
+
+Each example includes a `deploy.config.json` file:
+
+```json
+{
+	"projectName": "My App",
+	"projectId": null,
+	"assets": {
+		"directory": "./public",
+		"patterns": ["**/*"]
+	},
+	"serverCode": {
+		"entrypoint": "index.js",
+		"modulesDirectory": "./server"
+	},
+	"config": {
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "single-page-application"
+	},
+	"run_worker_first": ["/api/*"],
+	"env": {
+		"ENVIRONMENT": "production"
+	}
+}
+```
+
+See the [CLI README](../cli/README.md) for full configuration reference.
+
+## Environment Variables
+
+### Authentication
+
+Set via environment or CLI flags:
+
+```bash
+# Environment variable (recommended)
+export CF_API_TOKEN=your-token
+
+# Or via CLI flag
+npx cf-deploy deploy --api-token your-token
+```
+
+### Worker Environment Variables
+
+Configure in `deploy.config.json`:
+
+```json
+{
+	"env": {
+		"DATABASE_URL": "${DATABASE_URL}",
+		"API_KEY": "your-api-key"
+	}
+}
+```
+
+The `${VARIABLE}` syntax references local environment variables.
+
+## Server Code Requirements
 
 Server code must export a default object with a `fetch` handler:
 
 ```javascript
 export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+	async fetch(request, env, ctx) {
+		const url = new URL(request.url);
 
-    if (url.pathname === '/api/hello') {
-      return new Response('Hello!');
-    }
+		if (url.pathname === '/api/endpoint') {
+			return new Response('Hello!');
+		}
 
-    // Return 404 to let assets handle other paths
-    return new Response('Not found', { status: 404 });
-  }
-}
+		// Return 404 to let assets handle other paths
+		return new Response('Not found', { status: 404 });
+	},
+};
 ```
-
-## Server Code Module Types
-
-Supports: `js`, `cjs`, `py`, `text`, `data`, `json`. All modules must be **base64-encoded**:
-
-```javascript
-serverCode: {
-  entrypoint: 'index.js',
-  modules: {
-    // Type inferred from extension
-    'index.js': Buffer.from(code, 'utf-8').toString('base64'),
-
-    // Explicit type specification
-    'config.json': {
-      content: Buffer.from(JSON.stringify({...}), 'utf-8').toString('base64'),
-      type: 'json'
-    }
-  }
-}
-```
-
-See [test-module-types.js](./test-module-types.js) for complete examples of all module types.
 
 ## Multiple Modules
 
-You can include multiple JavaScript modules:
+The CLI automatically discovers and deploys all modules in the server directory:
 
-```javascript
-serverCode: {
-  entrypoint: 'index.js',
-  modules: {
-    'index.js': Buffer.from(`
-      import { helper } from './utils.js';
-      export default {
-        async fetch() {
-          return new Response(helper());
-        }
-      }
-    `, 'utf-8').toString('base64'),
-    'utils.js': Buffer.from(`
-      export function helper() {
-        return 'Hello from utility!';
-      }
-    `, 'utf-8').toString('base64')
-  }
-}
+```
+server/
+├── index.js          # Entry point
+├── handlers/
+│   ├── users.js
+│   └── posts.js
+└── utils/
+    └── helpers.js
 ```
 
-## Environment Variables
-
-Pass environment variables in deployment:
+Import between modules using ES modules syntax:
 
 ```javascript
-await deployApplication(projectId, {
-  assets: [...],
-  serverCode: {...},
-  env: {
-    ENVIRONMENT: 'production',
-    API_URL: 'https://api.example.com'
-  }
-});
+import { handleUsers } from './handlers/users.js';
 ```
 
-Access in worker via `env` parameter:
+## Routing Patterns
 
-```javascript
-export default {
-  async fetch(request, env) {
-    const apiUrl = env.API_URL || 'https://api.default.com';
-    // All values are strings - convert as needed
-  }
-}
-```
+### Assets-First (Default)
 
-**Note:** For configuration only, not secrets. Updated by redeployment.
+Check assets first, then run worker code:
 
-## Configuration Options
-
-Configure asset serving and routing:
-
-```javascript
+```json
 {
-  config: {
-    html_handling: 'auto-trailing-slash',
-    not_found_handling: 'single-page-application'
-  },
-  run_worker_first: ['/api/*']  // Run worker first for API routes
+	"run_worker_first": false
 }
 ```
 
-See main [README.md](../README.md) for detailed configuration options.
+### Worker-First for Specific Paths
 
-## Common Patterns
+Run worker code first for API routes:
 
-**SPA (Single Page Application):**
-
-```javascript
-config: {
-  html_handling: 'auto-trailing-slash',
-  not_found_handling: 'single-page-application'
-}
-```
-
-**Static Site + API:**
-
-```javascript
+```json
 {
-  serverCode: { entrypoint: 'api.js', modules: {...} },
-  run_worker_first: ['/api/*']  // Skip assets for API routes
+	"run_worker_first": ["/api/*", "/admin/**"]
 }
 ```
 
-See [deploy-example.js](./deploy-example.js) and [static-site-example.js](./static-site-example.js) for complete working examples.
+### Always Worker-First
+
+Run worker for all requests:
+
+```json
+{
+	"run_worker_first": true
+}
+```
+
+## Asset Configuration
+
+### SPA (Single Page Application)
+
+Serve `index.html` for all 404s:
+
+```json
+{
+	"config": {
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "single-page-application"
+	}
+}
+```
+
+### Static Website
+
+Standard HTML handling:
+
+```json
+{
+	"config": {
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "none"
+	}
+}
+```
+
+## Tips
+
+### Fast Redeployment
+
+Changes to assets or server code can be redeployed quickly:
+
+```bash
+npx cf-deploy deploy  # Uses projectId from config
+```
+
+### Multiple Environments
+
+Create separate configs for different environments:
+
+```
+examples/my-app/
+├── deploy.config.json       # Development
+├── staging.config.json      # Staging
+└── production.config.json   # Production
+```
+
+Deploy to different environments:
+
+```bash
+# Development (local)
+npx cf-deploy deploy
+
+# Staging
+export CF_ORCHESTRATOR_URL=https://staging.example.com
+npx cf-deploy deploy -c staging.config.json
+
+# Production
+export CF_ORCHESTRATOR_URL=https://prod.example.com
+npx cf-deploy deploy -c production.config.json
+```
+
+### Ignore Files
+
+Exclude files from deployment:
+
+```json
+{
+	"assets": {
+		"directory": "./dist",
+		"patterns": ["**/*"],
+		"ignore": ["**/*.map", "**/.DS_Store", "**/test/**"]
+	}
+}
+```
+
+## Learn More
+
+- **[CLI Documentation](../cli/README.md)** - Complete CLI reference
+- **[CLI Quick Start](../cli/QUICKSTART.md)** - 5-minute setup guide
+- **[Orchestrator Documentation](../workers/orchestrator/README.md)** - API details
+- **[Platform README](../README.md)** - Architecture overview
+
+## Troubleshooting
+
+### "API token is required"
+
+```bash
+export CF_API_TOKEN=your-token
+```
+
+### "Assets directory not found"
+
+Check that the `assets.directory` path exists relative to `deploy.config.json`.
+
+### "Entrypoint module not found"
+
+Ensure the `serverCode.entrypoint` file exists in `serverCode.modulesDirectory`.
+
+### Deployment Fails
+
+1. Check orchestrator worker is running: `npm run dev`
+2. Verify API token is correct
+3. Try with `--dry-run` to see what would be deployed
+
+## Need Help?
+
+- Check the [CLI README](../cli/README.md) for detailed documentation
+- Review configuration in `deploy.config.json`
+- Run with `--dry-run` to preview deployment

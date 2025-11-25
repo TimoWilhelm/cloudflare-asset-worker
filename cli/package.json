@@ -1,0 +1,24 @@
+{
+	"name": "@cloudflare-asset-worker/cli",
+	"version": "0.1.0",
+	"type": "module",
+	"description": "CLI tool for deploying applications to Cloudflare Multi-Project Platform",
+	"bin": {
+		"cf-deploy": "./bin/cli.js"
+	},
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [
+		"cloudflare",
+		"deployment",
+		"cli"
+	],
+	"author": "",
+	"license": "MIT",
+	"dependencies": {
+		"commander": "^12.0.0",
+		"glob": "^10.3.10",
+		"mime-types": "^2.1.35"
+	}
+}

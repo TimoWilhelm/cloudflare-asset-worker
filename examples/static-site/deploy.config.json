@@ -1,0 +1,12 @@
+{
+	"$schema": "../../node_modules/@cloudflare-asset-worker/cli/deploy.config.schema.json",
+	"projectName": "Static Site Example",
+	"assets": {
+		"directory": "./public",
+		"patterns": ["**/*"]
+	},
+	"config": {
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "none"
+	}
+}

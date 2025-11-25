@@ -1,0 +1,13 @@
+{
+	"$schema": "../../node_modules/@cloudflare-asset-worker/cli/deploy.config.schema.json",
+	"projectName": "API Worker Example",
+	"serverCode": {
+		"entrypoint": "index.js",
+		"modulesDirectory": "./src",
+		"compatibilityDate": "2025-11-09"
+	},
+	"run_worker_first": true,
+	"env": {
+		"ENVIRONMENT": "production"
+	}
+}

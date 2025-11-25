@@ -94,14 +94,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			app.post('/__api/projects/:projectId/deploy', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
-				return deployProject(
-					projectId,
-					c.req.raw,
-					this.env.KV_PROJECTS,
-					this.env.KV_SERVER_CODE,
-					assets,
-					this.env.JWT_SECRET,
-				);
+				return deployProject(projectId, c.req.raw, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets, this.env.JWT_SECRET);
 			});
 
 			app.onError((err, c) => {

@@ -1,0 +1,100 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "Cloudflare Asset Worker Deploy Configuration",
+	"type": "object",
+	"required": ["projectName"],
+	"properties": {
+		"projectName": {
+			"type": "string",
+			"description": "Name of the project"
+		},
+		"projectId": {
+			"type": "string",
+			"description": "Existing project ID (if omitted, a new project will be created)"
+		},
+		"assets": {
+			"type": "object",
+			"description": "Asset configuration",
+			"properties": {
+				"directory": {
+					"type": "string",
+					"description": "Directory containing static assets",
+					"default": "./dist"
+				},
+				"patterns": {
+					"type": "array",
+					"description": "Glob patterns to include",
+					"items": {
+						"type": "string"
+					},
+					"default": ["**/*"]
+				},
+				"ignore": {
+					"type": "array",
+					"description": "Glob patterns to ignore",
+					"items": {
+						"type": "string"
+					},
+					"default": []
+				}
+			}
+		},
+		"serverCode": {
+			"type": "object",
+			"description": "Server-side code configuration",
+			"required": ["entrypoint", "modulesDirectory"],
+			"properties": {
+				"entrypoint": {
+					"type": "string",
+					"description": "Main entry point module (e.g., 'index.js')"
+				},
+				"modulesDirectory": {
+					"type": "string",
+					"description": "Directory containing server modules"
+				},
+				"compatibilityDate": {
+					"type": "string",
+					"description": "Cloudflare Workers compatibility date",
+					"default": "2025-11-09"
+				}
+			}
+		},
+		"config": {
+			"type": "object",
+			"description": "Asset serving configuration",
+			"properties": {
+				"html_handling": {
+					"type": "string",
+					"enum": ["auto-trailing-slash", "force-trailing-slash", "none"],
+					"description": "HTML file handling behavior"
+				},
+				"not_found_handling": {
+					"type": "string",
+					"enum": ["none", "single-page-application", "404-page"],
+					"description": "404 handling behavior"
+				}
+			}
+		},
+		"run_worker_first": {
+			"oneOf": [
+				{
+					"type": "boolean"
+				},
+				{
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			],
+			"description": "Run worker before checking assets (boolean or glob patterns)"
+		},
+		"env": {
+			"type": "object",
+			"description": "Environment variables for server code",
+			"additionalProperties": {
+				"type": "string"
+			}
+		}
+	}
+}

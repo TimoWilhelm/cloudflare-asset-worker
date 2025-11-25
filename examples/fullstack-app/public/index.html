@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Fullstack App Example</title>
+		<link rel="stylesheet" href="style.css" />
+	</head>
+	<body>
+		<div class="container">
+			<h1>Fullstack Application</h1>
+			<p>This app combines static assets with server-side code.</p>
+
+			<div class="actions">
+				<button onclick="testAPI()">Test API</button>
+				<button onclick="showConfig()">Show Config</button>
+			</div>
+
+			<div id="output"></div>
+		</div>
+
+		<script>
+			async function testAPI() {
+				const response = await fetch('api/hello');
+				const data = await response.json();
+				document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+			}
+
+			async function showConfig() {
+				const response = await fetch('api/config');
+				const data = await response.json();
+				document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+			}
+		</script>
+	</body>
+</html>
