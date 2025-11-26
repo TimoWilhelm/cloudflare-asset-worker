@@ -7,6 +7,7 @@ import { getProject, createProject, listProjects, getProjectInfo, deleteProject 
 import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
+import { Analytics } from './analytics';
 
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfig }> {
 	override async fetch(request: Request): Promise<Response> {
@@ -17,7 +18,20 @@ export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; con
 
 export default class AssetManager extends WorkerEntrypoint<Env> {
 	override async fetch(request: Request): Promise<Response> {
+		const startTime = performance.now();
+		const analytics = new Analytics(this.env.ANALYTICS);
 		const url = new URL(request.url);
+
+		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
+		const coloRegion = request.cf?.colo as string;
+
+		analytics.setData({
+			hostname: url.hostname,
+			userAgent,
+			coloRegion,
+			pathname: url.pathname,
+			method: request.method,
+		});
 
 		// Management API routes
 		if (url.pathname.startsWith('/__api/')) {
@@ -107,22 +121,48 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				);
 			});
 
-			return app.fetch(request, this.env);
+			const response = await app.fetch(request, this.env);
+			analytics.setData({
+				requestType: 'api',
+				status: response.status,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
 		}
 
 		// Project serving - extract project ID from subdomain or path
 		const { projectId, isPathBased } = extractProjectId(url);
 
+		analytics.setData({
+			projectId: projectId ?? 'none',
+			routingType: isPathBased ? 'path' : 'subdomain',
+		});
+
 		if (!projectId) {
-			return new Response('Project not found. Access via subdomain (project-id.domain.com) or path (/__project/project-id/)', {
+			const response = new Response('Project not found. Access via subdomain (project-id.domain.com) or path (/__project/project-id/)', {
 				status: 404,
 			});
+			analytics.setData({
+				requestType: 'project_not_found',
+				status: 404,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
 		}
 
 		// Verify project exists
 		const project = await getProject(projectId, this.env.KV_PROJECTS);
 		if (!project) {
-			return new Response('Project not found', { status: 404 });
+			const response = new Response('Project not found', { status: 404 });
+			analytics.setData({
+				requestType: 'project_not_found',
+				status: 404,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
 		}
 
 		// Rewrite request URL if using path-based routing
@@ -132,10 +172,30 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		}
 
 		// Helper to run server code with common parameters
-		const executeServerCode = () =>
-			runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, this.env.LOADER, {
-				ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
-			});
+		const executeServerCode = async () => {
+			try {
+				analytics.setData({ requestType: 'ssr' });
+				const response = await runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, this.env.LOADER, {
+					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
+				});
+				analytics.setData({
+					status: response.status,
+					requestTime: performance.now() - startTime,
+				});
+				analytics.write();
+				return response;
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+				const response = new Response(`SSR Error: ${errorMessage}`, { status: 500 });
+				analytics.setData({
+					error: errorMessage,
+					status: 500,
+					requestTime: performance.now() - startTime,
+				});
+				analytics.write();
+				return response;
+			}
+		};
 
 		// Decide whether to check assets first or run worker first based on config
 		const rewrittenUrl = new URL(rewrittenRequest.url);
@@ -149,17 +209,44 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		// Try to serve static assets first (default behavior)
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 
-		const canServeAsset = await assets.canFetch(rewrittenRequest, projectId, project.config);
+		try {
+			const canServeAsset = await assets.canFetch(rewrittenRequest, projectId, project.config);
 
-		if (canServeAsset) {
-			return await assets.serveAsset(rewrittenRequest, projectId, project.config);
+			if (canServeAsset) {
+				analytics.setData({ requestType: 'asset' });
+				const response = await assets.serveAsset(rewrittenRequest, projectId, project.config);
+				analytics.setData({
+					status: response.status,
+					requestTime: performance.now() - startTime,
+				});
+				analytics.write();
+				return response;
+			}
+
+			// If no asset found and project has server code, run dynamic worker
+			if (project.hasServerCode) {
+				return executeServerCode();
+			}
+
+			const response = new Response('Not found', { status: 404 });
+			analytics.setData({
+				requestType: 'not_found',
+				status: 404,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
+		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+			const response = new Response(`Error: ${errorMessage}`, { status: 500 });
+			analytics.setData({
+				requestType: 'error',
+				error: errorMessage,
+				status: 500,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
 		}
-
-		// If no asset found and project has server code, run dynamic worker
-		if (project.hasServerCode) {
-			return executeServerCode();
-		}
-
-		return new Response('Not found', { status: 404 });
 	}
 }

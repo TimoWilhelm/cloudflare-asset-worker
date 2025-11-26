@@ -6,15 +6,24 @@
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"logs": {
-			"enabled": true,
+			"enabled": true
 		},
 		"traces": {
-			"enabled": true,
-		},
+			"enabled": true
+		}
 	},
 	"kv_namespaces": [
 		{
-			"binding": "KV_ASSETS",
-		},
+			"binding": "KV_ASSETS"
+		}
 	],
+	"analytics_engine_datasets": [
+		{
+			"binding": "ANALYTICS",
+			"dataset": "asset-service"
+		}
+	],
+	"version_metadata": {
+		"binding": "VERSION"
+	}
 }

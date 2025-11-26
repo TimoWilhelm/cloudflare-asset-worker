@@ -6,10 +6,16 @@
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"kv_namespaces": [
 		{
-			"binding": "KV_PROJECTS",
+			"binding": "KV_PROJECTS"
 		},
 		{
-			"binding": "KV_SERVER_CODE",
-		},
+			"binding": "KV_SERVER_CODE"
+		}
 	],
+	"analytics_engine_datasets": [
+		{
+			"binding": "ANALYTICS",
+			"dataset": "orchestrator"
+		}
+	]
 }

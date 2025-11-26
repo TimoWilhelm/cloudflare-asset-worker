@@ -1,10 +1,11 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfig } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
-import { handleError } from './utils/final-operations';
 import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
+import { Analytics } from './analytics';
+import { InternalServerErrorResponse } from './utils/responses';
 
 export interface ManifestEntry {
 	pathname: string;
@@ -46,19 +47,60 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @returns A Response object with the requested asset or an error response
 	 */
 	async serveAsset(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<Response> {
+		const startTime = performance.now();
+
+		const analytics = new Analytics(this.env.ANALYTICS);
+
+		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
+		const coloRegion = request.cf?.colo as string;
+
+		const url = new URL(request.url);
+
+		analytics.setData({
+			projectId,
+			workerVersion: this.env.VERSION.id,
+			coloRegion,
+			userAgent,
+			hostname: url.hostname,
+			htmlHandling: projectConfig?.html_handling,
+			notFoundHandling: projectConfig?.not_found_handling,
+		});
+
 		try {
 			const config = normalizeConfiguration(projectConfig);
+
 			const response = await handleRequest(
 				request,
 				this.env,
 				config,
 				(pathname: string, req: Request) => this.exists(pathname, req, projectId),
 				(eTag: string, req?: Request) => this.getByETag(eTag, projectId, req),
+				analytics
 			);
+
+			analytics.setData({
+				status: response.status,
+			});
 
 			return response;
 		} catch (err) {
-			return handleError(err);
+			try {
+				const response = new InternalServerErrorResponse(err as Error);
+
+				if (err instanceof Error) {
+					analytics.setData({ error: err.message });
+				}
+
+				return response;
+			} catch (e) {
+				console.error('Error handling error', e);
+				return new InternalServerErrorResponse(e as Error);
+			}
+		} finally {
+			analytics.setData({
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
 		}
 	}
 
@@ -85,7 +127,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async getByETag(
 		eTag: string,
 		projectId: string,
-		_request?: Request,
+		_request?: Request
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -120,7 +162,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async getByPathname(
 		pathname: string,
 		request: Request,
-		projectId: string,
+		projectId: string
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -200,7 +242,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const namespacedETag = this.getNamespacedKey(projectId, entry.contentHash);
 				const exists = await this.env.KV_ASSETS.get(namespacedETag, 'stream');
 				return { entry, exists: exists !== null };
-			}),
+			})
 		);
 
 		// Filter to only entries that need uploading
@@ -227,7 +269,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const pathHash = await hashPath(entry.pathname);
 				const contentHashBytes = new Uint8Array(entry.contentHash.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)));
 				return { pathHash, contentHashBytes };
-			}),
+			})
 		);
 
 		// Sort entries by path hash
@@ -266,7 +308,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const namespacedKey = this.getNamespacedKey(projectId, hash);
 				const exists = await this.env.KV_ASSETS.get(namespacedKey, 'stream');
 				return { hash, exists: exists !== null };
-			}),
+			})
 		);
 		return results;
 	}

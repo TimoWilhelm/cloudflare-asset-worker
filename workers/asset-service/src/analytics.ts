@@ -1,0 +1,62 @@
+type Data = {
+	// -- Indexes --
+	projectId?: string;
+
+	// -- Doubles --
+	// double1 - The time it takes for the whole request to complete in milliseconds
+	requestTime?: number;
+	// double2 - Response status code
+	status?: number;
+
+	// -- Blobs --
+	// blob1 - Hostname of the request
+	hostname?: string;
+	// blob2 - User agent making the request
+	userAgent?: string;
+	// blob3 - Html handling option
+	htmlHandling?: string;
+	// blob4 - Not found handling option
+	notFoundHandling?: string;
+	// blob5 - Error message
+	error?: string;
+	// blob6 - The current version UUID of asset-worker
+	workerVersion?: string;
+	// blob7 - Three-letter IATA airport code of the data center (e.g. WEUR)
+	coloRegion?: string;
+	// blob8 - The cache status of the request
+	cacheStatus?: string;
+};
+
+export class Analytics {
+	private data: Data = {};
+
+	constructor(private readonly analyticsEngineDataset?: AnalyticsEngineDataset) {}
+
+	setData(newData: Partial<Data>) {
+		this.data = { ...this.data, ...newData };
+	}
+
+	getData(key: keyof Data) {
+		return this.data[key];
+	}
+
+	write() {
+		if (!this.analyticsEngineDataset) {
+			return;
+		}
+		this.analyticsEngineDataset.writeDataPoint({
+			indexes: [this.data.projectId ?? null],
+			doubles: [this.data.requestTime ?? -1, this.data.status ?? -1],
+			blobs: [
+				this.data.hostname?.substring(0, 256) ?? null,
+				this.data.userAgent?.substring(0, 256) ?? null,
+				this.data.htmlHandling ?? null,
+				this.data.notFoundHandling ?? null,
+				this.data.error?.substring(0, 256) ?? null,
+				this.data.workerVersion ?? null,
+				this.data.coloRegion ?? null,
+				this.data.cacheStatus ?? null,
+			],
+		});
+	}
+}

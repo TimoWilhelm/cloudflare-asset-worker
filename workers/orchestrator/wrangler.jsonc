@@ -6,29 +6,35 @@
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
 	"observability": {
 		"logs": {
-			"enabled": true,
+			"enabled": true
 		},
 		"traces": {
-			"enabled": true,
-		},
+			"enabled": true
+		}
 	},
 	"kv_namespaces": [
 		{
-			"binding": "KV_PROJECTS",
+			"binding": "KV_PROJECTS"
 		},
 		{
-			"binding": "KV_SERVER_CODE",
-		},
+			"binding": "KV_SERVER_CODE"
+		}
 	],
 	"services": [
 		{
 			"binding": "ASSET_WORKER",
-			"service": "asset-worker-asset-service",
-		},
+			"service": "asset-worker-asset-service"
+		}
 	],
 	"worker_loaders": [
 		{
-			"binding": "LOADER",
-		},
+			"binding": "LOADER"
+		}
 	],
+	"analytics_engine_datasets": [
+		{
+			"binding": "ANALYTICS",
+			"dataset": "orchestrator"
+		}
+	]
 }

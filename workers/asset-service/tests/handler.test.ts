@@ -3,6 +3,7 @@
 import { vi } from 'vitest';
 import { normalizeConfiguration } from '../src/configuration';
 import { canFetch, handleRequest } from '../src/handler';
+import { Analytics } from '../src/analytics';
 import { env } from 'cloudflare:test';
 
 describe('[Asset Worker] `handleRequest`', () => {
@@ -19,7 +20,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			cacheStatus: 'HIT',
 		});
 
-		const response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag);
+		const response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag, new Analytics());
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get('ETag')).toBe(`"${eTag}"`);
@@ -46,6 +47,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			configuration,
 			exists,
 			getByETag,
+			new Analytics()
 		);
 
 		expect(response.status).toBe(304);
@@ -72,6 +74,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			configuration,
 			exists,
 			getByETag,
+			new Analytics()
 		);
 
 		expect(response.status).toBe(304);
@@ -98,6 +101,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			configuration,
 			exists,
 			getByETag,
+			new Analytics()
 		);
 
 		expect(response.status).toBe(200);
@@ -129,6 +133,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
 			}),
+			new Analytics()
 		);
 
 		expect(response.status).toBe(404);
@@ -151,6 +156,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
 			}),
+			new Analytics()
 		);
 
 		expect(response.status).toBe(404);
@@ -176,11 +182,11 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 
 		// first malformed URL should return 404 as no match above
-		const response = await handleRequest(new Request('https://example.com/%A0'), env, configuration, exists, getByEtag);
+		const response = await handleRequest(new Request('https://example.com/%A0'), env, configuration, exists, getByEtag, new Analytics());
 		expect(response.status).toBe(404);
 
 		// but second malformed URL should return 307 as it matches and then redirects
-		const response2 = await handleRequest(new Request('https://example.com/%A0%A0'), env, configuration, exists, getByEtag);
+		const response2 = await handleRequest(new Request('https://example.com/%A0%A0'), env, configuration, exists, getByEtag, new Analytics());
 		expect(response2.status).toBe(307);
 	});
 
@@ -198,7 +204,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 
 		// Test cache HIT
-		const cacheHitResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag);
+		const cacheHitResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag, new Analytics());
 
 		expect(cacheHitResponse.status).toBe(200);
 		expect(cacheHitResponse.headers.get('CF-Cache-Status')).toBe('HIT');
@@ -210,7 +216,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			cacheStatus: 'MISS',
 		});
 
-		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag);
+		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByEtag, new Analytics());
 
 		expect(cacheMissResponse.status).toBe(200);
 		expect(cacheMissResponse.headers.get('CF-Cache-Status')).toBe('MISS');
@@ -283,50 +289,50 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Static header on root
-			let response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag);
+			let response = await handleRequest(new Request('https://example.com/'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('X-Custom-Header')).toBe('Custom-Value');
 			expect(response.headers.has('X-Custom-Foo-Header')).toBeFalsy();
 
 			// Static header on path
-			response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('X-Custom-Foo-Header')).toBe('Custom-Foo-Value');
 			expect(response.headers.has('X-Custom-Header')).toBeFalsy();
 
 			// Placeholder header
-			response = await handleRequest(new Request('https://example.com/bang/baz'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/bang/baz'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('X-Custom-Bang-Header')).toBe('Custom-Bang-Value baz');
 
 			// Placeholder doesn't catch children
-			response = await handleRequest(new Request('https://example.com/bang/baz/abba'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/bang/baz/abba'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.has('X-Custom-Bang-Header')).toBeFalsy();
 
 			// Splat header
-			response = await handleRequest(new Request('https://example.com/art/attack/by/Neil/Buchanan'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/art/attack/by/Neil/Buchanan'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('X-Custom-Art-Header')).toBe('Custom-Art-Value attack/by/Neil/Buchanan');
 			expect(response.headers.get('Set-Cookie')).toBe('me');
 
 			// Headers are appended
-			response = await handleRequest(new Request('https://example.com/art/nested/attack'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/art/nested/attack'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('Set-Cookie')).toBe('me, me too');
 
 			// System headers are overwritten
-			response = await handleRequest(new Request('https://example.com/system/override'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/system/override'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('ETag')).toBe('very rogue');
 
 			// System headers can be unset
-			response = await handleRequest(new Request('https://example.com/system/underride'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/system/underride'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.has('ETag')).toBeFalsy();
 
 			// Custom headers can be unset and redefined
-			response = await handleRequest(new Request('https://example.com/art/nested/unset/attack'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/art/nested/unset/attack'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.headers.get('Set-Cookie')).toBe('hijack');
 
@@ -337,6 +343,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				configuration,
 				exists,
 				getByETag,
+				new Analytics()
 			);
 
 			expect(response.headers.has('Set-Cookie')).toBeFalsy();
@@ -354,6 +361,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					return null;
 				},
 				getByETag,
+				new Analytics()
 			);
 
 			expect(response.headers.get('Location')).toBe('/foo');
@@ -368,6 +376,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				configuration,
 				exists,
 				getByETag,
+				new Analytics()
 			);
 
 			expect(response.status).toBe(304);
@@ -389,6 +398,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				() => {
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(301);
@@ -495,7 +505,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Static redirect in front of an asset
-			let response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag);
+			let response = await handleRequest(new Request('https://example.com/foo'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(301);
 			expect(response.headers.get('Location')).toBe('/bar');
@@ -509,6 +519,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				() => {
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(301);
@@ -541,6 +552,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					}
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(200);
@@ -573,6 +585,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					}
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(200);
@@ -605,6 +618,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					}
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(200);
@@ -637,6 +651,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					}
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(404);
@@ -651,34 +666,35 @@ describe('[Asset Worker] `handleRequest`', () => {
 				() => {
 					throw new Error('bang');
 				},
+				new Analytics()
 			);
 
 			expect(response.status).toBe(404);
 			expect(await response.text()).toBe('');
 
 			// Static redirects evaluate in line order
-			response = await handleRequest(new Request('https://example.com/competeForwards'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/competeForwards'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/hostless');
 
-			response = await handleRequest(new Request('https://example.com/competeBackwards'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/competeBackwards'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/withhost');
 
-			response = await handleRequest(new Request('https://example.com/wonkyObjectOrder'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/wonkyObjectOrder'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/withhost');
 
 			// Dynamic placeholders work
-			response = await handleRequest(new Request('https://example.com/dynamic/foo'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/dynamic/foo'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/new-dynamic/?with#params');
 
-			response = await handleRequest(new Request('https://example.com/dynamic/bar/baz/qux'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/dynamic/bar/baz/qux'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('https://fakehost/qux/bar/baz/new-dynamic/?with#params');
@@ -689,49 +705,50 @@ describe('[Asset Worker] `handleRequest`', () => {
 				configuration,
 				exists,
 				getByETag,
+				new Analytics()
 			);
 
 			expect(response.status).toBe(200);
 
 			// Dynamic splats work
-			response = await handleRequest(new Request('https://example.com/splat/foo/bar/baz'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/foo/bar/baz'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/bar/baz/new-splat');
 
-			response = await handleRequest(new Request('https://example.com/splat/'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-splat');
 
 			// Dynamic rules are first-come-first-serve
-			response = await handleRequest(new Request('https://example.com/splat/foo/nope'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/splat/foo/nope'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/foo/nope/new-splat');
 
-			response = await handleRequest(new Request('https://example.com/but/this/match'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/but/this/match'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/will');
 
-			response = await handleRequest(new Request('https://example.com/but/this/will/match'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/but/this/will/match'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/too');
 
 			// Partial splats and placeholders work
-			response = await handleRequest(new Request('https://example.com/partialSplatfoo/bar/baz'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialSplatfoo/bar/baz'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-partialSplatfoo/bar/baz');
 
-			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			expect(response.headers.get('Location')).toBe('/new-partialPlaceholderfoo');
 
-			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo/'), env, configuration, exists, getByETag);
+			response = await handleRequest(new Request('https://example.com/partialPlaceholderfoo/'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(200);
 		});
@@ -758,7 +775,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			});
 
 			// Test the vulnerability: double slash should not create external redirect
-			const response = await handleRequest(new Request('https://example.com/foo//google.com'), env, configuration, exists, getByETag);
+			const response = await handleRequest(new Request('https://example.com/foo//google.com'), env, configuration, exists, getByETag, new Analytics());
 
 			expect(response.status).toBe(302);
 			const location = response.headers.get('Location');
