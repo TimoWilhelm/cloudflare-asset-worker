@@ -1,3 +1,11 @@
+/**
+ * Analytics data schema for the Asset Service worker.
+ *
+ * Dataset name: asset_service (configured in wrangler.jsonc)
+ *
+ * IMPORTANT: If you modify this schema, you MUST also update:
+ * - ../../ANALYTICS-GUIDE.md (Data Schema section)
+ */
 type Data = {
 	// -- Indexes --
 	projectId?: string;

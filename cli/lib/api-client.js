@@ -243,6 +243,57 @@ export class ApiClient {
 	}
 
 	/**
+	 * Check if orchestrator URL supports subdomain routing
+	 * @returns {boolean} True if subdomain routing should be shown
+	 */
+	supportsSubdomainRouting() {
+		try {
+			const url = new URL(this.orchestratorUrl);
+			const hostname = url.hostname.toLowerCase();
+
+			// Check if it's localhost
+			if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+				return false;
+			}
+
+			// Check if it's an IP address (simple check for IPv4)
+			if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) {
+				return false;
+			}
+
+			// Check if it ends with workers.dev
+			if (hostname.endsWith('.workers.dev')) {
+				return false;
+			}
+
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	/**
+	 * Get domain for subdomain routing
+	 * @returns {string|null} Domain for subdomain routing or null
+	 */
+	getSubdomainRoutingDomain() {
+		if (!this.supportsSubdomainRouting()) {
+			return null;
+		}
+
+		try {
+			const url = new URL(this.orchestratorUrl);
+			const protocol = url.protocol === 'https:' ? 'https' : 'http';
+			const hostname = url.hostname;
+			const port = url.port ? `:${url.port}` : '';
+
+			return `${protocol}://<projectId>.${hostname}${port}/`;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
 	 * Get project URL
 	 * @param {string} projectId - Project ID
 	 * @returns {string} Project URL

@@ -124,8 +124,13 @@ program
 
 			// Show access URLs
 			console.log(`\n🌐 Access your application:`);
-			console.log(`  Path-based: ${client.getProjectUrl(projectId)}`);
-			console.log(`  Subdomain:  https://${projectId}.yourdomain.com/ (configure DNS)`);
+			const subdomainTemplate = client.getSubdomainRoutingDomain();
+			if (subdomainTemplate) {
+				console.log(`  Subdomain:  ${subdomainTemplate.replace('<projectId>', projectId)} (configure worker route)`);
+				console.log(`  Path-based: ${client.getProjectUrl(projectId)}`);
+			} else {
+				console.log(`  ${client.getProjectUrl(projectId)}`);
+			}
 		} catch (error) {
 			console.error('\n❌ Deployment failed:', error.message);
 			process.exit(1);
@@ -154,10 +159,16 @@ program
 			const projects = await client.listProjects();
 
 			console.log('\n📋 Projects:\n');
+			const subdomainTemplate = client.getSubdomainRoutingDomain();
 			projects.forEach((project) => {
 				console.log(`  • ${project.name} (${project.id})`);
 				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServerCode ? 'Yes' : 'No'}`);
-				console.log(`    URL: ${client.getProjectUrl(project.id)}`);
+				if (subdomainTemplate) {
+					console.log(`    Subdomain:  ${subdomainTemplate.replace('<projectId>', project.id)}`);
+					console.log(`    Path-based: ${client.getProjectUrl(project.id)}`);
+				} else {
+					console.log(`    URL: ${client.getProjectUrl(project.id)}`);
+				}
 				console.log('');
 			});
 

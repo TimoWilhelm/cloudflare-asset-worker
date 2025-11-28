@@ -1,3 +1,11 @@
+/**
+ * Analytics data schema for the Orchestrator worker.
+ *
+ * Dataset name: orchestrator (configured in wrangler.jsonc)
+ *
+ * IMPORTANT: If you modify this schema, you MUST also update:
+ * - ../../ANALYTICS-GUIDE.md (Data Schema section)
+ */
 type Data = {
 	// -- Indexes --
 	projectId?: string;
