@@ -12,7 +12,7 @@
 	"analytics_engine_datasets": [
 		{
 			"binding": "ANALYTICS",
-			"dataset": "asset-service"
+			"dataset": "asset_service"
 		}
 	],
 	"version_metadata": {
