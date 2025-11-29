@@ -115,6 +115,11 @@ The Asset API supports advanced configuration options:
 
 Static and dynamic redirect rules with status codes 301, 302, 303, 307, 308.
 
+**Limits:**
+
+- Static redirects: Maximum 2,000 rules per project
+- Dynamic redirects: Maximum 100 rules per project
+
 ### Headers
 
 Custom headers per pathname pattern using glob syntax.
@@ -167,16 +172,16 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
-	"name": "asset-worker-asset-service",
-	"main": "src/worker.ts",
-	"compatibility_date": "2025-11-11",
-	"compatibility_flags": ["nodejs_compat"],
-	"kv_namespaces": [
-		{
-			"binding": "KV_ASSETS",
-			// id: "your-kv-namespace-id"
-		},
-	],
+ "name": "asset-worker-asset-service",
+ "main": "src/worker.ts",
+ "compatibility_date": "2025-11-11",
+ "compatibility_flags": ["nodejs_compat"],
+ "kv_namespaces": [
+  {
+   "binding": "KV_ASSETS",
+   // id: "your-kv-namespace-id"
+  },
+ ],
 }
 ```
 

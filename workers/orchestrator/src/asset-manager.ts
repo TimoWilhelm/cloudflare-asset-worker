@@ -31,7 +31,7 @@ export async function createAssetUploadSession(
 	}
 
 	// Validate manifest size
-	const MAX_MANIFEST_ENTRIES = 10000;
+	const MAX_MANIFEST_ENTRIES = 20000;
 	const manifestSize = Object.keys(manifest).length;
 	if (manifestSize === 0) {
 		return new Response('Empty manifest', { status: 400 });
@@ -58,10 +58,12 @@ export async function createAssetUploadSession(
 			return new Response(`Invalid size for "${pathname}": must be non-negative integer`, { status: 400 });
 		}
 
-		// Validate reasonable size limit (e.g., 100MB per file)
-		const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+		// Validate individual asset file size limit (25 MiB)
+		const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MiB
 		if (data.size > MAX_FILE_SIZE) {
-			return new Response(`File too large "${pathname}": ${data.size} bytes exceeds ${MAX_FILE_SIZE} bytes`, { status: 413 });
+			return new Response(`Asset file too large "${pathname}": ${data.size} bytes exceeds ${MAX_FILE_SIZE} bytes (25 MiB)`, {
+				status: 413,
+			});
 		}
 
 		totalSize += data.size;

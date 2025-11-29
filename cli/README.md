@@ -196,6 +196,8 @@ Configuration for static assets:
 - **`patterns`** (array) - Glob patterns to include (default: `["**/*"]`)
 - **`ignore`** (array) - Glob patterns to exclude (default: `[]`)
 
+> **Note:** Maximum 20,000 asset files per deployment, with each file limited to 25 MiB. Exceeding these limits will cause deployment to fail.
+
 #### `serverCode`
 
 Configuration for server-side code:
@@ -211,6 +213,8 @@ Configuration for server-side code:
 - **`entrypoint`** (string) - Main entry point module (required if using server code)
 - **`modulesDirectory`** (string) - Directory containing server modules (required if using server code)
 - **`compatibilityDate`** (string) - Cloudflare Workers compatibility date (default: `"2025-11-09"`)
+
+> **Note:** Total server code size (all modules combined) is limited to 10 MB. Exceeding this limit will cause deployment to fail.
 
 #### `config`
 
@@ -267,14 +271,24 @@ Asset serving configuration:
 }
 ```
 
-- **`static`** - Simple path-to-path mappings
+- **`static`** - Simple path-to-path mappings (max 2,000 rules)
   - `status` - HTTP status code (200 for proxying, 301/302/303/307/308 for redirects)
   - `to` - Target path or URL
   - Precedence is automatically determined by the order of rules (first rule wins when multiple match)
-- **`dynamic`** - Dynamic rules with pattern matching
+- **`dynamic`** - Dynamic rules with pattern matching (max 100 rules)
   - Use `:placeholder` to capture path segments (e.g., `:slug`, `:id`)
   - Use `*` for wildcards (becomes `:splat` in the target)
   - Can specify cross-host rules with `https://domain.com/path`
+
+**Limits:**
+
+- Assets: Maximum 20,000 files per deployment, 25 MiB per file
+- Static redirects: Maximum 2,000 rules per deployment
+- Dynamic redirects: Maximum 100 rules per deployment
+- Environment variables: Maximum 64 variables per deployment, 5 KB per variable
+- Server code: Maximum 10 MB total (all modules combined)
+
+Exceeding these limits will cause deployment to fail.
 
 #### `headers`
 
@@ -334,7 +348,7 @@ Asset serving configuration:
 
 #### `env`
 
-(object) - Environment variables for server code:
+(object) - Environment variables for server code (max 64 variables, 5 KB per variable):
 
 ```json
 {
@@ -342,6 +356,8 @@ Asset serving configuration:
  "API_URL": "https://api.example.com"
 }
 ```
+
+> **Note:** Each environment variable value is limited to 5 KB (5,120 bytes).
 
 ## Project Structure Examples
 

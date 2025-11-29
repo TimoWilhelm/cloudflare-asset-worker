@@ -1,3 +1,7 @@
+// Configuration limits
+export const MAX_STATIC_REDIRECTS = 2000;
+export const MAX_DYNAMIC_REDIRECTS = 100;
+
 // Base configuration properties shared by input and internal config
 interface AssetConfigBase {
 	html_handling?: 'auto-trailing-slash' | 'force-trailing-slash' | 'drop-trailing-slash' | 'none';
@@ -26,6 +30,21 @@ export interface AssetConfig extends AssetConfigBase {
 }
 
 export const normalizeConfiguration = (configuration?: AssetConfigInput): Required<AssetConfig> => {
+	// Validate redirect limits
+	if (configuration?.redirects?.static) {
+		const staticCount = Object.keys(configuration.redirects.static).length;
+		if (staticCount > MAX_STATIC_REDIRECTS) {
+			throw new Error(`Too many static redirects: ${staticCount}. Maximum allowed is ${MAX_STATIC_REDIRECTS}.`);
+		}
+	}
+
+	if (configuration?.redirects?.dynamic) {
+		const dynamicCount = Object.keys(configuration.redirects.dynamic).length;
+		if (dynamicCount > MAX_DYNAMIC_REDIRECTS) {
+			throw new Error(`Too many dynamic redirects: ${dynamicCount}. Maximum allowed is ${MAX_DYNAMIC_REDIRECTS}.`);
+		}
+	}
+
 	// Auto-generate lineNumber from rule order
 	const staticRedirects: Record<string, { status: number; to: string; lineNumber: number }> = {};
 	if (configuration?.redirects?.static) {

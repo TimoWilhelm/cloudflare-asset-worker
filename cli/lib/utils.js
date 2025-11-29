@@ -54,9 +54,19 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
 		dot: false,
 	});
 
+	const MAX_ASSET_SIZE = 25 * 1024 * 1024; // 25 MiB
+
 	for (const file of files) {
 		const filePath = path.join(absoluteDir, file);
 		const content = await fs.readFile(filePath);
+
+		// Validate individual asset file size
+		if (content.length > MAX_ASSET_SIZE) {
+			throw new Error(
+				`Asset file '${file}' is too large: ${content.length} bytes (${(content.length / 1024 / 1024).toFixed(2)} MiB). Maximum allowed is ${MAX_ASSET_SIZE} bytes (25 MiB).`,
+			);
+		}
+
 		const pathname = '/' + file.replace(/\\/g, '/'); // Normalize path separators
 		const contentType = mime.lookup(file) || 'application/octet-stream';
 
@@ -94,11 +104,16 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	});
 
 	const modules = {};
+	const MAX_TOTAL_SERVER_CODE_SIZE = 10 * 1024 * 1024; // 10 MB
+	let totalSize = 0;
 
 	for (const file of files) {
 		const filePath = path.join(absoluteDir, file);
 		const content = await fs.readFile(filePath);
 		const moduleName = file.replace(/\\/g, '/'); // Normalize path separators
+
+		// Track total server code size
+		totalSize += content.length;
 
 		// Determine module type from extension
 		const ext = path.extname(file).toLowerCase();
@@ -129,6 +144,13 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 				type: moduleType,
 			};
 		}
+	}
+
+	// Validate total server code size
+	if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
+		throw new Error(
+			`Total server code size is too large: ${totalSize} bytes (${(totalSize / 1024 / 1024).toFixed(2)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_CODE_SIZE} bytes (10 MB).`,
+		);
 	}
 
 	// Verify entrypoint exists

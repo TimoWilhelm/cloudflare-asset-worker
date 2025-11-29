@@ -59,6 +59,51 @@ program
 				}
 			}
 
+			// Validate redirect limits
+			if (config.config?.redirects) {
+				const MAX_STATIC_REDIRECTS = 2000;
+				const MAX_DYNAMIC_REDIRECTS = 100;
+
+				if (config.config.redirects.static) {
+					const staticCount = Object.keys(config.config.redirects.static).length;
+					if (staticCount > MAX_STATIC_REDIRECTS) {
+						console.error(`\n❌ Error: Too many static redirects (${staticCount}). Maximum allowed is ${MAX_STATIC_REDIRECTS}.`);
+						process.exit(1);
+					}
+				}
+
+				if (config.config.redirects.dynamic) {
+					const dynamicCount = Object.keys(config.config.redirects.dynamic).length;
+					if (dynamicCount > MAX_DYNAMIC_REDIRECTS) {
+						console.error(`\n❌ Error: Too many dynamic redirects (${dynamicCount}). Maximum allowed is ${MAX_DYNAMIC_REDIRECTS}.`);
+						process.exit(1);
+					}
+				}
+			}
+
+			// Validate environment variables limit
+			if (config.env) {
+				const MAX_ENV_VARS = 64;
+				const MAX_ENV_VAR_SIZE = 5 * 1024; // 5 KB
+
+				const envVarCount = Object.keys(config.env).length;
+				if (envVarCount > MAX_ENV_VARS) {
+					console.error(`\n❌ Error: Too many environment variables (${envVarCount}). Maximum allowed is ${MAX_ENV_VARS}.`);
+					process.exit(1);
+				}
+
+				// Validate individual environment variable sizes
+				for (const [key, value] of Object.entries(config.env)) {
+					const valueSize = Buffer.byteLength(String(value), 'utf8');
+					if (valueSize > MAX_ENV_VAR_SIZE) {
+						console.error(
+							`\n❌ Error: Environment variable '${key}' is too large (${valueSize} bytes). Maximum allowed is ${MAX_ENV_VAR_SIZE} bytes (5 KB).`,
+						);
+						process.exit(1);
+					}
+				}
+			}
+
 			// Prepare deployment
 			const deployment = {
 				projectName: config.projectName,
@@ -74,6 +119,13 @@ program
 				const assetsDir = path.resolve(configDir, config.assets.directory);
 				deployment.assets = await scanAssets(assetsDir, config.assets.patterns || ['**/*'], config.assets.ignore || []);
 				console.log(`  ✓ Found ${deployment.assets.length} assets`);
+
+				// Validate asset count limit
+				const MAX_ASSETS = 20000;
+				if (deployment.assets.length > MAX_ASSETS) {
+					console.error(`\n❌ Error: Too many assets (${deployment.assets.length}). Maximum allowed is ${MAX_ASSETS}.`);
+					process.exit(1);
+				}
 
 				// Calculate total size
 				const totalSize = deployment.assets.reduce((sum, asset) => {
