@@ -45,7 +45,7 @@ npx cf-deploy deploy --create-project
 
 **Project Structure:**
 
-```
+```text
 static-site/
 ├── deploy.config.json
 └── public/
@@ -76,7 +76,7 @@ npx cf-deploy deploy --create-project
 
 **Project Structure:**
 
-```
+```text
 fullstack-app/
 ├── deploy.config.json
 ├── public/
@@ -113,7 +113,7 @@ npx cf-deploy deploy --create-project
 
 **Project Structure:**
 
-```
+```text
 api-worker/
 ├── deploy.config.json
 └── src/
@@ -171,24 +171,24 @@ Each example includes a `deploy.config.json` file:
 
 ```json
 {
-	"projectName": "My App",
-	"projectId": null,
-	"assets": {
-		"directory": "./public",
-		"patterns": ["**/*"]
-	},
-	"serverCode": {
-		"entrypoint": "index.js",
-		"modulesDirectory": "./server"
-	},
-	"config": {
-		"html_handling": "auto-trailing-slash",
-		"not_found_handling": "single-page-application"
-	},
-	"run_worker_first": ["/api/*"],
-	"env": {
-		"ENVIRONMENT": "production"
-	}
+ "projectName": "My App",
+ "projectId": null,
+ "assets": {
+  "directory": "./public",
+  "patterns": ["**/*"]
+ },
+ "serverCode": {
+  "entrypoint": "index.js",
+  "modulesDirectory": "./server"
+ },
+ "config": {
+  "html_handling": "auto-trailing-slash",
+  "not_found_handling": "single-page-application"
+ },
+ "run_worker_first": ["/api/*"],
+ "env": {
+  "ENVIRONMENT": "production"
+ }
 }
 ```
 
@@ -214,10 +214,10 @@ Configure in `deploy.config.json`:
 
 ```json
 {
-	"env": {
-		"DATABASE_URL": "${DATABASE_URL}",
-		"API_KEY": "your-api-key"
-	}
+ "env": {
+  "DATABASE_URL": "${DATABASE_URL}",
+  "API_KEY": "your-api-key"
+ }
 }
 ```
 
@@ -229,16 +229,16 @@ Server code must export a default object with a `fetch` handler:
 
 ```javascript
 export default {
-	async fetch(request, env, ctx) {
-		const url = new URL(request.url);
+ async fetch(request, env, ctx) {
+  const url = new URL(request.url);
 
-		if (url.pathname === '/api/endpoint') {
-			return new Response('Hello!');
-		}
+  if (url.pathname === '/api/endpoint') {
+   return new Response('Hello!');
+  }
 
-		// Return 404 to let assets handle other paths
-		return new Response('Not found', { status: 404 });
-	},
+  // Return 404 to let assets handle other paths
+  return new Response('Not found', { status: 404 });
+ },
 };
 ```
 
@@ -246,7 +246,7 @@ export default {
 
 The CLI automatically discovers and deploys all modules in the server directory:
 
-```
+```text
 server/
 ├── index.js          # Entry point
 ├── handlers/
@@ -270,7 +270,7 @@ Check assets first, then run worker code:
 
 ```json
 {
-	"run_worker_first": false
+ "run_worker_first": false
 }
 ```
 
@@ -280,7 +280,7 @@ Run worker code first for API routes:
 
 ```json
 {
-	"run_worker_first": ["/api/*", "/admin/**"]
+ "run_worker_first": ["/api/*", "/admin/**"]
 }
 ```
 
@@ -290,7 +290,7 @@ Run worker for all requests:
 
 ```json
 {
-	"run_worker_first": true
+ "run_worker_first": true
 }
 ```
 
@@ -302,10 +302,10 @@ Serve `index.html` for all 404s:
 
 ```json
 {
-	"config": {
-		"html_handling": "auto-trailing-slash",
-		"not_found_handling": "single-page-application"
-	}
+ "config": {
+  "html_handling": "auto-trailing-slash",
+  "not_found_handling": "single-page-application"
+ }
 }
 ```
 
@@ -315,10 +315,10 @@ Standard HTML handling:
 
 ```json
 {
-	"config": {
-		"html_handling": "auto-trailing-slash",
-		"not_found_handling": "none"
-	}
+ "config": {
+  "html_handling": "auto-trailing-slash",
+  "not_found_handling": "none"
+ }
 }
 ```
 
@@ -336,7 +336,7 @@ npx cf-deploy deploy  # Uses projectId from config
 
 Create separate configs for different environments:
 
-```
+```text
 examples/my-app/
 ├── deploy.config.json       # Development
 ├── staging.config.json      # Staging
@@ -364,11 +364,11 @@ Exclude files from deployment:
 
 ```json
 {
-	"assets": {
-		"directory": "./dist",
-		"patterns": ["**/*"],
-		"ignore": ["**/*.map", "**/.DS_Store", "**/test/**"]
-	}
+ "assets": {
+  "directory": "./dist",
+  "patterns": ["**/*"],
+  "ignore": ["**/*.map", "**/.DS_Store", "**/test/**"]
+ }
 }
 ```
 

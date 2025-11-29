@@ -32,7 +32,7 @@ npx cf-deploy deploy --create-project
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
@@ -40,14 +40,14 @@ Returns API status and environment info.
 
 ### Users
 
-```
+```http
 GET /api/users          # List all users
 GET /api/users/:id      # Get specific user
 ```
 
 ### Posts
 
-```
+```http
 GET /api/posts          # List all posts
 GET /api/posts/:id      # Get specific post
 ```
@@ -75,7 +75,7 @@ curl https://your-project.workers.dev/api/posts/1
 
 ## Project Structure
 
-```
+```text
 api-worker/
 ├── src/
 │   ├── index.js           # Entry point, routing
@@ -91,11 +91,11 @@ Key settings in `deploy.config.json`:
 
 ```json
 {
-	"serverCode": {
-		"entrypoint": "index.js",
-		"modulesDirectory": "./src"
-	},
-	"run_worker_first": true
+ "serverCode": {
+  "entrypoint": "index.js",
+  "modulesDirectory": "./src"
+ },
+ "run_worker_first": true
 }
 ```
 
@@ -107,32 +107,32 @@ Key settings in `deploy.config.json`:
 
 1. **Create handler** in `src/handlers/`:
 
-```javascript
-// src/handlers/comments.js
-export function handleComments(request, env) {
-  return new Response(JSON.stringify({
-    comments: [...]
-  }), {
-    headers: { 'Content-Type': 'application/json' }
-  });
-}
-```
+    ```javascript
+    // src/handlers/comments.js
+    export function handleComments(request, env) {
+      return new Response(JSON.stringify({
+        comments: [...]
+      }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    ```
 
 2. **Import and route** in `src/index.js`:
 
-```javascript
-import { handleComments } from './handlers/comments.js';
+    ```javascript
+    import { handleComments } from './handlers/comments.js';
 
-if (url.pathname.startsWith('/api/comments')) {
-	return handleComments(request, env);
-}
-```
+    if (url.pathname.startsWith('/api/comments')) {
+    return handleComments(request, env);
+    }
+    ```
 
 3. **Redeploy**:
 
-```bash
-npx cf-deploy deploy
-```
+    ```bash
+    npx cf-deploy deploy
+    ```
 
 ## Environment Variables
 
@@ -140,10 +140,10 @@ Configure in `deploy.config.json`:
 
 ```json
 {
-	"env": {
-		"ENVIRONMENT": "production",
-		"DATABASE_URL": "${DATABASE_URL}"
-	}
+ "env": {
+  "ENVIRONMENT": "production",
+  "DATABASE_URL": "${DATABASE_URL}"
+ }
 }
 ```
 
@@ -151,7 +151,7 @@ Access in handlers:
 
 ```javascript
 export function handleUsers(request, env) {
-	const dbUrl = env.DATABASE_URL;
-	// Use environment variables
+ const dbUrl = env.DATABASE_URL;
+ // Use environment variables
 }
 ```
