@@ -2,7 +2,6 @@
 // which is everything from the tc39 proposal, plus the following two characters: ^/
 // It's also everything included in the URLPattern escape (https://wicg.github.io/urlpattern/#escape-a-regexp-string), plus the following: -
 
-import { REDIRECTS_VERSION } from '../handler';
 import type { AssetConfig } from '../configuration';
 
 // As the answer says, there's no downside to escaping these extra characters, so better safe than sorry
@@ -89,7 +88,7 @@ export const generateRulesMatcher = <T>(
 		return compiledRules
 			.map(([{ crossHost, regExp }, match]) => {
 				// This, rather confusingly, means that although we enforce `https://` protocols in
-				// the rules of `_headers`/`_redirects`, we don't actually respect that at all at runtime.
+				// the rules of `headers`/`redirects`, we don't actually respect that at all at runtime.
 				// When processing a request against an absolute URL rule, we rewrite the protocol to `https://`.
 				// This has the benefit of ensuring attackers can't specify a different protocol
 				// to circumvent a developer's security rules (e.g. CORS), but it isn't obvious behavior.
@@ -126,7 +125,7 @@ export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, hos
 
 export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =>
 	generateRulesMatcher(
-		configuration.redirects.version === REDIRECTS_VERSION ? configuration.redirects.rules : {},
+		configuration.redirects.rules,
 		({ status, to }, replacements) => {
 			const target = replacer(to, replacements).trim();
 			const protoPattern = /^(\w+:\/\/)/;

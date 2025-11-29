@@ -215,6 +215,13 @@ program
 				config: {
 					html_handling: 'auto-trailing-slash',
 					not_found_handling: 'single-page-application',
+					redirects: {
+						staticRules: {},
+						rules: {},
+					},
+					headers: {
+						rules: {},
+					},
 				},
 				run_worker_first: ['/api/*'],
 				env: {

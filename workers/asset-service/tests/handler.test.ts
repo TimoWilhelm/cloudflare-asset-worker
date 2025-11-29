@@ -222,13 +222,12 @@ describe('[Asset Worker] `handleRequest`', () => {
 		expect(cacheMissResponse.headers.get('CF-Cache-Status')).toBe('MISS');
 	});
 
-	describe('_headers', () => {
+	describe('headers', () => {
 		it('attaches custom headers', async () => {
 			const configuration = normalizeConfiguration({
 				html_handling: 'none',
 				not_found_handling: 'none',
 				headers: {
-					version: 2,
 					rules: {
 						'/': {
 							set: {
@@ -389,7 +388,6 @@ describe('[Asset Worker] `handleRequest`', () => {
 				{
 					...configuration,
 					redirects: {
-						version: 1,
 						staticRules: {},
 						rules: { '/foo': { status: 301, to: '/bar' } },
 					},
@@ -407,58 +405,48 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 	});
 
-	describe('_redirects', () => {
+	describe('redirects', () => {
 		it('evaluates custom redirects', async () => {
 			const configuration = normalizeConfiguration({
 				html_handling: 'none',
 				not_found_handling: 'none',
 				redirects: {
-					version: 1,
 					staticRules: {
 						'/foo': {
 							status: 301,
 							to: '/bar',
-							lineNumber: 1,
 						},
 						'/proxy': {
 							status: 200,
 							to: '/other',
-							lineNumber: 2,
 						},
 						'/proxy-explicit': {
 							status: 200,
 							to: '/other.html',
-							lineNumber: 3,
 						},
 						'/competeForwards': {
 							status: 302,
 							to: '/hostless',
-							lineNumber: 4,
 						},
 						'https://example.com/competeForwards': {
 							status: 302,
 							to: '/withhost',
-							lineNumber: 5,
 						},
 						'https://example.com/competeBackwards': {
 							status: 302,
 							to: '/withhost',
-							lineNumber: 6,
 						},
 						'/competeBackwards': {
 							status: 302,
 							to: '/hostless',
-							lineNumber: 7,
-						},
-						'/wonkyObjectOrder': {
-							status: 302,
-							to: '/hostless',
-							lineNumber: 9,
 						},
 						'https://example.com/wonkyObjectOrder': {
 							status: 302,
 							to: '/withhost',
-							lineNumber: 8,
+						},
+						'/wonkyObjectOrder': {
+							status: 302,
+							to: '/hostless',
 						},
 					},
 					rules: {
@@ -758,7 +746,6 @@ describe('[Asset Worker] `handleRequest`', () => {
 				html_handling: 'none',
 				not_found_handling: 'none',
 				redirects: {
-					version: 1,
 					staticRules: {},
 					rules: {
 						'/foo/*': {
@@ -914,22 +901,18 @@ describe('[Asset Worker] `canFetch`', () => {
 
 		const configuration = normalizeConfiguration({
 			redirects: {
-				version: 1,
 				staticRules: {
 					'/redirect': {
 						status: 301,
 						to: '/something',
-						lineNumber: 1,
 					},
 					'/proxy-valid': {
 						status: 200,
 						to: '/does-exist',
-						lineNumber: 2,
 					},
 					'/proxy-invalid': {
 						status: 200,
 						to: '/no-match',
-						lineNumber: 3,
 					},
 				},
 				rules: {},

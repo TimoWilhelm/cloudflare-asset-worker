@@ -7,6 +7,37 @@
 	},
 	"config": {
 		"html_handling": "auto-trailing-slash",
-		"not_found_handling": "none"
+		"not_found_handling": "none",
+		"redirects": {
+			"staticRules": {
+				"/home": {
+					"status": 301,
+					"to": "/"
+				}
+			}
+		},
+		"headers": {
+			"rules": {
+				"*": {
+					"set": {
+						"Cross-Origin-Opener-Policy": "same-origin",
+						"Permissions-Policy": "accelerometer=(), ambient-light-sensor=(), autoplay=(), camera=(), display-capture=(), document-domain=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), navigation-override=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), web-share=(), xr-spatial-tracking=()",
+						"Referrer-Policy": "strict-origin-when-cross-origin",
+						"Cross-Origin-Resource-Policy": "cross-origin",
+						"Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+						"X-Content-Type-Options": "nosniff",
+						"X-DNS-Prefetch-Control": "off",
+						"X-Frame-Options": "DENY",
+						"X-Permitted-Cross-Domain-Policies": "none",
+						"Origin-Agent-Cluster": "?1"
+					}
+				},
+				"/*.css": {
+					"set": {
+						"X-Asset-Type": "stylesheet"
+					}
+				}
+			}
+		}
 	}
 }

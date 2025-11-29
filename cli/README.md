@@ -54,7 +54,14 @@ Edit `deploy.config.json`:
  },
  "config": {
   "html_handling": "auto-trailing-slash",
-  "not_found_handling": "single-page-application"
+  "not_found_handling": "single-page-application",
+  "redirects": {
+   "staticRules": {},
+   "rules": {}
+  },
+  "headers": {
+   "rules": {}
+  }
  },
  "run_worker_first": ["/api/*"],
  "env": {
@@ -225,6 +232,94 @@ Asset serving configuration:
   - `"single-page-application"` - Serve index.html for 404s
   - `"404-page"` - Serve custom 404 page
 
+#### `redirects`
+
+(object) - Configure URL redirects and proxying:
+
+```json
+{
+  "redirects": {
+    "staticRules": {
+      "/old-page": {
+        "status": 301,
+        "to": "/new-page"
+      },
+      "/proxy-asset": {
+        "status": 200,
+        "to": "/actual-asset.html"
+      }
+    },
+    "rules": {
+      "/blog/:year/:month/:slug": {
+        "status": 302,
+        "to": "/posts/:year-:month/:slug"
+      },
+      "/old/*": {
+        "status": 301,
+        "to": "/new/:splat"
+      },
+      "https://old.example.com/*": {
+        "status": 301,
+        "to": "https://new.example.com/:splat"
+      }
+    }
+  }
+}
+```
+
+- **`staticRules`** - Simple path-to-path mappings
+  - `status` - HTTP status code (200 for proxying, 301/302/303/307/308 for redirects)
+  - `to` - Target path or URL
+  - Precedence is automatically determined by the order of rules (first rule wins when multiple match)
+- **`rules`** - Dynamic rules with pattern matching
+  - Use `:placeholder` to capture path segments (e.g., `:slug`, `:id`)
+  - Use `*` for wildcards (becomes `:splat` in the target)
+  - Can specify cross-host rules with `https://domain.com/path`
+
+#### `headers`
+
+(object) - Set or remove custom HTTP headers for static assets:
+
+> **Note:** Headers are only applied to static assets served by the asset worker. For dynamic responses from server-side functions, set headers in your worker code.
+
+```json
+{
+  "headers": {
+    "rules": {
+      "/assets/*": {
+        "set": {
+          "X-Served-By": "Asset Worker",
+          "X-Custom-Header": "Custom Value"
+        }
+      },
+      "/*.css": {
+        "set": {
+          "X-Asset-Type": "stylesheet"
+        }
+      },
+      "/images/:filename": {
+        "set": {
+          "X-Image-Name": ":filename"
+        }
+      }
+    }
+  }
+}
+```
+
+- **`rules`** - Object where keys are path patterns and values define headers
+  - `set` - Headers to add or modify
+  - `unset` - Array of header names to remove
+- **Pattern matching:**
+  - Use `*` for wildcards (matches any characters)
+  - Use `:placeholder` to capture and reuse path segments
+  - Multiple matching rules will all apply (headers are merged)
+  - Can specify cross-host rules with `https://domain.com/path`
+- **Common use cases:**
+  - Setting custom headers for debugging or tracking
+  - Adding `Cache-Control` headers for different asset types
+  - Setting CORS headers for static resources
+
 #### `run_worker_first`
 
 (boolean | array) - Run worker before checking assets:
@@ -305,7 +400,30 @@ my-app/
  "run_worker_first": ["/api/*"],
  "config": {
   "html_handling": "auto-trailing-slash",
-  "not_found_handling": "single-page-application"
+  "not_found_handling": "single-page-application",
+  "redirects": {
+   "staticRules": {
+    "/home": { "status": 301, "to": "/" }
+   },
+   "rules": {
+    "/old-blog/*": { "status": 301, "to": "/blog/:splat" }
+   }
+  },
+  "headers": {
+   "rules": {
+    "/assets/*": {
+     "set": {
+      "X-Served-By": "Asset Worker",
+      "X-Asset-Path": "Static Assets"
+     }
+    },
+    "/*.css": {
+     "set": {
+      "X-Asset-Type": "stylesheet"
+     }
+    }
+   }
+  }
  },
  "env": {
   "ENVIRONMENT": "production"

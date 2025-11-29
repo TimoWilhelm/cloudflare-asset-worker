@@ -72,6 +72,79 @@
 					"type": "string",
 					"enum": ["none", "single-page-application", "404-page"],
 					"description": "404 handling behavior"
+				},
+				"redirects": {
+					"type": "object",
+					"description": "Redirect rules configuration",
+					"properties": {
+						"staticRules": {
+							"type": "object",
+							"description": "Static redirect rules (path to redirect mapping)",
+							"additionalProperties": {
+								"type": "object",
+								"properties": {
+									"status": {
+										"type": "number",
+										"enum": [200, 301, 302, 303, 307, 308],
+										"description": "HTTP status code (200 for proxy, 301/302/303/307/308 for redirects)"
+									},
+									"to": {
+										"type": "string",
+										"description": "Target path or URL (precedence determined by rule order)"
+									}
+								},
+								"required": ["status", "to"]
+							}
+						},
+						"rules": {
+							"type": "object",
+							"description": "Dynamic redirect rules with placeholders and splats",
+							"additionalProperties": {
+								"type": "object",
+								"properties": {
+									"status": {
+										"type": "number",
+										"enum": [200, 301, 302, 303, 307, 308],
+										"description": "HTTP status code"
+									},
+									"to": {
+										"type": "string",
+										"description": "Target path with :placeholder or :splat substitution"
+									}
+								},
+								"required": ["status", "to"]
+							}
+						}
+					}
+				},
+				"headers": {
+					"type": "object",
+					"description": "Custom headers configuration",
+					"properties": {
+						"rules": {
+							"type": "object",
+							"description": "Header rules with glob pattern matching",
+							"additionalProperties": {
+								"type": "object",
+								"properties": {
+									"set": {
+										"type": "object",
+										"description": "Headers to set",
+										"additionalProperties": {
+											"type": "string"
+										}
+									},
+									"unset": {
+										"type": "array",
+										"description": "Headers to remove",
+										"items": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 		},

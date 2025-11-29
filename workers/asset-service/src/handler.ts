@@ -26,9 +26,6 @@ type GetByETag = (
 	cacheStatus: 'HIT' | 'MISS';
 }>;
 
-export const REDIRECTS_VERSION = 1;
-export const HEADERS_VERSION = 2;
-
 type AssetIntent = {
 	eTag: string;
 	status: typeof OkResponse.status | typeof NotFoundResponse.status;
