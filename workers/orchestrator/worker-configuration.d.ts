@@ -3,7 +3,7 @@
 // Runtime types generated with workerd@1.20251109.0 2025-11-11 enable_ctx_exports,nodejs_compat
 declare namespace Cloudflare {
 	interface GlobalProps {
-		mainModule: typeof import("./src/worker");
+		mainModule: typeof import('./src/worker');
 	}
 	interface Env {
 		KV_PROJECTS: KVNamespace;
@@ -20,7 +20,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "API_TOKEN" | "JWT_SECRET">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, 'API_TOKEN' | 'JWT_SECRET'>> {}
 }
 
 // Begin runtime types

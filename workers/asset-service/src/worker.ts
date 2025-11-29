@@ -75,7 +75,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				config,
 				(pathname: string, req: Request) => this.exists(pathname, req, projectId),
 				(eTag: string, req?: Request) => this.getByETag(eTag, projectId, req),
-				analytics
+				analytics,
 			);
 
 			analytics.setData({
@@ -127,7 +127,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async getByETag(
 		eTag: string,
 		projectId: string,
-		_request?: Request
+		_request?: Request,
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -162,7 +162,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async getByPathname(
 		pathname: string,
 		request: Request,
-		projectId: string
+		projectId: string,
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
@@ -242,7 +242,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const namespacedETag = this.getNamespacedKey(projectId, entry.contentHash);
 				const exists = await this.env.KV_ASSETS.get(namespacedETag, 'stream');
 				return { entry, exists: exists !== null };
-			})
+			}),
 		);
 
 		// Filter to only entries that need uploading
@@ -269,7 +269,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const pathHash = await hashPath(entry.pathname);
 				const contentHashBytes = new Uint8Array(entry.contentHash.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)));
 				return { pathHash, contentHashBytes };
-			})
+			}),
 		);
 
 		// Sort entries by path hash
@@ -308,7 +308,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 				const namespacedKey = this.getNamespacedKey(projectId, hash);
 				const exists = await this.env.KV_ASSETS.get(namespacedKey, 'stream');
 				return { hash, exists: exists !== null };
-			})
+			}),
 		);
 		return results;
 	}

@@ -124,26 +124,23 @@ export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, hos
 };
 
 export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =>
-	generateRulesMatcher(
-		configuration.redirects.dynamic,
-		({ status, to }, replacements) => {
-			const target = replacer(to, replacements).trim();
-			const protoPattern = /^(\w+:\/\/)/;
-			if (protoPattern.test(target)) {
-				// External redirects are not modified.
-				return {
-					status,
-					to: target,
-				};
-			} else {
-				// Relative redirects are modified to remove multiple slashes.
-				return {
-					status,
-					to: target.replace(/\/+/g, '/'),
-				};
-			}
-		},
-	);
+	generateRulesMatcher(configuration.redirects.dynamic, ({ status, to }, replacements) => {
+		const target = replacer(to, replacements).trim();
+		const protoPattern = /^(\w+:\/\/)/;
+		if (protoPattern.test(target)) {
+			// External redirects are not modified.
+			return {
+				status,
+				to: target,
+			};
+		} else {
+			// Relative redirects are modified to remove multiple slashes.
+			return {
+				status,
+				to: target.replace(/\/+/g, '/'),
+			};
+		}
+	});
 
 export const generateStaticRoutingRuleMatcher =
 	(rules: string[]) =>

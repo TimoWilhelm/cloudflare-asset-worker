@@ -14,7 +14,7 @@ export function getAssetHeaders(
 	contentType: string | undefined,
 	cacheStatus: string,
 	request: Request,
-	configuration: Required<AssetConfig>
+	configuration: Required<AssetConfig>,
 ) {
 	const headers = new Headers({
 		ETag: `"${eTag}"`,

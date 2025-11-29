@@ -19,7 +19,7 @@ import { Analytics } from './analytics';
 type Exists = (pathname: string, request: Request) => Promise<string | null>;
 type GetByETag = (
 	eTag: string,
-	request: Request
+	request: Request,
 ) => Promise<{
 	readableStream: ReadableStream;
 	contentType: string | undefined;
@@ -37,7 +37,7 @@ const getResponseOrAssetIntent = async (
 	request: Request,
 	env: Env,
 	configuration: Required<AssetConfig>,
-	exists: Exists
+	exists: Exists,
 ): Promise<Response | AssetIntentWithResolver> => {
 	const url = new URL(request.url);
 	const { search } = url;
@@ -87,7 +87,7 @@ const resolveAssetIntentToResponse = async (
 	env: Env,
 	configuration: Required<AssetConfig>,
 	getByETag: GetByETag,
-	analytics: Analytics
+	analytics: Analytics,
 ) => {
 	const method = request.method.toUpperCase();
 
@@ -140,7 +140,7 @@ export const handleRequest = async (
 	configuration: Required<AssetConfig>,
 	exists: Exists,
 	getByETag: GetByETag,
-	analytics: Analytics
+	analytics: Analytics,
 ) => {
 	const responseOrAssetIntent = await getResponseOrAssetIntent(request, env, configuration, exists);
 
@@ -168,7 +168,7 @@ export const getIntent = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
-	skipRedirects = false
+	skipRedirects = false,
 ): Promise<Intent> => {
 	switch (configuration.html_handling) {
 		case 'auto-trailing-slash': {
@@ -191,7 +191,7 @@ const htmlHandlingAutoTrailingSlash = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
-	skipRedirects: boolean
+	skipRedirects: boolean,
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
 	let eTagResult: string | null = null;
@@ -216,7 +216,7 @@ const htmlHandlingAutoTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo/index.html exists so redirect to /foo/
@@ -229,7 +229,7 @@ const htmlHandlingAutoTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo.html exists so redirect to /foo
@@ -245,7 +245,7 @@ const htmlHandlingAutoTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo/
@@ -258,7 +258,7 @@ const htmlHandlingAutoTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -280,7 +280,7 @@ const htmlHandlingAutoTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -295,7 +295,7 @@ const htmlHandlingAutoTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -308,7 +308,7 @@ const htmlHandlingAutoTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// request for /foo.html but /foo/index.html exists so redirect to /foo/
@@ -338,7 +338,7 @@ const htmlHandlingAutoTrailingSlash = async (
 			configuration,
 			exists,
 			skipRedirects,
-			'html-handling'
+			'html-handling',
 		))
 	) {
 		// /foo/index.html exists so redirect to /foo/
@@ -353,7 +353,7 @@ const htmlHandlingForceTrailingSlash = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
-	skipRedirects: boolean
+	skipRedirects: boolean,
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
 	let eTagResult: string | null = null;
@@ -375,7 +375,7 @@ const htmlHandlingForceTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo/index.html exists so redirect to /foo/
@@ -388,7 +388,7 @@ const htmlHandlingForceTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo.html exists so redirect to /foo/
@@ -404,7 +404,7 @@ const htmlHandlingForceTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo/
@@ -417,7 +417,7 @@ const htmlHandlingForceTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo/
@@ -448,7 +448,7 @@ const htmlHandlingForceTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo/
@@ -468,7 +468,7 @@ const htmlHandlingForceTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo/
@@ -491,7 +491,7 @@ const htmlHandlingForceTrailingSlash = async (
 			configuration,
 			exists,
 			skipRedirects,
-			'html-handling'
+			'html-handling',
 		))
 	) {
 		// /foo.html exists so redirect to /foo/
@@ -504,7 +504,7 @@ const htmlHandlingForceTrailingSlash = async (
 			configuration,
 			exists,
 			skipRedirects,
-			'html-handling'
+			'html-handling',
 		))
 	) {
 		// /foo/index.html exists so redirect to /foo/
@@ -519,7 +519,7 @@ const htmlHandlingDropTrailingSlash = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
-	skipRedirects: boolean
+	skipRedirects: boolean,
 ): Promise<Intent> => {
 	let redirectResult: Intent = null;
 	let eTagResult: string | null = null;
@@ -545,7 +545,7 @@ const htmlHandlingDropTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo.html exists so redirect to /foo
@@ -558,7 +558,7 @@ const htmlHandlingDropTrailingSlash = async (
 					configuration,
 					exists,
 					skipRedirects,
-					'html-handling'
+					'html-handling',
 				))
 			) {
 				// /foo/index.html exists so redirect to /foo
@@ -579,7 +579,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo
@@ -599,7 +599,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -623,7 +623,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -636,7 +636,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo
@@ -651,7 +651,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo.html exists so redirect to /foo
@@ -664,7 +664,7 @@ const htmlHandlingDropTrailingSlash = async (
 				configuration,
 				exists,
 				skipRedirects,
-				'html-handling'
+				'html-handling',
 			))
 		) {
 			// /foo/index.html exists so redirect to /foo
@@ -702,7 +702,7 @@ const htmlHandlingNone = async (
 	pathname: string,
 	request: Request,
 	configuration: Required<AssetConfig>,
-	exists: Exists
+	exists: Exists,
 ): Promise<Intent> => {
 	const exactETag = await exists(pathname, request);
 	if (exactETag) {
@@ -758,7 +758,7 @@ const safeRedirect = async (
 	configuration: Required<AssetConfig>,
 	exists: Exists,
 	skip: boolean,
-	resolver: Resolver
+	resolver: Resolver,
 ): Promise<Intent> => {
 	if (skip) {
 		return null;
@@ -844,7 +844,7 @@ const handleRedirects = (
 	configuration: Required<AssetConfig>,
 	host: string,
 	pathname: string,
-	search: string
+	search: string,
 ): { proxied: boolean; pathname: string } | Response => {
 	const redirectMatch = staticRedirectsMatcher(configuration, host, pathname) || generateRedirectsMatcher(configuration)({ request })[0];
 
@@ -866,7 +866,7 @@ const handleRedirects = (
 					? `${destination.pathname}${destination.search || search}${destination.hash}`
 					: `${destination.href.slice(0, destination.href.length - (destination.search.length + destination.hash.length))}${
 							destination.search ? destination.search : search
-					  }${destination.hash}`;
+						}${destination.hash}`;
 
 			switch (status) {
 				case MovedPermanentlyResponse.status:

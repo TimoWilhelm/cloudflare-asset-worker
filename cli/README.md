@@ -238,32 +238,32 @@ Asset serving configuration:
 
 ```json
 {
-  "redirects": {
-    "static": {
-      "/old-page": {
-        "status": 301,
-        "to": "/new-page"
-      },
-      "/proxy-asset": {
-        "status": 200,
-        "to": "/actual-asset.html"
-      }
-    },
-    "dynamic": {
-      "/blog/:year/:month/:slug": {
-        "status": 302,
-        "to": "/posts/:year-:month/:slug"
-      },
-      "/old/*": {
-        "status": 301,
-        "to": "/new/:splat"
-      },
-      "https://old.example.com/*": {
-        "status": 301,
-        "to": "https://new.example.com/:splat"
-      }
-    }
+ "redirects": {
+  "static": {
+   "/old-page": {
+    "status": 301,
+    "to": "/new-page"
+   },
+   "/proxy-asset": {
+    "status": 200,
+    "to": "/actual-asset.html"
+   }
+  },
+  "dynamic": {
+   "/blog/:year/:month/:slug": {
+    "status": 302,
+    "to": "/posts/:year-:month/:slug"
+   },
+   "/old/*": {
+    "status": 301,
+    "to": "/new/:splat"
+   },
+   "https://old.example.com/*": {
+    "status": 301,
+    "to": "https://new.example.com/:splat"
+   }
   }
+ }
 }
 ```
 
@@ -284,26 +284,26 @@ Asset serving configuration:
 
 ```json
 {
-  "headers": {
-    "rules": {
-      "/assets/*": {
-        "set": {
-          "X-Served-By": "Asset Worker",
-          "X-Custom-Header": "Custom Value"
-        }
-      },
-      "/*.css": {
-        "set": {
-          "X-Asset-Type": "stylesheet"
-        }
-      },
-      "/images/:filename": {
-        "set": {
-          "X-Image-Name": ":filename"
-        }
-      }
+ "headers": {
+  "rules": {
+   "/assets/*": {
+    "set": {
+     "X-Served-By": "Asset Worker",
+     "X-Custom-Header": "Custom Value"
     }
+   },
+   "/*.css": {
+    "set": {
+     "X-Asset-Type": "stylesheet"
+    }
+   },
+   "/images/:filename": {
+    "set": {
+     "X-Image-Name": ":filename"
+    }
+   }
   }
+ }
 }
 ```
 
