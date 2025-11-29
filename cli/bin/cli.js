@@ -216,8 +216,8 @@ program
 					html_handling: 'auto-trailing-slash',
 					not_found_handling: 'single-page-application',
 					redirects: {
-						staticRules: {},
-						rules: {},
+						static: {},
+						dynamic: {},
 					},
 					headers: {
 						rules: {},

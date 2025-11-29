@@ -9,7 +9,7 @@
 		"html_handling": "auto-trailing-slash",
 		"not_found_handling": "none",
 		"redirects": {
-			"staticRules": {
+			"static": {
 				"/home": {
 					"status": 301,
 					"to": "/"

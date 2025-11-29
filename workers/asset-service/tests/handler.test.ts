@@ -388,8 +388,8 @@ describe('[Asset Worker] `handleRequest`', () => {
 				{
 					...configuration,
 					redirects: {
-						staticRules: {},
-						rules: { '/foo': { status: 301, to: '/bar' } },
+						static: {},
+						dynamic: { '/foo': { status: 301, to: '/bar' } },
 					},
 				},
 				() => Promise.resolve(null),
@@ -411,7 +411,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 				html_handling: 'none',
 				not_found_handling: 'none',
 				redirects: {
-					staticRules: {
+					static: {
 						'/foo': {
 							status: 301,
 							to: '/bar',
@@ -449,7 +449,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 							to: '/hostless',
 						},
 					},
-					rules: {
+					dynamic: {
 						'/dynamic/:seg': {
 							status: 302,
 							to: '/:seg/new-dynamic/?with#params',
@@ -746,8 +746,8 @@ describe('[Asset Worker] `handleRequest`', () => {
 				html_handling: 'none',
 				not_found_handling: 'none',
 				redirects: {
-					staticRules: {},
-					rules: {
+					static: {},
+					dynamic: {
 						'/foo/*': {
 							status: 302,
 							to: '/:splat',
@@ -901,7 +901,7 @@ describe('[Asset Worker] `canFetch`', () => {
 
 		const configuration = normalizeConfiguration({
 			redirects: {
-				staticRules: {
+				static: {
 					'/redirect': {
 						status: 301,
 						to: '/something',
@@ -915,7 +915,7 @@ describe('[Asset Worker] `canFetch`', () => {
 						to: '/no-match',
 					},
 				},
-				rules: {},
+				dynamic: {},
 			},
 		});
 

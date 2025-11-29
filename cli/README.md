@@ -56,8 +56,8 @@ Edit `deploy.config.json`:
   "html_handling": "auto-trailing-slash",
   "not_found_handling": "single-page-application",
   "redirects": {
-   "staticRules": {},
-   "rules": {}
+   "static": {},
+   "dynamic": {}
   },
   "headers": {
    "rules": {}
@@ -239,7 +239,7 @@ Asset serving configuration:
 ```json
 {
   "redirects": {
-    "staticRules": {
+    "static": {
       "/old-page": {
         "status": 301,
         "to": "/new-page"
@@ -249,7 +249,7 @@ Asset serving configuration:
         "to": "/actual-asset.html"
       }
     },
-    "rules": {
+    "dynamic": {
       "/blog/:year/:month/:slug": {
         "status": 302,
         "to": "/posts/:year-:month/:slug"
@@ -267,11 +267,11 @@ Asset serving configuration:
 }
 ```
 
-- **`staticRules`** - Simple path-to-path mappings
+- **`static`** - Simple path-to-path mappings
   - `status` - HTTP status code (200 for proxying, 301/302/303/307/308 for redirects)
   - `to` - Target path or URL
   - Precedence is automatically determined by the order of rules (first rule wins when multiple match)
-- **`rules`** - Dynamic rules with pattern matching
+- **`dynamic`** - Dynamic rules with pattern matching
   - Use `:placeholder` to capture path segments (e.g., `:slug`, `:id`)
   - Use `*` for wildcards (becomes `:splat` in the target)
   - Can specify cross-host rules with `https://domain.com/path`
@@ -402,10 +402,10 @@ my-app/
   "html_handling": "auto-trailing-slash",
   "not_found_handling": "single-page-application",
   "redirects": {
-   "staticRules": {
+   "static": {
     "/home": { "status": 301, "to": "/" }
    },
-   "rules": {
+   "dynamic": {
     "/old-blog/*": { "status": 301, "to": "/blog/:splat" }
    }
   },

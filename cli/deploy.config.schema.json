@@ -77,7 +77,7 @@
 					"type": "object",
 					"description": "Redirect rules configuration",
 					"properties": {
-						"staticRules": {
+						"static": {
 							"type": "object",
 							"description": "Static redirect rules (path to redirect mapping)",
 							"additionalProperties": {
@@ -96,7 +96,7 @@
 								"required": ["status", "to"]
 							}
 						},
-						"rules": {
+						"dynamic": {
 							"type": "object",
 							"description": "Dynamic redirect rules with placeholders and splats",
 							"additionalProperties": {

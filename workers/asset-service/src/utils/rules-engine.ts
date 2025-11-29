@@ -109,8 +109,8 @@ export const generateRulesMatcher = <T>(
 };
 
 export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, host: string, pathname: string) => {
-	const withHostMatch = configuration.redirects.staticRules[`https://${host}${pathname}`];
-	const withoutHostMatch = configuration.redirects.staticRules[pathname];
+	const withHostMatch = configuration.redirects.static[`https://${host}${pathname}`];
+	const withoutHostMatch = configuration.redirects.static[pathname];
 
 	if (withHostMatch && withoutHostMatch) {
 		if (withHostMatch.lineNumber < withoutHostMatch.lineNumber) {
@@ -125,7 +125,7 @@ export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, hos
 
 export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =>
 	generateRulesMatcher(
-		configuration.redirects.rules,
+		configuration.redirects.dynamic,
 		({ status, to }, replacements) => {
 			const target = replacer(to, replacements).trim();
 			const protoPattern = /^(\w+:\/\/)/;
