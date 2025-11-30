@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import type { ServerCodeManifest } from './types';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash } from './content-utils';
@@ -6,13 +7,7 @@ import { getServerCodeKey } from './project-manager';
 /**
  * Run server code for a project using dynamic worker loading
  */
-export async function runServerCode(
-	request: Request,
-	projectId: string,
-	serverCodeKv: KVNamespace,
-	loader: WorkerLoader,
-	bindings: any,
-): Promise<Response> {
+export async function runServerCode(request: Request, projectId: string, serverCodeKv: KVNamespace, bindings: any): Promise<Response> {
 	// Load the manifest
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
 	const manifest = await serverCodeKv.get<ServerCodeManifest>(manifestKey, 'json');
@@ -21,7 +16,7 @@ export async function runServerCode(
 		return new Response('Server code not found', { status: 404 });
 	}
 
-	const { entrypoint, modules: moduleManifest, compatibilityDate, env = {} } = manifest;
+	const { entrypoint, modules: moduleManifest, compatibilityDate, env: manifestEnv = {} } = manifest;
 
 	// Load all modules from KV by their content hashes and decode based on type
 	const modules: Record<string, any> = {};
@@ -57,23 +52,26 @@ export async function runServerCode(
 					const jsonString = new TextDecoder().decode(decodedBytes);
 					modules[modulePath] = { json: JSON.parse(jsonString) };
 					break;
+				case 'wasm':
+					modules[modulePath] = { wasm: decodedBytes.buffer };
+					break;
 				default:
 					// Fallback to plain string for unknown types
 					modules[modulePath] = new TextDecoder().decode(decodedBytes);
 			}
-		}),
+		})
 	);
 
 	// Use content hash of the manifest as the worker key for caching
 	const codeHash = await computeContentHash(new TextEncoder().encode(JSON.stringify(manifest)));
 
-	const worker = loader.get(codeHash, () => {
+	const worker = env.LOADER.get(codeHash, () => {
 		return {
 			compatibilityDate: compatibilityDate || '2025-11-09',
 			mainModule: entrypoint,
 			modules,
 			env: {
-				...env,
+				...manifestEnv,
 				...bindings,
 			},
 			globalOutbound: null, // disable internet access

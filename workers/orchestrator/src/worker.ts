@@ -175,7 +175,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		const executeServerCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
-				const response = await runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, this.env.LOADER, {
+				const response = await runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, {
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
 				});
 				analytics.setData({

@@ -11,7 +11,7 @@ export interface ProjectMetadata {
 	run_worker_first?: boolean | string[];
 }
 
-export type ModuleType = 'js' | 'cjs' | 'py' | 'text' | 'data' | 'json';
+export type ModuleType = 'js' | 'cjs' | 'py' | 'text' | 'data' | 'json' | 'wasm';
 
 export interface ServerCodeManifest {
 	entrypoint: string;

@@ -102,7 +102,23 @@ import configData from './config.json';
 import binaryData from './data.bin';
 ```
 
+**WebAssembly Module (`.wasm`):**
+
+```javascript
+import wasmModule from './module.wasm';
+```
+
 These imports are automatically detected and handled by the deployment system based on file extensions.
+
+### Supported Module Types
+
+- **`js`** / **`mjs`** - ES Modules (JavaScript)
+- **`cjs`** - CommonJS Modules
+- **`py`** - Python Modules
+- **`txt`** / `html` - Text files
+- **`json`** - JSON data
+- **`bin`** - Binary data (ArrayBuffer)
+- **`wasm`** - WebAssembly modules (ArrayBuffer)
 
 ## Customize
 

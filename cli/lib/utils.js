@@ -63,7 +63,9 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
 		// Validate individual asset file size
 		if (content.length > MAX_ASSET_SIZE) {
 			throw new Error(
-				`Asset file '${file}' is too large: ${content.length} bytes (${(content.length / 1024 / 1024).toFixed(2)} MiB). Maximum allowed is ${MAX_ASSET_SIZE} bytes (25 MiB).`,
+				`Asset file '${file}' is too large: ${content.length} bytes (${(content.length / 1024 / 1024).toFixed(
+					2
+				)} MiB). Maximum allowed is ${MAX_ASSET_SIZE} bytes (25 MiB).`
 			);
 		}
 
@@ -97,7 +99,7 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	}
 
 	// Scan all JavaScript/TypeScript/Python files and other module types
-	const files = await glob(['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.py', '**/*.json', '**/*.txt', '**/*.bin'], {
+	const files = await glob(['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.py', '**/*.json', '**/*.txt', '**/*.bin', '**/*.wasm'], {
 		cwd: absoluteDir,
 		nodir: true,
 		dot: false,
@@ -139,6 +141,9 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 			case '.bin':
 				moduleType = 'data';
 				break;
+			case '.wasm':
+				moduleType = 'wasm';
+				break;
 		}
 
 		if (moduleType) {
@@ -152,7 +157,9 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	// Validate total server code size
 	if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
 		throw new Error(
-			`Total server code size is too large: ${totalSize} bytes (${(totalSize / 1024 / 1024).toFixed(2)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_CODE_SIZE} bytes (10 MB).`,
+			`Total server code size is too large: ${totalSize} bytes (${(totalSize / 1024 / 1024).toFixed(
+				2
+			)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_CODE_SIZE} bytes (10 MB).`
 		);
 	}
 

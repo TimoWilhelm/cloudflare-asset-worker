@@ -1,6 +1,7 @@
 import templateText from './template.txt'; // text module
 import configData from './sample.json'; // json module
 import binaryData from './data.bin'; // data module
+import wasmModule from './simple.wasm'; // wasm module
 
 export default {
 	async fetch(request, env) {
@@ -64,6 +65,21 @@ export default {
 					headers: { 'Content-Type': 'application/json' },
 				}
 			);
+		}
+
+		// Endpoint demonstrating wasm module import
+		if (url.pathname === '/api/wasm') {
+			const importObject = {
+				imports: {
+					imported_func: (arg) => {
+						console.log(`Hello from JavaScript: ${arg}`);
+					},
+				},
+			};
+			const instance = await WebAssembly.instantiate(wasmModule, importObject);
+
+			const retval = instance.exports.exported_func(42);
+			return new Response(JSON.stringify({ message: 'Wasm module imported', retval }));
 		}
 
 		// Let assets handle other requests

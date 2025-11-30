@@ -62,6 +62,8 @@ export function inferModuleType(modulePath: string): ModuleType {
 			return 'json';
 		case 'bin':
 			return 'data';
+		case 'wasm':
+			return 'wasm';
 		default:
 			return 'js'; // Default to ES modules
 	}
