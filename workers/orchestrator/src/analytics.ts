@@ -1,3 +1,5 @@
+import { env } from 'cloudflare:workers';
+
 /**
  * Analytics data schema for the Orchestrator worker.
  *
@@ -33,12 +35,15 @@ type Data = {
 	method?: string;
 	// blob8 - Request type (asset, script, etc.)
 	requestType?: string;
+	// blob9 - Worker version
+	workerVersion?: string;
 };
 
 export class Analytics {
-	private data: Data = {};
+	private readonly analyticsEngineDataset = env.ANALYTICS;
+	private data: Data = { workerVersion: env.VERSION.id };
 
-	constructor(private readonly analyticsEngineDataset?: AnalyticsEngineDataset) {}
+	constructor() {}
 
 	setData(newData: Partial<Data>) {
 		this.data = { ...this.data, ...newData };
@@ -64,6 +69,7 @@ export class Analytics {
 				this.data.routingType ?? null,
 				this.data.method ?? null,
 				this.data.requestType ?? null,
+				this.data.workerVersion ?? null,
 			],
 		});
 	}

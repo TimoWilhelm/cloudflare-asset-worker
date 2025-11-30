@@ -36,5 +36,8 @@
 			"binding": "ANALYTICS",
 			"dataset": "orchestrator"
 		}
-	]
+	],
+	"version_metadata": {
+		"binding": "VERSION"
+	}
 }

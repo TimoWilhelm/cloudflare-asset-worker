@@ -44,7 +44,7 @@ function isCacheable(request: Request) {
 	return !request.headers.has('Authorization') && !request.headers.has('Range');
 }
 
-export function attachCustomHeaders(request: Request, response: Response, configuration: Required<AssetConfig>, env: Env) {
+export function attachCustomHeaders(request: Request, response: Response, configuration: Required<AssetConfig>) {
 	// Iterate through rules and find rules that match the path
 	const headersMatcher = generateRulesMatcher(configuration.headers.rules, ({ set = {}, unset = [] }, replacements) => {
 		const replacedSet: Record<string, string> = {};

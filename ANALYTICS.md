@@ -59,6 +59,7 @@ curl "https://api.cloudflare.com/client/v4/accounts/{account_id}/analytics_engin
 | `blob6`            | string   | Routing type                |
 | `blob7`            | string   | HTTP method                 |
 | `blob8`            | string   | Request type                |
+| `blob9`            | string   | Worker version              |
 
 ## Common Query Patterns
 

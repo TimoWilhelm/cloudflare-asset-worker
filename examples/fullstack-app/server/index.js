@@ -19,7 +19,7 @@ export default {
 				}),
 				{
 					headers: { 'Content-Type': 'application/json' },
-				}
+				},
 			);
 		}
 
@@ -47,7 +47,7 @@ export default {
 				}),
 				{
 					headers: { 'Content-Type': 'application/json' },
-				}
+				},
 			);
 		}
 
@@ -63,7 +63,7 @@ export default {
 				}),
 				{
 					headers: { 'Content-Type': 'application/json' },
-				}
+				},
 			);
 		}
 
@@ -78,8 +78,8 @@ export default {
 			};
 			const instance = await WebAssembly.instantiate(wasmModule, importObject);
 
-			const retval = instance.exports.exported_func(42);
-			return new Response(JSON.stringify({ message: 'Wasm module imported', retval }));
+			const result = instance.exports.exported_func(42);
+			return new Response(JSON.stringify({ message: 'Wasm module imported', result }));
 		}
 
 		// Let assets handle other requests

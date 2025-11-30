@@ -19,7 +19,7 @@ export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; con
 export default class AssetManager extends WorkerEntrypoint<Env> {
 	override async fetch(request: Request): Promise<Response> {
 		const startTime = performance.now();
-		const analytics = new Analytics(this.env.ANALYTICS);
+		const analytics = new Analytics();
 		const url = new URL(request.url);
 
 		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
@@ -175,7 +175,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		const executeServerCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
-				const response = await runServerCode(rewrittenRequest, projectId, this.env.KV_SERVER_CODE, {
+				const response = await runServerCode(projectId, rewrittenRequest, {
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
 				});
 				analytics.setData({

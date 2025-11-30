@@ -1,3 +1,4 @@
+import { env } from 'cloudflare:workers';
 import {
 	FoundResponse,
 	InternalServerErrorResponse,
@@ -35,14 +36,13 @@ export type AssetIntentWithResolver = AssetIntent & { resolver: Resolver };
 
 const getResponseOrAssetIntent = async (
 	request: Request,
-	env: Env,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
 ): Promise<Response | AssetIntentWithResolver> => {
 	const url = new URL(request.url);
 	const { search } = url;
 
-	const redirectResult = handleRedirects(env, request, configuration, url.host, url.pathname, search);
+	const redirectResult = handleRedirects(request, configuration, url.host, url.pathname, search);
 	if (redirectResult instanceof Response) {
 		return redirectResult;
 	}
@@ -84,7 +84,6 @@ const getResponseOrAssetIntent = async (
 const resolveAssetIntentToResponse = async (
 	assetIntent: AssetIntentWithResolver,
 	request: Request,
-	env: Env,
 	configuration: Required<AssetConfig>,
 	getByETag: GetByETag,
 	analytics: Analytics,
@@ -115,7 +114,7 @@ const resolveAssetIntentToResponse = async (
 	}
 };
 
-export const canFetch = async (request: Request, env: Env, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
+export const canFetch = async (request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
 	// Always enable Sec-Fetch-Mode navigate header feature
 	const shouldKeepNotFoundHandling = configuration.has_static_routing || request.headers.get('Sec-Fetch-Mode') === 'navigate';
 	if (!shouldKeepNotFoundHandling) {
@@ -125,7 +124,7 @@ export const canFetch = async (request: Request, env: Env, configuration: Requir
 		};
 	}
 
-	const responseOrAssetIntent = await getResponseOrAssetIntent(request, env, configuration, exists);
+	const responseOrAssetIntent = await getResponseOrAssetIntent(request, configuration, exists);
 
 	if (responseOrAssetIntent instanceof NoIntentResponse) {
 		return false;
@@ -136,20 +135,19 @@ export const canFetch = async (request: Request, env: Env, configuration: Requir
 
 export const handleRequest = async (
 	request: Request,
-	env: Env,
 	configuration: Required<AssetConfig>,
 	exists: Exists,
 	getByETag: GetByETag,
 	analytics: Analytics,
 ) => {
-	const responseOrAssetIntent = await getResponseOrAssetIntent(request, env, configuration, exists);
+	const responseOrAssetIntent = await getResponseOrAssetIntent(request, configuration, exists);
 
 	const response =
 		responseOrAssetIntent instanceof Response
 			? responseOrAssetIntent
-			: await resolveAssetIntentToResponse(responseOrAssetIntent, request, env, configuration, getByETag, analytics);
+			: await resolveAssetIntentToResponse(responseOrAssetIntent, request, configuration, getByETag, analytics);
 
-	return attachCustomHeaders(request, response, configuration, env);
+	return attachCustomHeaders(request, response, configuration);
 };
 
 type Resolver = 'html-handling' | 'not-found';
@@ -839,7 +837,6 @@ const encodePath = (pathname: string) => {
 };
 
 const handleRedirects = (
-	env: Env,
 	request: Request,
 	configuration: Required<AssetConfig>,
 	host: string,

@@ -7,10 +7,10 @@ import { getServerCodeKey } from './project-manager';
 /**
  * Run server code for a project using dynamic worker loading
  */
-export async function runServerCode(request: Request, projectId: string, serverCodeKv: KVNamespace, bindings: any): Promise<Response> {
+export async function runServerCode(projectId: string, request: Request, bindings: any): Promise<Response> {
 	// Load the manifest
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
-	const manifest = await serverCodeKv.get<ServerCodeManifest>(manifestKey, 'json');
+	const manifest = await env.KV_SERVER_CODE.get<ServerCodeManifest>(manifestKey, 'json');
 
 	if (!manifest) {
 		return new Response('Server code not found', { status: 404 });
@@ -23,7 +23,7 @@ export async function runServerCode(request: Request, projectId: string, serverC
 	await Promise.all(
 		Object.entries(moduleManifest).map(async ([modulePath, { hash: contentHash, type }]) => {
 			const moduleKey = getServerCodeKey(projectId, contentHash);
-			const base64Content = await serverCodeKv.get(moduleKey, 'text');
+			const base64Content = await env.KV_SERVER_CODE.get(moduleKey, 'text');
 
 			if (!base64Content) {
 				throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);
@@ -59,7 +59,7 @@ export async function runServerCode(request: Request, projectId: string, serverC
 					// Fallback to plain string for unknown types
 					modules[modulePath] = new TextDecoder().decode(decodedBytes);
 			}
-		})
+		}),
 	);
 
 	// Use content hash of the manifest as the worker key for caching

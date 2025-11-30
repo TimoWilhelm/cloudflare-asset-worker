@@ -107,32 +107,32 @@ Key settings in `deploy.config.json`:
 
 1. **Create handler** in `src/handlers/`:
 
-    ```javascript
-    // src/handlers/comments.js
-    export function handleComments(request, env) {
-      return new Response(JSON.stringify({
-        comments: [...]
-      }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    ```
+   ```javascript
+   // src/handlers/comments.js
+   export function handleComments(request, env) {
+     return new Response(JSON.stringify({
+       comments: [...]
+     }), {
+       headers: { 'Content-Type': 'application/json' }
+     });
+   }
+   ```
 
 2. **Import and route** in `src/index.js`:
 
-    ```javascript
-    import { handleComments } from './handlers/comments.js';
+   ```javascript
+   import { handleComments } from './handlers/comments.js';
 
-    if (url.pathname.startsWith('/api/comments')) {
+   if (url.pathname.startsWith('/api/comments')) {
     return handleComments(request, env);
-    }
-    ```
+   }
+   ```
 
 3. **Redeploy**:
 
-    ```bash
-    npx cf-deploy deploy
-    ```
+   ```bash
+   npx cf-deploy deploy
+   ```
 
 ## Environment Variables
 

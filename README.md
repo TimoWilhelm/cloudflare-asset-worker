@@ -57,6 +57,7 @@ https://yourdomain.com/__project/project-id/path
 - **[Orchestrator Worker Documentation](./workers/orchestrator/README.md)** - Project management, routing, and deployment API
 - **[Asset Service Worker Documentation](./workers/asset-service/README.md)** - Asset storage, serving, and RPC methods
 - **[Deployment Examples](./examples/README.md)** - Ready-to-use deployment scripts
+- **[Analytics](./ANALYTICS.md)** - Learn how to query your Workers Analytics Engine data
 
 ## License
 

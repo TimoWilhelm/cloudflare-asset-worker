@@ -49,7 +49,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async serveAsset(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<Response> {
 		const startTime = performance.now();
 
-		const analytics = new Analytics(this.env.ANALYTICS);
+		const analytics = new Analytics();
 
 		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
 		const coloRegion = request.cf?.colo as string;
@@ -58,7 +58,6 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 		analytics.setData({
 			projectId,
-			workerVersion: this.env.VERSION.id,
 			coloRegion,
 			userAgent,
 			hostname: url.hostname,
@@ -71,7 +70,6 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 			const response = await handleRequest(
 				request,
-				this.env,
 				config,
 				(pathname: string, req: Request) => this.exists(pathname, req, projectId),
 				(eTag: string, req?: Request) => this.getByETag(eTag, projectId, req),
@@ -113,7 +111,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 */
 	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<boolean> {
 		const config = normalizeConfiguration(projectConfig);
-		return handleCanFetch(request, this.env, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
+		return handleCanFetch(request, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
 	}
 
 	/**
