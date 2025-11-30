@@ -99,16 +99,16 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
- "name": "asset-worker-asset-service",
- "main": "src/worker.ts",
- "compatibility_date": "2025-11-11",
- "compatibility_flags": ["nodejs_compat"],
- "kv_namespaces": [
-  {
-   "binding": "KV_ASSETS",
-   // id: "your-kv-namespace-id"
-  },
- ],
+  "name": "asset-worker-asset-service",
+  "main": "src/worker.ts",
+  "compatibility_date": "2025-11-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
+    {
+      "binding": "KV_ASSETS",
+      // id: "your-kv-namespace-id"
+    },
+  ],
 }
 ```
 

@@ -40,33 +40,33 @@ Edit `deploy.config.json`:
 
 ```json
 {
- "projectName": "My Application",
- "projectId": null,
- "assets": {
-  "directory": "./dist",
-  "patterns": ["**/*"],
-  "ignore": ["**/*.map"]
- },
- "serverCode": {
-  "entrypoint": "index.js",
-  "modulesDirectory": "./server",
-  "compatibilityDate": "2025-11-09"
- },
- "config": {
-  "html_handling": "auto-trailing-slash",
-  "not_found_handling": "single-page-application",
-  "redirects": {
-   "static": {},
-   "dynamic": {}
+  "projectName": "My Application",
+  "projectId": null,
+  "assets": {
+    "directory": "./dist",
+    "patterns": ["**/*"],
+    "ignore": ["**/*.map"]
   },
-  "headers": {
-   "rules": {}
+  "serverCode": {
+    "entrypoint": "index.js",
+    "modulesDirectory": "./server",
+    "compatibilityDate": "2025-11-09"
+  },
+  "config": {
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application",
+    "redirects": {
+      "static": {},
+      "dynamic": {}
+    },
+    "headers": {
+      "rules": {}
+    }
+  },
+  "run_worker_first": ["/api/*"],
+  "env": {
+    "ENVIRONMENT": "production"
   }
- },
- "run_worker_first": ["/api/*"],
- "env": {
-  "ENVIRONMENT": "production"
- }
 }
 ```
 
@@ -186,9 +186,9 @@ Configuration for static assets:
 
 ```json
 {
- "directory": "./dist",
- "patterns": ["**/*"],
- "ignore": ["**/*.map", "**/.DS_Store"]
+  "directory": "./dist",
+  "patterns": ["**/*"],
+  "ignore": ["**/*.map", "**/.DS_Store"]
 }
 ```
 
@@ -204,9 +204,9 @@ Configuration for server-side code:
 
 ```json
 {
- "entrypoint": "index.js",
- "modulesDirectory": "./server",
- "compatibilityDate": "2025-11-09"
+  "entrypoint": "index.js",
+  "modulesDirectory": "./server",
+  "compatibilityDate": "2025-11-09"
 }
 ```
 
@@ -222,8 +222,8 @@ Asset serving configuration:
 
 ```json
 {
- "html_handling": "auto-trailing-slash",
- "not_found_handling": "single-page-application"
+  "html_handling": "auto-trailing-slash",
+  "not_found_handling": "single-page-application"
 }
 ```
 
@@ -242,32 +242,32 @@ Asset serving configuration:
 
 ```json
 {
- "redirects": {
-  "static": {
-   "/old-page": {
-    "status": 301,
-    "to": "/new-page"
-   },
-   "/proxy-asset": {
-    "status": 200,
-    "to": "/actual-asset.html"
-   }
-  },
-  "dynamic": {
-   "/blog/:year/:month/:slug": {
-    "status": 302,
-    "to": "/posts/:year-:month/:slug"
-   },
-   "/old/*": {
-    "status": 301,
-    "to": "/new/:splat"
-   },
-   "https://old.example.com/*": {
-    "status": 301,
-    "to": "https://new.example.com/:splat"
-   }
+  "redirects": {
+    "static": {
+      "/old-page": {
+        "status": 301,
+        "to": "/new-page"
+      },
+      "/proxy-asset": {
+        "status": 200,
+        "to": "/actual-asset.html"
+      }
+    },
+    "dynamic": {
+      "/blog/:year/:month/:slug": {
+        "status": 302,
+        "to": "/posts/:year-:month/:slug"
+      },
+      "/old/*": {
+        "status": 301,
+        "to": "/new/:splat"
+      },
+      "https://old.example.com/*": {
+        "status": 301,
+        "to": "https://new.example.com/:splat"
+      }
+    }
   }
- }
 }
 ```
 
@@ -298,26 +298,26 @@ Exceeding these limits will cause deployment to fail.
 
 ```json
 {
- "headers": {
-  "rules": {
-   "/assets/*": {
-    "set": {
-     "X-Served-By": "Asset Worker",
-     "X-Custom-Header": "Custom Value"
+  "headers": {
+    "rules": {
+      "/assets/*": {
+        "set": {
+          "X-Served-By": "Asset Worker",
+          "X-Custom-Header": "Custom Value"
+        }
+      },
+      "/*.css": {
+        "set": {
+          "X-Asset-Type": "stylesheet"
+        }
+      },
+      "/images/:filename": {
+        "set": {
+          "X-Image-Name": ":filename"
+        }
+      }
     }
-   },
-   "/*.css": {
-    "set": {
-     "X-Asset-Type": "stylesheet"
-    }
-   },
-   "/images/:filename": {
-    "set": {
-     "X-Image-Name": ":filename"
-    }
-   }
   }
- }
 }
 ```
 
@@ -352,8 +352,8 @@ Exceeding these limits will cause deployment to fail.
 
 ```json
 {
- "ENVIRONMENT": "production",
- "API_URL": "https://api.example.com"
+  "ENVIRONMENT": "production",
+  "API_URL": "https://api.example.com"
 }
 ```
 
@@ -377,13 +377,13 @@ my-website/
 
 ```json
 {
- "projectName": "My Website",
- "assets": {
-  "directory": "./dist"
- },
- "config": {
-  "html_handling": "auto-trailing-slash"
- }
+  "projectName": "My Website",
+  "assets": {
+    "directory": "./dist"
+  },
+  "config": {
+    "html_handling": "auto-trailing-slash"
+  }
 }
 ```
 
@@ -405,45 +405,45 @@ my-app/
 
 ```json
 {
- "projectName": "My App",
- "assets": {
-  "directory": "./dist"
- },
- "serverCode": {
-  "entrypoint": "index.js",
-  "modulesDirectory": "./server"
- },
- "run_worker_first": ["/api/*"],
- "config": {
-  "html_handling": "auto-trailing-slash",
-  "not_found_handling": "single-page-application",
-  "redirects": {
-   "static": {
-    "/home": { "status": 301, "to": "/" }
-   },
-   "dynamic": {
-    "/old-blog/*": { "status": 301, "to": "/blog/:splat" }
-   }
+  "projectName": "My App",
+  "assets": {
+    "directory": "./dist"
   },
-  "headers": {
-   "rules": {
-    "/assets/*": {
-     "set": {
-      "X-Served-By": "Asset Worker",
-      "X-Asset-Path": "Static Assets"
-     }
+  "serverCode": {
+    "entrypoint": "index.js",
+    "modulesDirectory": "./server"
+  },
+  "run_worker_first": ["/api/*"],
+  "config": {
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application",
+    "redirects": {
+      "static": {
+        "/home": { "status": 301, "to": "/" }
+      },
+      "dynamic": {
+        "/old-blog/*": { "status": 301, "to": "/blog/:splat" }
+      }
     },
-    "/*.css": {
-     "set": {
-      "X-Asset-Type": "stylesheet"
-     }
+    "headers": {
+      "rules": {
+        "/assets/*": {
+          "set": {
+            "X-Served-By": "Asset Worker",
+            "X-Asset-Path": "Static Assets"
+          }
+        },
+        "/*.css": {
+          "set": {
+            "X-Asset-Type": "stylesheet"
+          }
+        }
+      }
     }
-   }
+  },
+  "env": {
+    "ENVIRONMENT": "production"
   }
- },
- "env": {
-  "ENVIRONMENT": "production"
- }
 }
 ```
 
@@ -453,17 +453,17 @@ Server-side code must export a default object with a `fetch` handler:
 
 ```javascript
 export default {
- async fetch(request, env, ctx) {
-  const url = new URL(request.url);
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
 
-  if (url.pathname.startsWith('/api/')) {
-   // Handle API requests
-   return new Response('API response');
-  }
+    if (url.pathname.startsWith('/api/')) {
+      // Handle API requests
+      return new Response('API response');
+    }
 
-  // Return 404 to let assets handle other paths
-  return new Response('Not found', { status: 404 });
- },
+    // Return 404 to let assets handle other paths
+    return new Response('Not found', { status: 404 });
+  },
 };
 ```
 
@@ -496,10 +496,10 @@ Use environment variable substitution in the `env` section for worker runtime va
 
 ```json
 {
- "env": {
-  "DATABASE_URL": "${DATABASE_URL}",
-  "API_KEY": "${EXTERNAL_API_KEY}"
- }
+  "env": {
+    "DATABASE_URL": "${DATABASE_URL}",
+    "API_KEY": "${EXTERNAL_API_KEY}"
+  }
 }
 ```
 

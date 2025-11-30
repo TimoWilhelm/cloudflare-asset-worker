@@ -128,9 +128,9 @@ Edit `server/index.js`:
 
 ```javascript
 if (url.pathname === '/api/newEndpoint') {
- return new Response(JSON.stringify({ data: 'value' }), {
-  headers: { 'Content-Type': 'application/json' },
- });
+  return new Response(JSON.stringify({ data: 'value' }), {
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 ```
 

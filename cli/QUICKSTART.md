@@ -30,10 +30,10 @@ Edit `deploy.config.json`:
 
 ```json
 {
- "projectName": "My App",
- "assets": {
-  "directory": "./dist"
- }
+  "projectName": "My App",
+  "assets": {
+    "directory": "./dist"
+  }
 }
 ```
 

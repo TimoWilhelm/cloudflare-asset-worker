@@ -91,11 +91,11 @@ Key settings in `deploy.config.json`:
 
 ```json
 {
- "serverCode": {
-  "entrypoint": "index.js",
-  "modulesDirectory": "./src"
- },
- "run_worker_first": true
+  "serverCode": {
+    "entrypoint": "index.js",
+    "modulesDirectory": "./src"
+  },
+  "run_worker_first": true
 }
 ```
 
@@ -124,7 +124,7 @@ Key settings in `deploy.config.json`:
    import { handleComments } from './handlers/comments.js';
 
    if (url.pathname.startsWith('/api/comments')) {
-    return handleComments(request, env);
+     return handleComments(request, env);
    }
    ```
 
@@ -140,10 +140,10 @@ Configure in `deploy.config.json`:
 
 ```json
 {
- "env": {
-  "ENVIRONMENT": "production",
-  "DATABASE_URL": "${DATABASE_URL}"
- }
+  "env": {
+    "ENVIRONMENT": "production",
+    "DATABASE_URL": "${DATABASE_URL}"
+  }
 }
 ```
 
@@ -151,7 +151,7 @@ Access in handlers:
 
 ```javascript
 export function handleUsers(request, env) {
- const dbUrl = env.DATABASE_URL;
- // Use environment variables
+  const dbUrl = env.DATABASE_URL;
+  // Use environment variables
 }
 ```
