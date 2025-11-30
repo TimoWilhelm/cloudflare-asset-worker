@@ -1,0 +1,6 @@
+{
+	"messages": {
+		"welcome": "Welcome to our API!",
+		"maintenance": "System under maintenance"
+	}
+}

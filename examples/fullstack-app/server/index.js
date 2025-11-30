@@ -1,3 +1,7 @@
+import templateText from './template.txt'; // text module
+import configData from './sample.json'; // json module
+import binaryData from './data.bin'; // data module
+
 export default {
 	async fetch(request, env) {
 		const url = new URL(request.url);
@@ -14,7 +18,51 @@ export default {
 				}),
 				{
 					headers: { 'Content-Type': 'application/json' },
-				},
+				}
+			);
+		}
+
+		// Endpoint demonstrating text module import
+		if (url.pathname === '/api/template') {
+			// Process the template by replacing variables
+			const processed = templateText
+				.replace('{{appName}}', env.APP_NAME || 'Fullstack App')
+				.replace('{{environment}}', env.ENVIRONMENT || 'development')
+				.replace('{{apiUrl}}', env.API_URL || 'not configured');
+
+			return new Response(processed, {
+				headers: { 'Content-Type': 'text/plain' },
+			});
+		}
+
+		// Endpoint demonstrating json module import
+		if (url.pathname === '/api/config') {
+			// Return the imported JSON configuration
+			return new Response(
+				JSON.stringify({
+					...configData,
+					loadedFrom: 'json module import',
+					timestamp: new Date().toISOString(),
+				}),
+				{
+					headers: { 'Content-Type': 'application/json' },
+				}
+			);
+		}
+
+		// Endpoint demonstrating data (binary) module import
+		if (url.pathname === '/api/data') {
+			return new Response(
+				JSON.stringify({
+					message: 'Binary data module imported',
+					data: new Uint8Array(binaryData),
+					dataPreview:
+						binaryData instanceof ArrayBuffer ? `ArrayBuffer with ${binaryData.byteLength} bytes` : String(binaryData).substring(0, 100),
+					timestamp: new Date().toISOString(),
+				}),
+				{
+					headers: { 'Content-Type': 'application/json' },
+				}
 			);
 		}
 

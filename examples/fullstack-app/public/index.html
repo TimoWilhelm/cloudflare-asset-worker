@@ -10,19 +10,37 @@
 		<div class="container">
 			<h1>Fullstack Application</h1>
 			<p>This app combines static assets with server-side code.</p>
+			<p><strong>Features:</strong> Demonstrates importing text, JSON, and binary data modules.</p>
 
 			<div class="actions">
-				<button onclick="testAPI()">Test API</button>
+				<button onclick="testAPI('api/hello')">Test API</button>
+				<button onclick="testAPI('api/config')">JSON Module</button>
+				<button onclick="testTemplate()">Text Module</button>
+				<button onclick="testAPI('api/data')">Data Module</button>
 			</div>
 
 			<div id="output"></div>
 		</div>
 
 		<script>
-			async function testAPI() {
-				const response = await fetch('api/hello');
-				const data = await response.json();
-				document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+			async function testAPI(endpoint) {
+				try {
+					const response = await fetch(endpoint);
+					const data = await response.json();
+					document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+				} catch (error) {
+					document.getElementById('output').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+				}
+			}
+
+			async function testTemplate() {
+				try {
+					const response = await fetch('api/template');
+					const text = await response.text();
+					document.getElementById('output').innerHTML = '<pre>' + text + '</pre>';
+				} catch (error) {
+					document.getElementById('output').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+				}
 			}
 		</script>
 	</body>

@@ -56,8 +56,12 @@ export function inferModuleType(modulePath: string): ModuleType {
 			return 'py';
 		case 'txt':
 			return 'text';
+		case 'html':
+			return 'text';
 		case 'json':
 			return 'json';
+		case 'bin':
+			return 'data';
 		default:
 			return 'js'; // Default to ES modules
 	}

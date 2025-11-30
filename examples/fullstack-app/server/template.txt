@@ -1,0 +1,7 @@
+Welcome to {{appName}}!
+
+Environment: {{environment}}
+API URL: {{apiUrl}}
+
+This is a text template that demonstrates importing text modules.
+You can use this for email templates, configuration templates, or any other text-based content.

@@ -96,8 +96,8 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 		throw new Error(`Server code directory not found: ${absoluteDir}`);
 	}
 
-	// Scan all JavaScript/TypeScript/Python files
-	const files = await glob(['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.py', '**/*.json', '**/*.txt'], {
+	// Scan all JavaScript/TypeScript/Python files and other module types
+	const files = await glob(['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.py', '**/*.json', '**/*.txt', '**/*.bin'], {
 		cwd: absoluteDir,
 		nodir: true,
 		dot: false,
@@ -135,6 +135,9 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 				break;
 			case '.txt':
 				moduleType = 'text';
+				break;
+			case '.bin':
+				moduleType = 'data';
 				break;
 		}
 

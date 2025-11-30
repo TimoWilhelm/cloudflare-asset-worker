@@ -141,6 +141,14 @@ program
 				deployment.serverCode = await loadServerCode(serverDir, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
 				console.log(`  ✓ Loaded ${Object.keys(deployment.serverCode.modules).length} modules`);
 				console.log(`  📌 Entrypoint: ${deployment.serverCode.entrypoint}`);
+
+				// List each module with its type
+				console.log(`\n  📦 Modules:`);
+				for (const [moduleName, moduleInfo] of Object.entries(deployment.serverCode.modules)) {
+					const typeLabel = moduleInfo.type || 'unknown';
+					const isEntry = moduleName === deployment.serverCode.entrypoint ? ' (entrypoint)' : '';
+					console.log(`     • ${moduleName} [${typeLabel}]${isEntry}`);
+				}
 			}
 
 			// Dry run - show what would be deployed

@@ -12,6 +12,9 @@ Complete application with frontend assets and backend API endpoints.
 **Backend:**
 
 - `server/index.js` - API endpoints with environment variable usage
+- `server/template.txt` - Text module example
+- `server/config.json` - JSON module example
+- `server/data.bin` - Binary data module example
 
 **Config:**
 
@@ -24,6 +27,7 @@ Complete application with frontend assets and backend API endpoints.
 - Environment variables
 - Worker-first routing for `/api/*` paths
 - Single Page Application fallback
+- **Module type imports**: Demonstrates importing text, JSON, and binary data modules
 
 ## Deploy
 
@@ -47,8 +51,10 @@ Both buttons will display the JSON response from the server.
 
 ## API Endpoints
 
-- `GET /api/hello` - Returns greeting with timestamp
-- `GET /api/config` - Returns environment configuration
+- `GET /api/hello` - Returns greeting with timestamp and environment variables
+- `GET /api/template` - Demonstrates **text module** import (template.txt)
+- `GET /api/config` - Demonstrates **JSON module** import (config.json)
+- `GET /api/data` - Demonstrates **binary data module** import (data.bin)
 
 All other paths serve static assets from `public/`.
 
@@ -73,6 +79,30 @@ API requests go directly to the worker, bypassing asset lookup.
 ```
 
 Access these in worker code via `env` parameter.
+
+### Module Type Imports
+
+The example demonstrates importing different module types:
+
+**Text Module (`.txt`):**
+
+```javascript
+import templateText from './template.txt';
+```
+
+**JSON Module (`.json`):**
+
+```javascript
+import configData from './config.json';
+```
+
+**Binary Data Module (`.bin`):**
+
+```javascript
+import binaryData from './data.bin';
+```
+
+These imports are automatically detected and handled by the deployment system based on file extensions.
 
 ## Customize
 
