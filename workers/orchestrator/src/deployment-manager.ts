@@ -5,6 +5,8 @@ import * as base64 from '@stablelib/base64';
 import { computeContentHash, inferModuleType } from './content-utils';
 import { verifyJWT } from './jwt';
 import { getProject, getServerCodeKey } from './project-manager';
+import { deploymentPayloadSchema } from './validation';
+import { z } from 'zod';
 
 /**
  * Deploys a full-stack project with assets and optional server code.
@@ -32,28 +34,15 @@ export async function deployProject(
 		return new Response('Project not found', { status: 404 });
 	}
 
-	const payload = await request.json<DeploymentPayload>();
+	const payloadJson = await request.json();
 
-	// Validate environment variables limit
-	const MAX_ENV_VARS = 64;
-	const MAX_ENV_VAR_SIZE = 5 * 1024; // 5 KB
-	if (payload.env) {
-		const envVarCount = Object.keys(payload.env).length;
-		if (envVarCount > MAX_ENV_VARS) {
-			return new Response(`Too many environment variables: ${envVarCount}. Maximum allowed is ${MAX_ENV_VARS}.`, { status: 400 });
-		}
-
-		// Validate individual environment variable sizes
-		for (const [key, value] of Object.entries(payload.env)) {
-			const valueSize = new TextEncoder().encode(String(value)).length;
-			if (valueSize > MAX_ENV_VAR_SIZE) {
-				return new Response(
-					`Environment variable '${key}' is too large: ${valueSize} bytes. Maximum allowed is ${MAX_ENV_VAR_SIZE} bytes (5 KB).`,
-					{ status: 400 },
-				);
-			}
-		}
+	// Validate payload using Zod
+	const payloadValidation = deploymentPayloadSchema.safeParse(payloadJson);
+	if (!payloadValidation.success) {
+		return new Response(z.prettifyError(payloadValidation.error), { status: 400 });
 	}
+
+	const payload = payloadValidation.data;
 
 	// Update project name if provided
 	if (payload.projectName) {
@@ -107,26 +96,6 @@ export async function deployProject(
 	let totalServerCodeModules = 0;
 	let newServerCodeModules = 0;
 	if (payload.serverCode) {
-		// Validate total server code size
-		const MAX_TOTAL_SERVER_CODE_SIZE = 10 * 1024 * 1024; // 10 MB
-		let totalServerCodeSize = 0;
-
-		// First pass: calculate total size
-		for (const [_modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
-			const base64Content = typeof moduleData === 'string' ? moduleData : moduleData.content;
-			const decodedSize = base64.decode(base64Content).length;
-			totalServerCodeSize += decodedSize;
-		}
-
-		if (totalServerCodeSize > MAX_TOTAL_SERVER_CODE_SIZE) {
-			return new Response(
-				`Total server code size is too large: ${totalServerCodeSize} bytes (${(totalServerCodeSize / 1024 / 1024).toFixed(
-					2,
-				)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_CODE_SIZE} bytes (10 MB).`,
-				{ status: 400 },
-			);
-		}
-
 		// Compute content hash for each module and store them separately
 		const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
 		const modulesToUpload: { hash: string; content: string; type: ModuleType }[] = [];

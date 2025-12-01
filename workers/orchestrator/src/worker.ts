@@ -9,10 +9,6 @@ import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
 
-// Pagination constants for API endpoints
-export const DEFAULT_PAGE_SIZE = 100;
-export const MAX_PAGE_SIZE = 100;
-
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfig }> {
 	override async fetch(request: Request): Promise<Response> {
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
@@ -97,8 +93,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 
 			app.get('/__api/projects', async (c) => {
-				const limitParam = c.req.query('limit');
-				const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10) || DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+				const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : undefined;
 				const cursor = c.req.query('cursor') || undefined;
 				return listProjects(this.env.KV_PROJECTS, { limit, cursor });
 			});

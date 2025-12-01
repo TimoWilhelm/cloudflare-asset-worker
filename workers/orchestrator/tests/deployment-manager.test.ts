@@ -134,8 +134,8 @@ describe('deployment-manager', () => {
 			const createData = (await createResponse.json()) as any;
 			const projectId = createData.project.id;
 
-			// Create an env var with exactly 5 KB of data (5120 bytes)
-			const largeValue = 'x'.repeat(5120);
+			// Create an env var with exactly 5 KB of data (5000 bytes)
+			const largeValue = 'x'.repeat(5000);
 
 			const deployRequest = new Request('http://example.com', {
 				method: 'POST',
@@ -165,8 +165,8 @@ describe('deployment-manager', () => {
 			const createData = (await createResponse.json()) as any;
 			const projectId = createData.project.id;
 
-			// Create an env var with more than 5 KB of data (5121 bytes)
-			const tooLargeValue = 'x'.repeat(5121);
+			// Create an env var with more than 5 KB of data (5001 bytes)
+			const tooLargeValue = 'x'.repeat(5001);
 
 			const deployRequest = new Request('http://example.com', {
 				method: 'POST',
@@ -184,7 +184,7 @@ describe('deployment-manager', () => {
 			const errorText = await response.text();
 			expect(errorText).toContain('TOO_LARGE_VAR');
 			expect(errorText).toContain('too large');
-			expect(errorText).toContain('5121 bytes');
+			expect(errorText).toContain('5.00 KB');
 		});
 	});
 });

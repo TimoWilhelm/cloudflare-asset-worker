@@ -4,6 +4,8 @@ import * as base64 from '@stablelib/base64';
 import { computeContentHash, guessContentType, createBuckets } from './content-utils';
 import { generateJWT, verifyJWT } from './jwt';
 import { getProject } from './project-manager';
+import { assetManifestRequestSchema, uploadPayloadSchema } from './validation';
+import { z } from 'zod';
 
 /**
  * Creates an asset upload session for a project.
@@ -29,58 +31,15 @@ export async function createAssetUploadSession(
 		return new Response('Project not found', { status: 404 });
 	}
 
-	const payload = await request.json<AssetManifestRequest>();
-	const { manifest } = payload;
+	const payloadJson = await request.json();
 
-	// Validate manifest
-	if (!manifest || typeof manifest !== 'object') {
-		return new Response('Invalid manifest', { status: 400 });
+	// Validate payload using Zod
+	const payloadValidation = assetManifestRequestSchema.safeParse(payloadJson);
+	if (!payloadValidation.success) {
+		return new Response(z.prettifyError(payloadValidation.error), { status: 400 });
 	}
 
-	// Validate manifest size
-	const MAX_MANIFEST_ENTRIES = 20000;
-	const manifestSize = Object.keys(manifest).length;
-	if (manifestSize === 0) {
-		return new Response('Empty manifest', { status: 400 });
-	}
-	if (manifestSize > MAX_MANIFEST_ENTRIES) {
-		return new Response(`Manifest too large: ${manifestSize} files exceeds ${MAX_MANIFEST_ENTRIES}`, { status: 413 });
-	}
-
-	// Validate each manifest entry
-	let totalSize = 0;
-	for (const [pathname, data] of Object.entries(manifest)) {
-		// Validate pathname
-		if (!pathname || !pathname.startsWith('/')) {
-			return new Response(`Invalid pathname "${pathname}": must start with /`, { status: 400 });
-		}
-
-		// Validate hash format (must be 64 hex characters for SHA-256)
-		if (!data.hash || !/^[0-9a-f]{64}$/i.test(data.hash)) {
-			return new Response(`Invalid hash for "${pathname}": must be 64 hexadecimal characters`, { status: 400 });
-		}
-
-		// Validate size (must be non-negative integer)
-		if (typeof data.size !== 'number' || data.size < 0 || !Number.isInteger(data.size)) {
-			return new Response(`Invalid size for "${pathname}": must be non-negative integer`, { status: 400 });
-		}
-
-		// Validate individual asset file size limit (25 MiB)
-		const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MiB
-		if (data.size > MAX_FILE_SIZE) {
-			return new Response(`Asset file too large "${pathname}": ${data.size} bytes exceeds ${MAX_FILE_SIZE} bytes (25 MiB)`, {
-				status: 413,
-			});
-		}
-
-		totalSize += data.size;
-	}
-
-	// Validate total manifest size (e.g., 1GB total)
-	const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 1GB
-	if (totalSize > MAX_TOTAL_SIZE) {
-		return new Response(`Total manifest size too large: ${totalSize} bytes exceeds ${MAX_TOTAL_SIZE} bytes`, { status: 413 });
-	}
+	const { manifest } = payloadValidation.data;
 
 	// Check which hashes already exist in KV via AssetApi's efficient checkAssetsExist method
 	// This only uploads assets that are missing or have changed content hashes
@@ -203,21 +162,16 @@ export async function uploadAssets(
 	session.uploadedHashes = new Set(session.uploadedHashes); // Restore Set from JSON
 
 	// Parse body - expecting JSON with base64 encoded files
-	const payload = await request.json<Record<string, string>>();
+	const payload = await request.json();
 
-	// Validate payload is not empty
-	if (!payload || Object.keys(payload).length === 0) {
-		return new Response('Empty upload payload', { status: 400 });
-	}
-
-	// Validate number of files (shouldn't exceed bucket size)
-	const MAX_FILES_PER_REQUEST = 50; // Conservative limit
-	if (Object.keys(payload).length > MAX_FILES_PER_REQUEST) {
-		return new Response(`Too many files in request: ${Object.keys(payload).length} exceeds ${MAX_FILES_PER_REQUEST}`, { status: 413 });
+	// Validate payload using Zod
+	const payloadValidation = uploadPayloadSchema.safeParse(payload);
+	if (!payloadValidation.success) {
+		return new Response(z.prettifyError(payloadValidation.error), { status: 400 });
 	}
 
 	// Upload each asset
-	for (const [hash, base64Content] of Object.entries(payload)) {
+	for (const [hash, base64Content] of Object.entries(payloadValidation.data)) {
 		// Verify hash is in the manifest
 		const isValidHash = Object.values(session.manifest).some((entry) => entry.hash === hash);
 		if (!isValidHash) {

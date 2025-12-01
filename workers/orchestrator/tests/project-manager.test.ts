@@ -10,7 +10,6 @@ import {
 import { env } from 'cloudflare:test';
 import { ProjectMetadata } from '../src/types';
 import type AssetApi from '../../asset-service/src/worker';
-import { DEFAULT_PAGE_SIZE } from '../src/worker';
 
 interface ProjectResponse {
 	success: boolean;
@@ -127,7 +126,7 @@ describe('project-manager', () => {
 
 	describe('listProjects', () => {
 		it('returns empty list when no projects exist', async () => {
-			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
+			const response = await listProjects(projectsKv);
 			expect(response.status).toBe(200);
 
 			const data = await response.json<ListProjectsResponse>();
@@ -149,12 +148,12 @@ describe('project-manager', () => {
 				await createProject(request, projectsKv);
 			}
 
-			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
+			const response = await listProjects(projectsKv);
 			const data = await response.json<ListProjectsResponse>();
 
 			expect(data.success).toBe(true);
 			expect(data.projects).toHaveLength(3);
-			expect(data.pagination.limit).toBe(DEFAULT_PAGE_SIZE);
+			expect(data.pagination.limit).toBe(100);
 
 			const projectNames = data.projects.map((p) => p.name);
 			expect(projectNames).toContain('Project A');
@@ -239,7 +238,7 @@ describe('project-manager', () => {
 				await createProject(request, projectsKv);
 			}
 
-			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
+			const response = await listProjects(projectsKv);
 			const data = await response.json<ListProjectsResponse>();
 
 			expect(data.success).toBe(true);

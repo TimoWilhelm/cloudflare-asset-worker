@@ -1,6 +1,12 @@
 import type { ProjectMetadata } from './types';
 import type AssetApi from '../../asset-service/src/worker';
 import { listAllKeys } from './util/kv';
+import { createProjectRequestSchema } from './validation';
+import { z } from 'zod';
+
+// Pagination constants
+const DEFAULT_PAGE_SIZE = 100;
+const MAX_PAGE_SIZE = 100;
 
 /**
  * Creates a new project with a unique ID and stores it in KV.
@@ -10,7 +16,22 @@ import { listAllKeys } from './util/kv';
  * @returns JSON response with the created project metadata (HTTP 201)
  */
 export async function createProject(request: Request, projectsKv: KVNamespace): Promise<Response> {
-	const body = await request.json<{ name?: string }>();
+	const bodyJson = await request.json();
+
+	// Validate payload using Zod
+	const bodyValidation = createProjectRequestSchema.safeParse(bodyJson);
+	if (!bodyValidation.success) {
+		return new Response(
+			JSON.stringify({
+				success: false,
+				error: z.prettifyError(bodyValidation.error),
+			}),
+			{ status: 400, headers: { 'Content-Type': 'application/json' } },
+		);
+	}
+
+	const body = bodyValidation.data;
+
 	const projectId = crypto.randomUUID();
 
 	const project: ProjectMetadata = {
@@ -37,7 +58,7 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 }
 
 export interface ListProjectsOptions {
-	limit: number;
+	limit?: number;
 	cursor?: string;
 }
 
@@ -48,8 +69,8 @@ export interface ListProjectsOptions {
  * @param options - Pagination options including limit and optional cursor
  * @returns JSON response with projects array and pagination metadata
  */
-export async function listProjects(projectsKv: KVNamespace, options: ListProjectsOptions): Promise<Response> {
-	const { limit } = options;
+export async function listProjects(projectsKv: KVNamespace, options: ListProjectsOptions = {}): Promise<Response> {
+	const limit = Math.min(Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 	const cursor = options.cursor || undefined;
 
 	const result = await projectsKv.list({

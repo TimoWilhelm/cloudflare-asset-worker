@@ -19,6 +19,7 @@
 	"dependencies": {
 		"@stablelib/base64": "^2.0.1",
 		"hono": "^4.6.14",
-		"minimatch": "^10.1.1"
+		"minimatch": "^10.1.1",
+		"zod": "^4.1.13"
 	}
 }
