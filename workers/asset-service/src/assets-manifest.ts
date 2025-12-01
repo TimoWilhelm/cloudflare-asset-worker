@@ -10,6 +10,12 @@ export class AssetsManifest {
 	}
 }
 
+/**
+ * Computes a truncated SHA-256 hash of a pathname for manifest lookup.
+ *
+ * @param path - The pathname to hash
+ * @returns The first PATH_HASH_SIZE bytes of the SHA-256 hash
+ */
 export const hashPath = async (path: string) => {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(path);
@@ -18,11 +24,11 @@ export const hashPath = async (path: string) => {
 };
 
 /**
- * Search for an entry with the given hash path.
+ * Searches for an entry with the given path hash using binary search.
  *
- * @param manifest the manifest bytes
- * @param pathHash the path hash to find in the manifest
- * @returns The content hash when the entry is found and `false` otherwise
+ * @param manifest - The manifest bytes
+ * @param pathHash - The path hash to find in the manifest
+ * @returns The content hash if found, false otherwise
  */
 export const binarySearch = (manifest: Uint8Array, pathHash: Uint8Array): Uint8Array | false => {
 	if (pathHash.byteLength !== PATH_HASH_SIZE) {

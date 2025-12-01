@@ -4,10 +4,14 @@ import type { AssetConfig } from '../configuration';
 import type { AssetIntentWithResolver } from '../handler';
 
 /**
- * Returns a Headers object that contains additional headers (to those
- * present in the original request) that the Assets Server Worker
- * should attach to its response.
+ * Generates response headers for an asset request.
  *
+ * @param intent - The resolved asset intent with eTag and resolver info
+ * @param contentType - The MIME type of the asset
+ * @param cacheStatus - The KV cache status ('HIT' or 'MISS')
+ * @param request - The original HTTP request
+ * @param configuration - The normalized asset configuration
+ * @returns Headers object with ETag, Content-Type, Cache-Control, and CF-Cache-Status
  */
 export function getAssetHeaders(
 	{ eTag, resolver }: AssetIntentWithResolver,
@@ -44,6 +48,14 @@ function isCacheable(request: Request) {
 	return !request.headers.has('Authorization') && !request.headers.has('Range');
 }
 
+/**
+ * Attaches custom headers from configuration rules to the response.
+ *
+ * @param request - The original HTTP request for rule matching
+ * @param response - The response to modify
+ * @param configuration - The normalized asset configuration with header rules
+ * @returns The modified response with custom headers applied
+ */
 export function attachCustomHeaders(request: Request, response: Response, configuration: Required<AssetConfig>) {
 	// Iterate through rules and find rules that match the path
 	const headersMatcher = generateRulesMatcher(configuration.headers.rules, ({ set = {}, unset = [] }, replacements) => {

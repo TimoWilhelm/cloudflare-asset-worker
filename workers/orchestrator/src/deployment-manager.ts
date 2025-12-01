@@ -7,8 +7,16 @@ import { verifyJWT } from './jwt';
 import { getProject, getServerCodeKey } from './project-manager';
 
 /**
- * Deploy a full-stack project (assets + optional server code)
- * Phase 3: Finalize deployment with completion JWT
+ * Deploys a full-stack project with assets and optional server code.
+ * This is Phase 3 of the deployment flow, finalizing with a completion JWT.
+ *
+ * @param projectId - The unique identifier of the project to deploy
+ * @param request - The HTTP request containing the deployment payload
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @param serverCodeKv - The KV namespace for storing server code modules
+ * @param assetWorker - The asset service worker for uploading manifests
+ * @param jwtSecret - The secret used for JWT verification
+ * @returns JSON response with deployment statistics or error response
  */
 export async function deployProject(
 	projectId: string,

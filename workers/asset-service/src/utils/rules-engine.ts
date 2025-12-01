@@ -19,6 +19,13 @@ export type Replacements = Record<string, string>;
 
 export type Removals = string[];
 
+/**
+ * Replaces placeholder tokens in a string with their values.
+ *
+ * @param str - The string containing :placeholder tokens
+ * @param replacements - Map of placeholder names to replacement values
+ * @returns The string with all placeholders replaced
+ */
 export const replacer = (str: string, replacements: Replacements) => {
 	for (const [replacement, value] of Object.entries(replacements)) {
 		str = str.replaceAll(`:${replacement}`, value);
@@ -26,6 +33,12 @@ export const replacer = (str: string, replacements: Replacements) => {
 	return str;
 };
 
+/**
+ * Generates a RegExp from a glob pattern (supports * wildcards only).
+ *
+ * @param rule - The glob pattern string
+ * @returns A RegExp that matches the pattern
+ */
 export const generateGlobOnlyRuleRegExp = (rule: string) => {
 	// Escape all regex characters other than globs (the "*" character) since that's all that's supported.
 	rule = rule.split('*').map(escapeRegex).join('.*');
@@ -36,6 +49,13 @@ export const generateGlobOnlyRuleRegExp = (rule: string) => {
 	return RegExp(rule);
 };
 
+/**
+ * Generates a RegExp from a rule pattern with glob and placeholder support.
+ * Supports * wildcards (:splat) and :placeholder tokens.
+ *
+ * @param rule - The rule pattern string
+ * @returns A RegExp with named capture groups for placeholders
+ */
 export const generateRuleRegExp = (rule: string) => {
 	// Create :splat capturer then escape.
 	rule = rule.split('*').map(escapeRegex).join('(?<splat>.*)');
@@ -63,6 +83,13 @@ export const generateRuleRegExp = (rule: string) => {
 	return RegExp(rule);
 };
 
+/**
+ * Creates a matcher function for a set of URL pattern rules.
+ *
+ * @param rules - Map of URL patterns to match values
+ * @param replacerFn - Optional function to transform matches with captured replacements
+ * @returns A function that takes a request and returns matching rule values
+ */
 export const generateRulesMatcher = <T>(
 	rules?: Record<string, T>,
 	replacerFn: (match: T, replacements: Replacements) => T = (match) => match,
@@ -108,6 +135,14 @@ export const generateRulesMatcher = <T>(
 	};
 };
 
+/**
+ * Matches static redirects from configuration, preferring earlier-defined rules.
+ *
+ * @param configuration - The normalized asset configuration
+ * @param host - The request hostname
+ * @param pathname - The request pathname
+ * @returns The matching redirect rule or undefined
+ */
 export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, host: string, pathname: string) => {
 	const withHostMatch = configuration.redirects.static[`https://${host}${pathname}`];
 	const withoutHostMatch = configuration.redirects.static[pathname];
@@ -123,6 +158,12 @@ export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, hos
 	return withHostMatch || withoutHostMatch;
 };
 
+/**
+ * Creates a matcher for dynamic redirect rules with placeholder support.
+ *
+ * @param configuration - The normalized asset configuration
+ * @returns A matcher function for dynamic redirects
+ */
 export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =>
 	generateRulesMatcher(configuration.redirects.dynamic, ({ status, to }, replacements) => {
 		const target = replacer(to, replacements).trim();
@@ -142,6 +183,12 @@ export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =
 		}
 	});
 
+/**
+ * Creates a matcher for static routing rules using glob patterns.
+ *
+ * @param rules - Array of glob pattern strings
+ * @returns A function that returns true if the request pathname matches any rule
+ */
 export const generateStaticRoutingRuleMatcher =
 	(rules: string[]) =>
 	({ request }: { request: Request }) => {

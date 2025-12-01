@@ -3,7 +3,11 @@ import type AssetApi from '../../asset-service/src/worker';
 import { listAllKeys } from './util/kv';
 
 /**
- * Create a new project
+ * Creates a new project with a unique ID and stores it in KV.
+ *
+ * @param request - The incoming HTTP request containing optional project name in JSON body
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @returns JSON response with the created project metadata (HTTP 201)
  */
 export async function createProject(request: Request, projectsKv: KVNamespace): Promise<Response> {
 	const body = await request.json<{ name?: string }>();
@@ -38,10 +42,11 @@ export interface ListProjectsOptions {
 }
 
 /**
- * List projects with pagination support
- * @param projectsKv - The KV namespace for projects
- * @param options - Pagination options (limit, cursor)
- * @returns Response with projects array and pagination metadata
+ * Lists all projects with pagination support.
+ *
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @param options - Pagination options including limit and optional cursor
+ * @returns JSON response with projects array and pagination metadata
  */
 export async function listProjects(projectsKv: KVNamespace, options: ListProjectsOptions): Promise<Response> {
 	const { limit } = options;
@@ -79,7 +84,11 @@ export async function listProjects(projectsKv: KVNamespace, options: ListProject
 }
 
 /**
- * Get project information
+ * Retrieves project information by ID.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @returns JSON response with project metadata or 404 if not found
  */
 export async function getProjectInfo(projectId: string, projectsKv: KVNamespace): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
@@ -101,7 +110,13 @@ export async function getProjectInfo(projectId: string, projectsKv: KVNamespace)
 }
 
 /**
- * Delete a project and its metadata
+ * Deletes a project and all associated resources including assets and server code.
+ *
+ * @param projectId - The unique identifier of the project to delete
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @param serverCodeKv - The KV namespace for storing server code modules
+ * @param assetWorker - The asset service worker for deleting project assets
+ * @returns JSON response with deletion statistics or 404 if project not found
  */
 export async function deleteProject(
 	projectId: string,
@@ -150,21 +165,32 @@ export async function deleteProject(
 }
 
 /**
- * Get project metadata from KV
+ * Retrieves project metadata from KV storage.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
 	return await projectsKv.get<ProjectMetadata>(`project:${projectId}`, 'json');
 }
 
 /**
- * Get the server code prefix for a project
+ * Generates the KV key prefix for a project's server code.
+ *
+ * @param projectId - The unique identifier of the project
+ * @returns The prefix string used for server code KV keys
  */
 export function getServerCodePrefix(projectId: string): string {
 	return `${projectId}:`;
 }
 
 /**
- * Get the namespaced key for server code
+ * Generates a namespaced KV key for server code storage.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param key - The key to namespace (e.g., content hash or 'MANIFEST')
+ * @returns The full namespaced key for KV storage
  */
 export function getServerCodeKey(projectId: string, key: string): string {
 	return `${projectId}:${key}`;

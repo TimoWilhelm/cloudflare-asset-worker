@@ -1,10 +1,11 @@
 import { minimatch } from 'minimatch';
 
 /**
- * Check if a pathname matches glob patterns using minimatch
+ * Checks if a pathname matches any of the given glob patterns.
+ *
  * @param pathname - The pathname to check
  * @param patterns - Array of glob patterns to match against
- * @returns True if pathname matches any pattern
+ * @returns True if pathname matches any pattern, false otherwise
  */
 export function matchesGlobPatterns(pathname: string, patterns: string[]): boolean {
 	for (const pattern of patterns) {
@@ -16,10 +17,11 @@ export function matchesGlobPatterns(pathname: string, patterns: string[]): boole
 }
 
 /**
- * Determine if worker should run first based on config and pathname
- * @param config - The run_worker_first configuration
- * @param pathname - The request pathname
- * @returns True if worker should run first
+ * Determines if the worker should run before checking static assets.
+ *
+ * @param config - The run_worker_first setting: boolean, glob patterns array, or undefined
+ * @param pathname - The request pathname to evaluate
+ * @returns True if the worker should handle the request first, false otherwise
  */
 export function shouldRunWorkerFirst(config: boolean | string[] | undefined, pathname: string): boolean {
 	if (config === undefined || config === false) {
@@ -35,8 +37,10 @@ export function shouldRunWorkerFirst(config: boolean | string[] | undefined, pat
 }
 
 /**
- * Extract project ID from subdomain or path
- * Returns both the project ID and whether path-based routing is used
+ * Extracts the project ID from a URL using subdomain or path-based routing.
+ *
+ * @param url - The URL to extract the project ID from
+ * @returns Object containing the project ID (or null) and whether path-based routing was used
  */
 export function extractProjectId(url: URL): { projectId: string | null; isPathBased: boolean } {
 	// Check for path-based routing: /__project/project-id/...
@@ -61,7 +65,11 @@ export function extractProjectId(url: URL): { projectId: string | null; isPathBa
 }
 
 /**
- * Rewrite request URL to strip path-based project prefix
+ * Rewrites a request URL to strip the path-based project prefix.
+ *
+ * @param request - The original HTTP request
+ * @param projectId - The project ID to strip from the path
+ * @returns A new Request with the project prefix removed from the pathname
  */
 export function rewriteRequestUrl(request: Request, projectId: string): Request {
 	const url = new URL(request.url);

@@ -1,7 +1,10 @@
 import type { ModuleType } from './types';
 
 /**
- * Compute SHA-256 content hash
+ * Computes the SHA-256 content hash of the given data.
+ *
+ * @param content - The content to hash as an ArrayBuffer or ArrayBufferView
+ * @returns The SHA-256 hash as a lowercase hexadecimal string
  */
 export async function computeContentHash(content: ArrayBuffer | ArrayBufferView): Promise<string> {
 	const contentHashBuffer = await crypto.subtle.digest('SHA-256', content);
@@ -12,7 +15,10 @@ export async function computeContentHash(content: ArrayBuffer | ArrayBufferView)
 }
 
 /**
- * Guess content type from pathname
+ * Guesses the MIME content type from a file pathname based on extension.
+ *
+ * @param pathname - The file path or name to analyze
+ * @returns The MIME type string or undefined if the extension is not recognized
  */
 export function guessContentType(pathname: string): string | undefined {
 	const ext = pathname.split('.').pop()?.toLowerCase();
@@ -42,7 +48,10 @@ export function guessContentType(pathname: string): string | undefined {
 }
 
 /**
- * Infer module type from file extension
+ * Infers the module type from a file extension for server code deployment.
+ *
+ * @param modulePath - The module file path to analyze
+ * @returns The inferred module type (defaults to 'js' for unknown extensions)
  */
 export function inferModuleType(modulePath: string): ModuleType {
 	const ext = modulePath.split('.').pop()?.toLowerCase();
@@ -70,7 +79,11 @@ export function inferModuleType(modulePath: string): ModuleType {
 }
 
 /**
- * Create buckets for optimal batch uploading
+ * Creates buckets of hashes for optimal batch uploading.
+ *
+ * @param hashes - Array of content hashes to organize into buckets
+ * @param maxPerBucket - Maximum number of hashes per bucket (default: 10)
+ * @returns Array of buckets, each containing up to maxPerBucket hashes
  */
 export function createBuckets(hashes: string[], maxPerBucket: number = 10): string[][] {
 	const buckets: string[][] = [];

@@ -2,6 +2,15 @@ export type AssetMetadata = {
 	contentType: string;
 };
 
+/**
+ * Retrieves an asset with metadata from KV storage with retry support.
+ *
+ * @param assetsKVNamespace - The KV namespace containing assets
+ * @param assetKey - The key of the asset to retrieve
+ * @param retries - Number of retry attempts on failure (default: 1)
+ * @returns The asset value and metadata, or null if not found
+ * @throws Error if all retry attempts fail
+ */
 export async function getAssetWithMetadataFromKV(assetsKVNamespace: KVNamespace, assetKey: string, retries = 1) {
 	let attempts = 0;
 
@@ -37,6 +46,13 @@ export async function getAssetWithMetadataFromKV(assetsKVNamespace: KVNamespace,
 	}
 }
 
+/**
+ * Lists all keys in a KV namespace with automatic pagination.
+ *
+ * @param namespace - The KV namespace to list keys from
+ * @param options - KV list options including prefix and limit
+ * @yields Each key in the namespace matching the options
+ */
 export async function* listAllKeys<TMetadata, TKey extends string = string>(
 	namespace: KVNamespace<TKey>,
 	options: KVNamespaceListOptions,

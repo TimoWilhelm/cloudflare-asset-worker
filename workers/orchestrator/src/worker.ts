@@ -98,9 +98,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 			app.get('/__api/projects', async (c) => {
 				const limitParam = c.req.query('limit');
-				const limit = limitParam
-					? Math.min(Math.max(1, parseInt(limitParam, 10) || DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
-					: DEFAULT_PAGE_SIZE;
+				const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10) || DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
 				const cursor = c.req.query('cursor') || undefined;
 				return listProjects(this.env.KV_PROJECTS, { limit, cursor });
 			});

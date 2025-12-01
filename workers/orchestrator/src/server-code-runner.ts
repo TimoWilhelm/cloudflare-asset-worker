@@ -5,7 +5,13 @@ import { computeContentHash } from './content-utils';
 import { getServerCodeKey } from './project-manager';
 
 /**
- * Run server code for a project using dynamic worker loading
+ * Executes server code for a project using dynamic worker loading.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param request - The HTTP request to pass to the server code
+ * @param bindings - Environment bindings to inject (e.g., ASSETS binding)
+ * @returns The response from the dynamically loaded worker
+ * @throws Error if the server code manifest or modules are not found
  */
 export async function runServerCode(projectId: string, request: Request, bindings: any): Promise<Response> {
 	// Load the manifest

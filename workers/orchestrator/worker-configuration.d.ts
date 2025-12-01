@@ -1895,10 +1895,10 @@ type Service<
 > = T extends new (...args: any[]) => Rpc.WorkerEntrypointBranded
 	? Fetcher<InstanceType<T>>
 	: T extends Rpc.WorkerEntrypointBranded
-		? Fetcher<T>
-		: T extends Exclude<Rpc.EntrypointBranded, Rpc.WorkerEntrypointBranded>
-			? never
-			: Fetcher<undefined>;
+	? Fetcher<T>
+	: T extends Exclude<Rpc.EntrypointBranded, Rpc.WorkerEntrypointBranded>
+	? never
+	: Fetcher<undefined>;
 type Fetcher<T extends Rpc.EntrypointBranded | undefined = undefined, Reserved extends string = never> = (T extends Rpc.EntrypointBranded
 	? Rpc.Provider<T, Reserved | 'fetch' | 'connect'>
 	: unknown) & {
@@ -3422,10 +3422,10 @@ type LoopbackForExport<T extends (new (...args: any[]) => Rpc.EntrypointBranded)
 	T extends new (...args: any[]) => Rpc.WorkerEntrypointBranded
 		? LoopbackServiceStub<InstanceType<T>>
 		: T extends new (...args: any[]) => Rpc.DurableObjectBranded
-			? LoopbackDurableObjectClass<InstanceType<T>>
-			: T extends ExportedHandler<any, any, any>
-				? LoopbackServiceStub<undefined>
-				: undefined;
+		? LoopbackDurableObjectClass<InstanceType<T>>
+		: T extends ExportedHandler<any, any, any>
+		? LoopbackServiceStub<undefined>
+		: undefined;
 type LoopbackServiceStub<T extends Rpc.WorkerEntrypointBranded | undefined = undefined> = Fetcher<T> &
 	(T extends CloudflareWorkersModule.WorkerEntrypoint<any, infer Props>
 		? (opts: { props?: Props }) => Fetcher<T>
@@ -7029,10 +7029,10 @@ declare abstract class Ai<AiModelList extends AiModelListType = AiModels> {
 			  }
 			? Response
 			: InputOptions extends {
-						stream: true;
-				  }
-				? ReadableStream
-				: AiModelList[Name]['postProcessedOutputs']
+					stream: true;
+			  }
+			? ReadableStream
+			: AiModelList[Name]['postProcessedOutputs']
 	>;
 	models(params?: AiModelsSearchParams): Promise<AiModelsSearchObject[]>;
 	toMarkdown(): ToMarkdownService;

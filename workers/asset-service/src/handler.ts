@@ -114,6 +114,14 @@ const resolveAssetIntentToResponse = async (
 	}
 };
 
+/**
+ * Determines if an asset can be served for the given request.
+ *
+ * @param request - The HTTP request to check
+ * @param configuration - The normalized asset configuration
+ * @param exists - Function to check if a pathname exists in the manifest
+ * @returns True if an asset can be served, false otherwise
+ */
 export const canFetch = async (request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
 	// Always enable Sec-Fetch-Mode navigate header feature
 	const shouldKeepNotFoundHandling = configuration.has_static_routing || request.headers.get('Sec-Fetch-Mode') === 'navigate';
@@ -133,6 +141,16 @@ export const canFetch = async (request: Request, configuration: Required<AssetCo
 	return true;
 };
 
+/**
+ * Handles an incoming request and returns the appropriate response.
+ *
+ * @param request - The HTTP request to handle
+ * @param configuration - The normalized asset configuration
+ * @param exists - Function to check if a pathname exists in the manifest
+ * @param getByETag - Function to retrieve an asset by its content hash
+ * @param analytics - Analytics instance for tracking request metrics
+ * @returns The HTTP response (asset, redirect, or error)
+ */
 export const handleRequest = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
@@ -160,7 +178,16 @@ type Intent =
 	| { asset: null; redirect: string; resolver: Resolver }
 	| null;
 
-// TODO: Trace this
+/**
+ * Resolves the intent for a given pathname based on HTML handling configuration.
+ *
+ * @param pathname - The decoded URL pathname
+ * @param request - The HTTP request
+ * @param configuration - The normalized asset configuration
+ * @param exists - Function to check if a pathname exists in the manifest
+ * @param skipRedirects - Whether to skip redirect generation (used internally)
+ * @returns The resolved intent (asset, redirect, or null if not found)
+ */
 export const getIntent = async (
 	pathname: string,
 	request: Request,

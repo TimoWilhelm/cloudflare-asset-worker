@@ -1,7 +1,11 @@
 import * as base64 from '@stablelib/base64';
 
 /**
- * Generate a JWT token for upload sessions
+ * Generates a signed JWT token for upload sessions.
+ *
+ * @param payload - The JWT payload data to encode
+ * @param secret - The HMAC-SHA256 secret for signing
+ * @returns The signed JWT token string with 1-hour expiration
  */
 export async function generateJWT(payload: any, secret: string): Promise<string> {
 	// Simple JWT-like token using base64 encoding
@@ -27,7 +31,11 @@ export async function generateJWT(payload: any, secret: string): Promise<string>
 }
 
 /**
- * Verify and decode a JWT token
+ * Verifies and decodes a JWT token.
+ *
+ * @param token - The JWT token string to verify
+ * @param secret - The HMAC-SHA256 secret for verification
+ * @returns The decoded payload if valid and not expired, or null if invalid
  */
 export async function verifyJWT(token: string, secret: string): Promise<any | null> {
 	try {

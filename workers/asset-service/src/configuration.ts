@@ -29,6 +29,13 @@ export interface AssetConfig extends AssetConfigBase {
 	};
 }
 
+/**
+ * Normalizes and validates asset configuration with defaults.
+ *
+ * @param configuration - Optional user-provided configuration
+ * @returns Complete configuration with all required fields and validated limits
+ * @throws Error if redirect limits are exceeded
+ */
 export const normalizeConfiguration = (configuration?: AssetConfigInput): Required<AssetConfig> => {
 	// Validate redirect limits
 	if (configuration?.redirects?.static) {

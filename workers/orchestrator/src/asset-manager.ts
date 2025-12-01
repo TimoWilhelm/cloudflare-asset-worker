@@ -6,8 +6,15 @@ import { generateJWT, verifyJWT } from './jwt';
 import { getProject } from './project-manager';
 
 /**
- * Create an asset upload session
- * Phase 1: Register manifest and get upload instructions
+ * Creates an asset upload session for a project.
+ * This is Phase 1 of the upload flow: registers the manifest and returns upload instructions.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param request - The HTTP request containing the asset manifest
+ * @param projectsKv - The KV namespace for storing session data
+ * @param assetWorker - The asset service worker for checking existing assets
+ * @param jwtSecret - The secret used for JWT generation
+ * @returns JSON response with upload JWT and buckets, or completion JWT if all assets exist
  */
 export async function createAssetUploadSession(
 	projectId: string,
@@ -155,8 +162,15 @@ export async function createAssetUploadSession(
 }
 
 /**
- * Upload assets in buckets
- * Phase 2: Upload files with JWT authentication
+ * Uploads assets in buckets with JWT authentication.
+ * This is Phase 2 of the upload flow: uploads files and returns completion JWT when done.
+ *
+ * @param projectId - The unique identifier of the project
+ * @param request - The HTTP request containing base64-encoded assets keyed by hash
+ * @param projectsKv - The KV namespace for storing session data
+ * @param assetWorker - The asset service worker for uploading assets
+ * @param jwtSecret - The secret used for JWT verification and generation
+ * @returns JSON response with completion JWT when all uploads finish, or success status for partial uploads
  */
 export async function uploadAssets(
 	projectId: string,
