@@ -10,6 +10,7 @@ import {
 import { env } from 'cloudflare:test';
 import { ProjectMetadata } from '../src/types';
 import type AssetApi from '../../asset-service/src/worker';
+import { DEFAULT_PAGE_SIZE } from '../src/worker';
 
 interface ProjectResponse {
 	success: boolean;
@@ -20,6 +21,16 @@ interface ProjectResponse {
 		updatedAt: string;
 		hasServerCode: boolean;
 		assetsCount: number;
+	};
+}
+
+interface ListProjectsResponse {
+	success: boolean;
+	projects: ProjectMetadata[];
+	pagination: {
+		nextCursor: string | null;
+		hasMore: boolean;
+		limit: number;
 	};
 }
 
@@ -116,15 +127,18 @@ describe('project-manager', () => {
 
 	describe('listProjects', () => {
 		it('returns empty list when no projects exist', async () => {
-			const response = await listProjects(projectsKv);
+			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
 			expect(response.status).toBe(200);
 
-			const data = await response.json<{ success: boolean; projects: ProjectMetadata[] }>();
+			const data = await response.json<ListProjectsResponse>();
 			expect(data.success).toBe(true);
 			expect(data.projects).toEqual([]);
+			expect(data.pagination).toBeDefined();
+			expect(data.pagination.hasMore).toBe(false);
+			expect(data.pagination.nextCursor).toBeNull();
 		});
 
-		it('returns all projects', async () => {
+		it('returns all projects with pagination metadata', async () => {
 			// Create multiple projects
 			const projects = ['Project A', 'Project B', 'Project C'];
 			for (const name of projects) {
@@ -135,16 +149,84 @@ describe('project-manager', () => {
 				await createProject(request, projectsKv);
 			}
 
-			const response = await listProjects(projectsKv);
-			const data = await response.json<{ success: boolean; projects: ProjectMetadata[] }>();
+			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
+			const data = await response.json<ListProjectsResponse>();
 
 			expect(data.success).toBe(true);
 			expect(data.projects).toHaveLength(3);
+			expect(data.pagination.limit).toBe(DEFAULT_PAGE_SIZE);
 
 			const projectNames = data.projects.map((p) => p.name);
 			expect(projectNames).toContain('Project A');
 			expect(projectNames).toContain('Project B');
 			expect(projectNames).toContain('Project C');
+		});
+
+		it('respects custom limit parameter', async () => {
+			// Create 5 projects
+			for (let i = 1; i <= 5; i++) {
+				const request = new Request('http://example.com', {
+					method: 'POST',
+					body: JSON.stringify({ name: `Project ${i}` }),
+				});
+				await createProject(request, projectsKv);
+			}
+
+			const response = await listProjects(projectsKv, { limit: 2 });
+			const data = await response.json<ListProjectsResponse>();
+
+			expect(data.success).toBe(true);
+			expect(data.projects).toHaveLength(2);
+			expect(data.pagination.limit).toBe(2);
+			expect(data.pagination.hasMore).toBe(true);
+			expect(data.pagination.nextCursor).toBeDefined();
+		});
+
+		it('supports cursor-based pagination', async () => {
+			// Create 5 projects
+			for (let i = 1; i <= 5; i++) {
+				const request = new Request('http://example.com', {
+					method: 'POST',
+					body: JSON.stringify({ name: `Project ${i}` }),
+				});
+				await createProject(request, projectsKv);
+			}
+
+			// First page
+			const response1 = await listProjects(projectsKv, { limit: 2 });
+			const data1 = await response1.json<ListProjectsResponse>();
+
+			expect(data1.projects).toHaveLength(2);
+			expect(data1.pagination.hasMore).toBe(true);
+			expect(data1.pagination.nextCursor).not.toBeNull();
+
+			// Second page using cursor
+			const response2 = await listProjects(projectsKv, { limit: 2, cursor: data1.pagination.nextCursor! });
+			const data2 = await response2.json<ListProjectsResponse>();
+
+			expect(data2.projects).toHaveLength(2);
+			expect(data2.pagination.hasMore).toBe(true);
+
+			// Third page (last)
+			const response3 = await listProjects(projectsKv, { limit: 2, cursor: data2.pagination.nextCursor! });
+			const data3 = await response3.json<ListProjectsResponse>();
+
+			expect(data3.projects).toHaveLength(1);
+			expect(data3.pagination.hasMore).toBe(false);
+			expect(data3.pagination.nextCursor).toBeNull();
+
+			// All projects should be unique across pages
+			const allProjectIds = [...data1.projects.map((p) => p.id), ...data2.projects.map((p) => p.id), ...data3.projects.map((p) => p.id)];
+			const uniqueIds = new Set(allProjectIds);
+			expect(uniqueIds.size).toBe(5);
+		});
+
+		it('uses provided limit directly (validation done at API layer)', async () => {
+			// listProjects trusts the API layer to validate, so it uses the limit as-is
+			const response = await listProjects(projectsKv, { limit: 10 });
+			const data = await response.json<ListProjectsResponse>();
+
+			expect(data.pagination.limit).toBe(10);
 		});
 
 		it('lists valid projects only', async () => {
@@ -157,8 +239,8 @@ describe('project-manager', () => {
 				await createProject(request, projectsKv);
 			}
 
-			const response = await listProjects(projectsKv);
-			const data = await response.json<{ success: boolean; projects: ProjectMetadata[] }>();
+			const response = await listProjects(projectsKv, { limit: DEFAULT_PAGE_SIZE });
+			const data = await response.json<ListProjectsResponse>();
 
 			expect(data.success).toBe(true);
 			expect(data.projects).toHaveLength(2);

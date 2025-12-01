@@ -39,5 +39,23 @@
 	],
 	"version_metadata": {
 		"binding": "VERSION"
-	}
+	},
+	"ratelimits": [
+		{
+			"name": "RATE_LIMIT_API",
+			"namespace_id": "1001",
+			"simple": {
+				"limit": 200,
+				"period": 60
+			}
+		},
+		{
+			"name": "RATE_LIMIT_PROJECT",
+			"namespace_id": "1002",
+			"simple": {
+				"limit": 2000,
+				"period": 60
+			}
+		}
+	]
 }

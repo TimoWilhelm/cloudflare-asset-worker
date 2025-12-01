@@ -32,11 +32,28 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 	);
 }
 
+export interface ListProjectsOptions {
+	limit: number;
+	cursor?: string;
+}
+
 /**
- * List all projects
+ * List projects with pagination support
+ * @param projectsKv - The KV namespace for projects
+ * @param options - Pagination options (limit, cursor)
+ * @returns Response with projects array and pagination metadata
  */
-export async function listProjects(projectsKv: KVNamespace): Promise<Response> {
-	const { keys } = await projectsKv.list({ prefix: 'project:', limit: 100 });
+export async function listProjects(projectsKv: KVNamespace, options: ListProjectsOptions): Promise<Response> {
+	const { limit } = options;
+	const cursor = options.cursor || undefined;
+
+	const result = await projectsKv.list({
+		prefix: 'project:',
+		limit,
+		cursor,
+	});
+	const { keys, list_complete } = result;
+	const nextCursor = list_complete ? null : result.cursor;
 
 	const projects = await Promise.all(
 		keys.map(async (key: { name: string }) => {
@@ -48,6 +65,11 @@ export async function listProjects(projectsKv: KVNamespace): Promise<Response> {
 		JSON.stringify({
 			success: true,
 			projects: projects.filter((p: ProjectMetadata | null) => p !== null),
+			pagination: {
+				nextCursor,
+				hasMore: !list_complete,
+				limit,
+			},
 		}),
 		{
 			status: 200,

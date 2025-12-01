@@ -9,6 +9,10 @@ import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
 
+// Pagination constants for API endpoints
+export const DEFAULT_PAGE_SIZE = 100;
+export const MAX_PAGE_SIZE = 100;
+
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfig }> {
 	override async fetch(request: Request): Promise<Response> {
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
@@ -41,6 +45,20 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			// Exclude JWT-authenticated endpoints (assets/upload uses Bearer tokens)
 			app.use('/__api/*', async (c, next) => {
 				const path = c.req.path;
+
+				const ip = c.req.header('CF-Connecting-IP');
+				if (ip) {
+					const result = await c.env.RATE_LIMIT_API.limit({ key: ip });
+					if (!result.success) {
+						return c.json(
+							{
+								success: false,
+								error: 'Rate limit exceeded',
+							},
+							429,
+						);
+					}
+				}
 
 				// Skip API_TOKEN check for JWT-authenticated endpoints
 				if (path.endsWith('/assets/upload')) {
@@ -79,7 +97,12 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 
 			app.get('/__api/projects', async (c) => {
-				return listProjects(this.env.KV_PROJECTS);
+				const limitParam = c.req.query('limit');
+				const limit = limitParam
+					? Math.min(Math.max(1, parseInt(limitParam, 10) || DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE)
+					: DEFAULT_PAGE_SIZE;
+				const cursor = c.req.query('cursor') || undefined;
+				return listProjects(this.env.KV_PROJECTS, { limit, cursor });
 			});
 
 			app.get('/__api/projects/:projectId', async (c) => {
@@ -150,6 +173,11 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 			analytics.write();
 			return response;
+		}
+
+		const result = await this.env.RATE_LIMIT_PROJECT.limit({ key: projectId });
+		if (!result.success) {
+			return new Response('Rate limit exceeded', { status: 429 });
 		}
 
 		// Verify project exists
