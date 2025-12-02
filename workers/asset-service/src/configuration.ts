@@ -1,6 +1,8 @@
-// Configuration limits
-export const MAX_STATIC_REDIRECTS = 2000;
-export const MAX_DYNAMIC_REDIRECTS = 100;
+// Import redirect limits from centralized validation
+import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../orchestrator/src/validation';
+
+// Re-export for backward compatibility
+export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };
 
 // Base configuration properties shared by input and internal config
 interface AssetConfigBase {
@@ -16,8 +18,8 @@ interface AssetConfigBase {
 // User-provided configuration (lineNumber not included - auto-generated from order)
 export interface AssetConfigInput extends AssetConfigBase {
 	redirects?: {
-		static: Record<string, { status: number; to: string }>;
-		dynamic: Record<string, { status: number; to: string }>;
+		static?: Record<string, { status: number; to: string }>;
+		dynamic?: Record<string, { status: number; to: string }>;
 	};
 }
 

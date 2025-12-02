@@ -68,6 +68,27 @@ export const MAX_ENV_VAR_SIZE = 5 * 1000;
 /** Maximum length of a project name */
 export const MAX_PROJECT_NAME_LENGTH = 128;
 
+/** Maximum number of static redirects */
+export const MAX_STATIC_REDIRECTS = 2000;
+
+/** Maximum number of dynamic redirects */
+export const MAX_DYNAMIC_REDIRECTS = 100;
+
+/** Maximum length of a redirect pattern (source path) */
+export const MAX_REDIRECT_PATTERN_LENGTH = 2048;
+
+/** Maximum length of a redirect target URL */
+export const MAX_REDIRECT_TARGET_LENGTH = 2048;
+
+/** Maximum length of a header rule pattern (path matcher) */
+export const MAX_HEADER_RULE_PATTERN_LENGTH = 2048;
+
+/** Maximum length of a header name */
+export const MAX_HEADER_NAME_LENGTH = 256;
+
+/** Maximum length of a header value */
+export const MAX_HEADER_VALUE_LENGTH = 8192;
+
 // =============================================================================
 // Zod Schemas
 // =============================================================================
@@ -135,14 +156,17 @@ export const uploadPayloadSchema = z
  */
 export const envVarsSchema = z
 	.record(
-		z.string().min(1, 'Environment variable name cannot be empty').max(MAX_ENV_VAR_NAME_LENGTH, `Environment variable name cannot exceed ${MAX_ENV_VAR_NAME_LENGTH} characters`),
+		z
+			.string()
+			.min(1, 'Environment variable name cannot be empty')
+			.max(MAX_ENV_VAR_NAME_LENGTH, `Environment variable name cannot exceed ${MAX_ENV_VAR_NAME_LENGTH} characters`),
 		z.string(),
 	)
 	.superRefine((env, ctx) => {
 		const envVarCount = Object.keys(env).length;
 		if (envVarCount > MAX_ENV_VARS) {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: 'custom',
 				message: `Too many environment variables: ${envVarCount}. Maximum allowed is ${MAX_ENV_VARS}.`,
 			});
 		}
@@ -151,9 +175,13 @@ export const envVarsSchema = z
 			const valueSize = new TextEncoder().encode(String(value)).length;
 			if (valueSize > MAX_ENV_VAR_SIZE) {
 				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
+					code: 'custom',
 					path: [key],
-					message: `Environment variable '${key}' is too large: ${formatBytes(valueSize, 2, false)}. Maximum allowed is ${formatBytes(MAX_ENV_VAR_SIZE, 2, false)}.`,
+					message: `Environment variable '${key}' is too large: ${formatBytes(valueSize, 2, false)}. Maximum allowed is ${formatBytes(
+						MAX_ENV_VAR_SIZE,
+						2,
+						false,
+					)}.`,
 				});
 			}
 		}
@@ -201,6 +229,98 @@ const serverCodeModuleSchema = z.union([
 	}),
 ]);
 
+// =============================================================================
+// Asset Configuration Schema
+// =============================================================================
+
+/**
+ * Schema for a redirect rule entry.
+ */
+const redirectRuleSchema = z.object({
+	status: z.number().int().min(200).max(599),
+	to: z
+		.string()
+		.min(1, 'Redirect target cannot be empty')
+		.max(MAX_REDIRECT_TARGET_LENGTH, `Redirect target cannot exceed ${MAX_REDIRECT_TARGET_LENGTH} characters`),
+});
+
+/** Schema for redirect pattern (source path) */
+const redirectPatternSchema = z
+	.string()
+	.min(1, 'Redirect pattern cannot be empty')
+	.max(MAX_REDIRECT_PATTERN_LENGTH, `Redirect pattern cannot exceed ${MAX_REDIRECT_PATTERN_LENGTH} characters`);
+
+/** Schema for header name */
+const headerNameSchema = z
+	.string()
+	.min(1, 'Header name cannot be empty')
+	.max(MAX_HEADER_NAME_LENGTH, `Header name cannot exceed ${MAX_HEADER_NAME_LENGTH} characters`);
+
+/** Schema for header value */
+const headerValueSchema = z
+	.string()
+	.max(MAX_HEADER_VALUE_LENGTH, `Header value cannot exceed ${MAX_HEADER_VALUE_LENGTH} characters`);
+
+/** Schema for header rule pattern (path matcher) */
+const headerRulePatternSchema = z
+	.string()
+	.min(1, 'Header rule pattern cannot be empty')
+	.max(MAX_HEADER_RULE_PATTERN_LENGTH, `Header rule pattern cannot exceed ${MAX_HEADER_RULE_PATTERN_LENGTH} characters`);
+
+/**
+ * Schema for header rules.
+ */
+const headerRuleSchema = z.object({
+	set: z.record(headerNameSchema, headerValueSchema).optional(),
+	unset: z.array(headerNameSchema).optional(),
+});
+
+/**
+ * Schema for AssetConfigInput (user-provided configuration).
+ * Validates redirect limits and structure.
+ */
+export const assetConfigSchema = z
+	.object({
+		html_handling: z.enum(['auto-trailing-slash', 'force-trailing-slash', 'drop-trailing-slash', 'none']).optional(),
+		not_found_handling: z.enum(['single-page-application', '404-page', 'none']).optional(),
+		redirects: z
+			.object({
+				static: z.record(redirectPatternSchema, redirectRuleSchema).optional(),
+				dynamic: z.record(redirectPatternSchema, redirectRuleSchema).optional(),
+			})
+			.superRefine((redirects, ctx) => {
+				if (redirects.static) {
+					const staticCount = Object.keys(redirects.static).length;
+					if (staticCount > MAX_STATIC_REDIRECTS) {
+						ctx.addIssue({
+							code: 'custom',
+							path: ['static'],
+							message: `Too many static redirects: ${staticCount}. Maximum allowed is ${MAX_STATIC_REDIRECTS}.`,
+						});
+					}
+				}
+				if (redirects.dynamic) {
+					const dynamicCount = Object.keys(redirects.dynamic).length;
+					if (dynamicCount > MAX_DYNAMIC_REDIRECTS) {
+						ctx.addIssue({
+							code: 'custom',
+							path: ['dynamic'],
+							message: `Too many dynamic redirects: ${dynamicCount}. Maximum allowed is ${MAX_DYNAMIC_REDIRECTS}.`,
+						});
+					}
+				}
+			})
+			.optional(),
+		headers: z
+			.object({
+				rules: z.record(headerRulePatternSchema, headerRuleSchema),
+			})
+			.optional(),
+		has_static_routing: z.boolean().optional(),
+		debug: z.boolean().optional(),
+	})
+	.optional();
+
 /**
  * Schema for the entire deployment payload.
  * Validates project name, environment variables, server code modules, and configuration.
@@ -228,7 +348,7 @@ export const deploymentPayloadSchema = z.object({
 
 				if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
 					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
+						code: 'custom',
 						message: `Server code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`,
 					});
 				}
@@ -236,7 +356,7 @@ export const deploymentPayloadSchema = z.object({
 			compatibilityDate: z.string().optional(),
 		})
 		.optional(),
-	config: z.any().optional(), // AssetConfig - validated elsewhere
+	config: assetConfigSchema,
 	run_worker_first: z.union([z.boolean(), z.array(z.string())]).optional(),
 	env: envVarsSchema,
 });

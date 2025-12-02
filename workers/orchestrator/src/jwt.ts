@@ -7,7 +7,7 @@ import * as base64 from '@stablelib/base64';
  * @param secret - The HMAC-SHA256 secret for signing
  * @returns The signed JWT token string with 1-hour expiration
  */
-export async function generateJWT(payload: any, secret: string): Promise<string> {
+export async function generateJWT(payload: object, secret: string): Promise<string> {
 	// Simple JWT-like token using base64 encoding
 	// In production, use proper JWT signing with crypto.subtle
 	const header = { alg: 'HS256', typ: 'JWT' };

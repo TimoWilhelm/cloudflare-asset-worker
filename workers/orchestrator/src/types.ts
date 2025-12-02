@@ -1,4 +1,4 @@
-import type { AssetConfig } from '../../asset-service/src/configuration';
+import type { AssetConfigInput } from '../../asset-service/src/configuration';
 
 export interface ProjectMetadata {
 	id: string;
@@ -7,7 +7,7 @@ export interface ProjectMetadata {
 	updatedAt: string;
 	hasServerCode: boolean;
 	assetsCount: number;
-	config?: AssetConfig;
+	config?: AssetConfigInput;
 	run_worker_first?: boolean | string[];
 }
 
@@ -45,7 +45,7 @@ export interface DeploymentPayload {
 		modules: Record<string, string | { content: string; type: ModuleType }>;
 		compatibilityDate?: string;
 	};
-	config?: AssetConfig;
+	config?: AssetConfigInput;
 	run_worker_first?: boolean | string[];
 	env?: Record<string, string>;
 }

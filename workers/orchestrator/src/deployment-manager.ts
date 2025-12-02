@@ -1,6 +1,7 @@
 import type { DeploymentPayload, ProjectMetadata, ServerCodeManifest, ModuleType } from './types';
 import type AssetApi from '../../asset-service/src/worker';
 import type { ManifestEntry } from '../../asset-service/src/worker';
+import type { AssetConfigInput } from '../../asset-service/src/configuration';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash, inferModuleType } from './content-utils';
 import { verifyJWT } from './jwt';
@@ -155,9 +156,9 @@ export async function deployProject(
 	project.updatedAt = new Date().toISOString();
 	project.assetsCount = manifestEntries.length;
 
-	// Store config if provided
+	// Store config if provided (Zod validates this matches AssetConfigInput structure)
 	if (payload.config) {
-		project.config = payload.config;
+		project.config = payload.config as AssetConfigInput;
 	}
 
 	// Store run_worker_first setting

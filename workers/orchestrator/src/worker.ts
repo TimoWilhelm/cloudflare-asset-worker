@@ -1,6 +1,6 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import type AssetApi from '../../asset-service/src/worker';
-import type { AssetConfig } from '../../asset-service/src/configuration';
+import type { AssetConfigInput } from '../../asset-service/src/configuration';
 import { Hono } from 'hono';
 import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
@@ -9,7 +9,7 @@ import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
 
-export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfig }> {
+export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
 	override async fetch(request: Request): Promise<Response> {
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 		return await assets.serveAsset(request, this.ctx.props.projectId, this.ctx.props.config);

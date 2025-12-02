@@ -1,5 +1,5 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
-import { normalizeConfiguration, type AssetConfig } from './configuration';
+import { normalizeConfiguration, type AssetConfigInput } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
@@ -44,7 +44,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @param projectConfig - Optional configuration for HTML handling, redirects, etc.
 	 * @returns Response containing the requested asset or an error response
 	 */
-	async serveAsset(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<Response> {
+	async serveAsset(request: Request, projectId: string, projectConfig?: AssetConfigInput): Promise<Response> {
 		const startTime = performance.now();
 
 		const analytics = new Analytics();
@@ -81,16 +81,14 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			return response;
 		} catch (err) {
 			try {
-				const response = new InternalServerErrorResponse(err as Error);
-
 				if (err instanceof Error) {
 					analytics.setData({ error: err.message });
 				}
 
-				return response;
+				return new InternalServerErrorResponse(err);
 			} catch (e) {
 				console.error('Error handling error', e);
-				return new InternalServerErrorResponse(e as Error);
+				return new InternalServerErrorResponse(e);
 			}
 		} finally {
 			analytics.setData({
@@ -108,7 +106,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @param projectConfig - Optional configuration for asset resolution
 	 * @returns True if an asset exists for this request, false otherwise
 	 */
-	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfig): Promise<boolean> {
+	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfigInput): Promise<boolean> {
 		const config = normalizeConfiguration(projectConfig);
 		return handleCanFetch(request, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
 	}

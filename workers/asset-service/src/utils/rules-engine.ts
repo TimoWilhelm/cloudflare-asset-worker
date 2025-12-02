@@ -105,7 +105,9 @@ export const generateRulesMatcher = <T>(
 			try {
 				const regExp = generateRuleRegExp(rule);
 				return [{ crossHost, regExp }, match];
-			} catch {}
+			} catch {
+				console.warn(`Failed to compile rule ${rule}`);
+			}
 		})
 		.filter((value) => value !== undefined) as [{ crossHost: boolean; regExp: RegExp }, T][];
 
@@ -199,7 +201,9 @@ export const generateStaticRoutingRuleMatcher =
 				if (regExp.test(pathname)) {
 					return true;
 				}
-			} catch {}
+			} catch {
+				console.warn(`Failed to compile rule ${rule}`);
+			}
 		}
 
 		return false;
