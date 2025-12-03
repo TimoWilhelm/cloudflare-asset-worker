@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { loadConfig, scanAssets, loadServerCode, formatSize } from '../lib/utils.js';
 import { ApiClient } from '../lib/api-client.js';
+import { createLogger } from '../lib/logger.js';
 
 const program = new Command();
 
@@ -23,11 +24,13 @@ program
 	.option('--orchestrator-url <url>', 'Orchestrator URL (or use CF_ORCHESTRATOR_URL env var)', 'http://127.0.0.1:8787')
 	.option('--dry-run', 'Show what would be deployed without actually deploying')
 	.action(async (options) => {
+		const log = createLogger();
 		try {
-			console.log('🚀 Cloudflare Asset Worker Deployment\n');
+			log.log('🚀 Cloudflare Asset Worker Deployment');
+			log.log('');
 
 			// Load configuration
-			console.log(`📄 Loading configuration from: ${options.config}`);
+			log.log(`📄 Loading configuration from: ${options.config}`);
 			const config = await loadConfig(options.config);
 			const configDir = path.dirname(path.resolve(options.config));
 
@@ -45,18 +48,24 @@ program
 			let projectId = options.projectId || config.projectId;
 
 			if (options.createProject || !projectId) {
-				console.log(`\n📦 Creating new project: ${config.projectName}`);
-				const project = await client.createProject(config.projectName);
-				projectId = project.id;
-				console.log(`  ✓ Project created: ${projectId}`);
+				log.log('');
+				log.log(`📦 Creating new project: ${config.projectName}`);
+				await log.indent(async (log) => {
+					const project = await client.createProject(config.projectName);
+					projectId = project.id;
+					log.log(`✓ Project created: ${projectId}`);
+				});
 			} else {
-				console.log(`\n📦 Using existing project: ${projectId}`);
-				try {
-					const project = await client.getProject(projectId);
-					console.log(`  ✓ Project found: ${project.name}`);
-				} catch (error) {
-					console.error(`  ⚠️  Warning: Could not verify project exists`);
-				}
+				log.log('');
+				log.log(`📦 Using existing project: ${projectId}`);
+				await log.indent(async (log) => {
+					try {
+						const project = await client.getProject(projectId);
+						log.log(`✓ Project found: ${project.name}`);
+					} catch (error) {
+						log.error(`⚠️  Warning: Could not verify project exists`);
+					}
+				});
 			}
 
 			// Validate redirect limits
@@ -115,40 +124,50 @@ program
 
 			// Load assets if configured
 			if (config.assets) {
-				console.log(`\n📁 Scanning assets from: ${config.assets.directory}`);
-				const assetsDir = path.resolve(configDir, config.assets.directory);
-				deployment.assets = await scanAssets(assetsDir, config.assets.patterns || ['**/*'], config.assets.ignore || []);
-				console.log(`  ✓ Found ${deployment.assets.length} assets`);
+				log.log('');
+				log.log(`📁 Scanning assets from: ${config.assets.directory}`);
+				await log.indent(async (log) => {
+					const assetsDir = path.resolve(configDir, config.assets.directory);
+					deployment.assets = await scanAssets(assetsDir, config.assets.patterns || ['**/*'], config.assets.ignore || []);
+					log.log(`✓ Found ${deployment.assets.length} assets`);
 
-				// Validate asset count limit
-				const MAX_ASSETS = 20000;
-				if (deployment.assets.length > MAX_ASSETS) {
-					console.error(`\n❌ Error: Too many assets (${deployment.assets.length}). Maximum allowed is ${MAX_ASSETS}.`);
-					process.exit(1);
-				}
+					// Validate asset count limit
+					const MAX_ASSETS = 20000;
+					if (deployment.assets.length > MAX_ASSETS) {
+						log.log('');
+						log.error(`❌ Error: Too many assets (${deployment.assets.length}). Maximum allowed is ${MAX_ASSETS}.`);
+						process.exit(1);
+					}
 
-				// Calculate total size
-				const totalSize = deployment.assets.reduce((sum, asset) => {
-					return sum + Buffer.from(asset.content, 'base64').length;
-				}, 0);
-				console.log(`  📊 Total size: ${formatSize(totalSize)}`);
+					// Calculate total size
+					const totalSize = deployment.assets.reduce((sum, asset) => {
+						return sum + Buffer.from(asset.content, 'base64').length;
+					}, 0);
+					log.log(`📊 Total size: ${formatSize(totalSize)}`);
+				});
 			}
 
 			// Load server code if configured
 			if (config.serverCode) {
-				console.log(`\n⚙️  Loading server code from: ${config.serverCode.modulesDirectory}`);
-				const serverDir = path.resolve(configDir, config.serverCode.modulesDirectory);
-				deployment.serverCode = await loadServerCode(serverDir, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
-				console.log(`  ✓ Loaded ${Object.keys(deployment.serverCode.modules).length} modules`);
-				console.log(`  📌 Entrypoint: ${deployment.serverCode.entrypoint}`);
+				log.log('');
+				log.log(`⚙️  Loading server code from: ${config.serverCode.modulesDirectory}`);
+				await log.indent(async (log) => {
+					const serverDir = path.resolve(configDir, config.serverCode.modulesDirectory);
+					deployment.serverCode = await loadServerCode(serverDir, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
+					log.log(`✓ Loaded ${Object.keys(deployment.serverCode.modules).length} modules`);
+					log.log(`📌 Entrypoint: ${deployment.serverCode.entrypoint}`);
 
-				// List each module with its type
-				console.log(`\n  📦 Modules:`);
-				for (const [moduleName, moduleInfo] of Object.entries(deployment.serverCode.modules)) {
-					const typeLabel = moduleInfo.type || 'unknown';
-					const isEntry = moduleName === deployment.serverCode.entrypoint ? ' (entrypoint)' : '';
-					console.log(`     • ${moduleName} [${typeLabel}]${isEntry}`);
-				}
+					// List each module with its type
+					log.log('');
+					log.log(`📦 Modules:`);
+					await log.indent(async (log) => {
+						for (const [moduleName, moduleInfo] of Object.entries(deployment.serverCode.modules)) {
+							const typeLabel = moduleInfo.type || 'unknown';
+							const isEntry = moduleName === deployment.serverCode.entrypoint ? ' (entrypoint)' : '';
+							log.log(`• ${moduleName} [${typeLabel}]${isEntry}`);
+						}
+					});
+				});
 			}
 
 			// Dry run - show what would be deployed
@@ -170,29 +189,37 @@ program
 			const result = await client.deployApplication(projectId, deployment);
 
 			// Show results
-			console.log('\n✅ Deployment complete!\n');
-			console.log(`📊 Deployment Summary:`);
-			console.log(`  - Project: ${config.projectName} (${projectId})`);
-			console.log(`  - Assets deployed: ${result.deployedAssets || deployment.assets.length}`);
-			if (result.newAssets !== undefined) {
-				console.log(`  - New assets: ${result.newAssets}`);
-				console.log(`  - Cached assets: ${result.skippedAssets}`);
-			}
-			if (result.deployedServerCodeModules) {
-				console.log(`  - Server modules: ${result.deployedServerCodeModules}`);
-			}
+			log.log('');
+			log.log('✅ Deployment complete!');
+			log.log('');
+			log.log(`📊 Deployment Summary:`);
+			log.indent((log) => {
+				log.log(`- Project: ${config.projectName} (${projectId})`);
+				log.log(`- Assets deployed: ${result.deployedAssets || deployment.assets.length}`);
+				if (result.newAssets !== undefined) {
+					log.log(`- New assets: ${result.newAssets}`);
+					log.log(`- Cached assets: ${result.skippedAssets}`);
+				}
+				if (result.deployedServerCodeModules) {
+					log.log(`- Server modules: ${result.deployedServerCodeModules}`);
+				}
+			});
 
 			// Show access URLs
-			console.log(`\n🌐 Access your application:`);
-			const subdomainTemplate = client.getSubdomainRoutingDomain();
-			if (subdomainTemplate) {
-				console.log(`  Subdomain:  ${subdomainTemplate.replace('<projectId>', projectId)} (configure worker route)`);
-				console.log(`  Path-based: ${client.getProjectUrl(projectId)}`);
-			} else {
-				console.log(`  ${client.getProjectUrl(projectId)}`);
-			}
+			log.log('');
+			log.log(`🌐 Access your application:`);
+			log.indent((log) => {
+				const subdomainTemplate = client.getSubdomainRoutingDomain();
+				if (subdomainTemplate) {
+					log.log(`Subdomain:  ${subdomainTemplate.replace('<projectId>', projectId)}`);
+					log.log(`Path-based: ${client.getProjectUrl(projectId)}`);
+				} else {
+					log.log(client.getProjectUrl(projectId));
+				}
+			});
 		} catch (error) {
-			console.error('\n❌ Deployment failed:', error.message);
+			log.log('');
+			log.error('❌ Deployment failed: ' + error.message);
 			process.exit(1);
 		}
 	});
