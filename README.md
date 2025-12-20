@@ -15,7 +15,7 @@ A Cloudflare Workers-based platform for hosting multiple projects with static as
 
 The platform consists of two Workers:
 
-- **[Orchestrator Worker](./workers/orchestrator/)** - Orchestrates routing, project management, and deployment API
+- **[Router Worker](./workers/router/)** - Handles routing, project management, and deployment API
 - **[Asset Service Worker](./workers/asset-service/)** - Handles asset storage and serving via RPC Service Binding
 
 Both workers use KV namespaces for storage with content-addressing for optimal deduplication.
@@ -54,7 +54,7 @@ https://yourdomain.com/__project/project-id/path
 
 ## Learn More
 
-- **[Orchestrator Worker Documentation](./workers/orchestrator/README.md)** - Project management, routing, and deployment API
+- **[Router Worker Documentation](./workers/router/README.md)** - Project management, routing, and deployment API
 - **[Asset Service Worker Documentation](./workers/asset-service/README.md)** - Asset storage, serving, and RPC methods
 - **[Deployment Examples](./examples/README.md)** - Ready-to-use deployment scripts
 - **[Analytics](./ANALYTICS.md)** - Learn how to query your Workers Analytics Engine data

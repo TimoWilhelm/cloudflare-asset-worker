@@ -109,7 +109,7 @@ npx cf-deploy deploy [options]
 - `--create-project` - Create a new project instead of using existing ID
 - `--project-id <id>` - Override project ID from config
 - `--api-token <token>` - API token for authentication (or use CF_API_TOKEN env var)
-- `--orchestrator-url <url>` - Orchestrator URL (or use CF_ORCHESTRATOR_URL env var, default: <http://127.0.0.1:8787>)
+- `--router-url <url>` - Router URL (or use CF_ROUTER_URL env var, default: <http://127.0.0.1:8787>)
 - `--dry-run` - Show what would be deployed without actually deploying
 
 **Examples:**
@@ -142,7 +142,7 @@ npx cf-deploy list [options]
 **Options:**
 
 - `--api-token <token>` - API token for authentication (or use CF_API_TOKEN env var)
-- `--orchestrator-url <url>` - Orchestrator URL (or use CF_ORCHESTRATOR_URL env var, default: <http://127.0.0.1:8787>)
+- `--router-url <url>` - Router URL (or use CF_ROUTER_URL env var, default: <http://127.0.0.1:8787>)
 
 **Example:**
 
@@ -478,7 +478,7 @@ Set required environment variables for authentication:
 export CF_API_TOKEN=your-token
 
 # Optional (defaults to http://127.0.0.1:8787)
-export CF_ORCHESTRATOR_URL=https://your-worker.example.com
+export CF_ROUTER_URL=https://your-worker.example.com
 
 # Deploy
 npx cf-deploy deploy
@@ -487,7 +487,7 @@ npx cf-deploy deploy
 Alternatively, use CLI flags:
 
 ```bash
-npx cf-deploy deploy --api-token your-token --orchestrator-url https://your-worker.example.com
+npx cf-deploy deploy --api-token your-token --router-url https://your-worker.example.com
 ```
 
 ### Worker Environment Variables
@@ -553,8 +553,8 @@ Ensure the `serverCode.entrypoint` file exists in the `serverCode.modulesDirecto
 
 Verify that:
 
-1. The orchestrator worker is running
-2. The `CF_ORCHESTRATOR_URL` is correct (or use `--orchestrator-url` flag)
+1. The router worker is running
+2. The `CF_ROUTER_URL` is correct (or use `--router-url` flag)
 3. The API token is valid
 
 ## Development

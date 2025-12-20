@@ -42,7 +42,7 @@ curl "https://api.cloudflare.com/client/v4/accounts/{account_id}/analytics_engin
 | `blob7`            | string   | Colo region                 |
 | `blob8`            | string   | Cache status                |
 
-### Orchestrator Worker Dataset (`orchestrator`)
+### Router Worker Dataset (`router`)
 
 | Column             | Type     | Description                 |
 | ------------------ | -------- | --------------------------- |

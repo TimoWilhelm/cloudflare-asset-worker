@@ -21,7 +21,7 @@ program
 	.option('--create-project', 'Create a new project instead of using existing ID')
 	.option('--project-id <id>', 'Override project ID from config')
 	.option('--api-token <token>', 'API token for authentication (or use CF_API_TOKEN env var)')
-	.option('--orchestrator-url <url>', 'Orchestrator URL (or use CF_ORCHESTRATOR_URL env var)', 'http://127.0.0.1:8787')
+	.option('--router-url <url>', 'Router URL (or use CF_ROUTER_URL env var)', 'http://127.0.0.1:8787')
 	.option('--dry-run', 'Show what would be deployed without actually deploying')
 	.action(async (options) => {
 		const log = createLogger();
@@ -34,15 +34,15 @@ program
 			const config = await loadConfig(options.config);
 			const configDir = path.dirname(path.resolve(options.config));
 
-			// Get API token and orchestrator URL
+			// Get API token and router URL
 			const apiToken = options.apiToken || process.env.CF_API_TOKEN;
-			const orchestratorUrl = options.orchestratorUrl || process.env.CF_ORCHESTRATOR_URL || 'http://127.0.0.1:8787';
+			const routerUrl = options.routerUrl || process.env.CF_ROUTER_URL || 'http://127.0.0.1:8787';
 
 			if (!apiToken) {
 				throw new Error('API token is required. Set CF_API_TOKEN environment variable or use --api-token flag.');
 			}
 
-			const client = new ApiClient(orchestratorUrl, apiToken);
+			const client = new ApiClient(routerUrl, apiToken);
 
 			// Determine project ID
 			let projectId = options.projectId || config.projectId;
@@ -231,18 +231,18 @@ program
 	.command('list')
 	.description('List all projects')
 	.option('--api-token <token>', 'API token for authentication (or use CF_API_TOKEN env var)')
-	.option('--orchestrator-url <url>', 'Orchestrator URL (or use CF_ORCHESTRATOR_URL env var)', 'http://127.0.0.1:8787')
+	.option('--router-url <url>', 'Router URL (or use CF_ROUTER_URL env var)', 'http://127.0.0.1:8787')
 	.action(async (options) => {
 		try {
-			// Get API token and orchestrator URL
+			// Get API token and router URL
 			const apiToken = options.apiToken || process.env.CF_API_TOKEN;
-			const orchestratorUrl = options.orchestratorUrl || process.env.CF_ORCHESTRATOR_URL || 'http://127.0.0.1:8787';
+			const routerUrl = options.routerUrl || process.env.CF_ROUTER_URL || 'http://127.0.0.1:8787';
 
 			if (!apiToken) {
 				throw new Error('API token is required. Set CF_API_TOKEN environment variable or use --api-token flag.');
 			}
 
-			const client = new ApiClient(orchestratorUrl, apiToken);
+			const client = new ApiClient(routerUrl, apiToken);
 			const projects = await client.listProjects();
 
 			console.log('\n📋 Projects:\n');

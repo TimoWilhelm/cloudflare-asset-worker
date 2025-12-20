@@ -18,7 +18,7 @@ Each example is a complete, ready-to-deploy project with actual source files and
    export CF_API_TOKEN=your-token
    ```
 
-3. **Start the orchestrator worker**:
+3. **Start the router worker**:
 
    ```bash
    npm run dev
@@ -350,11 +350,11 @@ Deploy to different environments:
 npx cf-deploy deploy
 
 # Staging
-export CF_ORCHESTRATOR_URL=https://staging.example.com
+export CF_ROUTER_URL=https://staging.example.com
 npx cf-deploy deploy -c staging.config.json
 
 # Production
-export CF_ORCHESTRATOR_URL=https://prod.example.com
+export CF_ROUTER_URL=https://prod.example.com
 npx cf-deploy deploy -c production.config.json
 ```
 
@@ -376,7 +376,7 @@ Exclude files from deployment:
 
 - **[CLI Documentation](../cli/README.md)** - Complete CLI reference
 - **[CLI Quick Start](../cli/QUICKSTART.md)** - 5-minute setup guide
-- **[Orchestrator Documentation](../workers/orchestrator/README.md)** - API details
+- **[Router Documentation](../workers/router/README.md)** - API details
 - **[Platform README](../README.md)** - Architecture overview
 
 ## Troubleshooting
@@ -397,7 +397,7 @@ Ensure the `serverCode.entrypoint` file exists in `serverCode.modulesDirectory`.
 
 ### Deployment Fails
 
-1. Check orchestrator worker is running: `npm run dev`
+1. Check router worker is running: `npm run dev`
 2. Verify API token is correct
 3. Try with `--dry-run` to see what would be deployed
 

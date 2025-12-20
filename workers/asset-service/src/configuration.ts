@@ -1,5 +1,5 @@
 // Import redirect limits from centralized validation
-import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../orchestrator/src/validation';
+import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../router/src/validation';
 
 // Re-export for backward compatibility
 export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };

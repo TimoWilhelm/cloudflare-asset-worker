@@ -4,8 +4,8 @@ import { createManifest } from './utils.js';
  * API Client for Cloudflare Multi-Project Platform
  */
 export class ApiClient {
-	constructor(orchestratorUrl, apiToken) {
-		this.orchestratorUrl = orchestratorUrl.replace(/\/$/, ''); // Remove trailing slash
+	constructor(routerUrl, apiToken) {
+		this.routerUrl = routerUrl.replace(/\/$/, ''); // Remove trailing slash
 		this.apiToken = apiToken;
 	}
 
@@ -15,7 +15,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Created project
 	 */
 	async createProject(name) {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -38,7 +38,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Project details
 	 */
 	async getProject(projectId) {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects/${projectId}`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}`, {
 			headers: {
 				Authorization: this.apiToken,
 			},
@@ -57,7 +57,7 @@ export class ApiClient {
 	 * @returns {Promise<Array>} List of projects
 	 */
 	async listProjects() {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects`, {
 			headers: {
 				Authorization: this.apiToken,
 			},
@@ -78,7 +78,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Upload session with JWT and buckets
 	 */
 	async createUploadSession(projectId, manifest) {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects/${projectId}/assets-upload-session`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}/assets-upload-session`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Upload result
 	 */
 	async uploadAssetBucket(projectId, uploadJwt, payload) {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects/${projectId}/assets/upload`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}/assets/upload`, {
 			method: 'POST',
 			headers: {
 				Authorization: `Bearer ${uploadJwt}`,
@@ -138,7 +138,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Deployment result
 	 */
 	async finalizeDeployment(projectId, completionJwt, deployment) {
-		const response = await fetch(`${this.orchestratorUrl}/__api/projects/${projectId}/deploy`, {
+		const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}/deploy`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ export class ApiClient {
 	async deployApplication(projectId, deployment) {
 		// If no assets, just deploy server code/config
 		if (!deployment.assets || deployment.assets.length === 0) {
-			const response = await fetch(`${this.orchestratorUrl}/__api/projects/${projectId}/deploy`, {
+			const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}/deploy`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
@@ -243,12 +243,12 @@ export class ApiClient {
 	}
 
 	/**
-	 * Check if orchestrator URL supports subdomain routing
+	 * Check if router URL supports subdomain routing
 	 * @returns {boolean} True if subdomain routing should be shown
 	 */
 	supportsSubdomainRouting() {
 		try {
-			const url = new URL(this.orchestratorUrl);
+			const url = new URL(this.routerUrl);
 			const hostname = url.hostname.toLowerCase();
 
 			// Check if it's localhost
@@ -282,7 +282,7 @@ export class ApiClient {
 		}
 
 		try {
-			const url = new URL(this.orchestratorUrl);
+			const url = new URL(this.routerUrl);
 			const protocol = url.protocol === 'https:' ? 'https' : 'http';
 			const hostname = url.hostname;
 			const port = url.port ? `:${url.port}` : '';
@@ -299,6 +299,6 @@ export class ApiClient {
 	 * @returns {string} Project URL
 	 */
 	getProjectUrl(projectId) {
-		return `${this.orchestratorUrl}/__project/${projectId}/`;
+		return `${this.routerUrl}/__project/${projectId}/`;
 	}
 }

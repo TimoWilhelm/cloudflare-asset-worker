@@ -1,6 +1,6 @@
-# Orchestrator Worker
+# Router Worker
 
-The orchestrator worker is the main orchestrator for the Cloudflare Multi-Project Deployment Platform. It handles project management, asset uploads, deployment, and dynamic request routing.
+The router worker is the main router for the Cloudflare Multi-Project Deployment Platform. It handles project management, asset uploads, deployment, and dynamic request routing.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ The orchestrator worker is the main orchestrator for the Cloudflare Multi-Projec
 
 ### Storage
 
-The orchestrator worker uses two KV namespaces:
+The router worker uses two KV namespaces:
 
 1. **`KV_PROJECTS`** - Project metadata and upload sessions
    - Project metadata: `project:projectId`
@@ -188,7 +188,7 @@ run_worker_first: true;
 run_worker_first: ['/api/*', '/admin/**', '/*.json'];
 ```
 
-The orchestrator uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
+The router uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
 
 ## Server Code
 
@@ -290,7 +290,7 @@ Configure in `wrangler.jsonc`:
 
 ```jsonc
 {
-  "name": "asset-worker-orchestrator",
+  "name": "asset-worker-router",
   "main": "src/worker.ts",
   "compatibility_date": "2025-11-11",
   "compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],

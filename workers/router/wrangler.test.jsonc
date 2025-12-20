@@ -1,6 +1,6 @@
 {
 	"$schema": "../../node_modules/wrangler/config-schema.json",
-	"name": "asset-worker-orchestrator",
+	"name": "asset-worker-router",
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-09",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
@@ -15,7 +15,7 @@
 	"analytics_engine_datasets": [
 		{
 			"binding": "ANALYTICS",
-			"dataset": "orchestrator"
+			"dataset": "router"
 		}
 	],
 	"version_metadata": {

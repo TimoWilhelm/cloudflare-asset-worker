@@ -1,5 +1,5 @@
 {
-	"name": "@cloudflare-asset-worker/orchestrator",
+	"name": "@cloudflare-asset-worker/router",
 	"version": "0.0.0",
 	"main": "src/worker.ts",
 	"type": "module",

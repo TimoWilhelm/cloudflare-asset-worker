@@ -5,7 +5,7 @@ Get started with the `cf-deploy` CLI in 5 minutes.
 ## Prerequisites
 
 1. Workers are deployed and running
-2. API token is configured in the orchestrator worker
+2. API token is configured in the router worker
 
 ## Installation
 

@@ -1,9 +1,9 @@
 import { env } from 'cloudflare:workers';
 
 /**
- * Analytics data schema for the Orchestrator worker.
+ * Analytics data schema for the Router worker.
  *
- * Dataset name: orchestrator (configured in wrangler.jsonc)
+ * Dataset name: router (configured in wrangler.jsonc)
  *
  * IMPORTANT: If you modify this schema, you MUST also update:
  * - ../../ANALYTICS-GUIDE.md (Data Schema section)

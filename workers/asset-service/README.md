@@ -1,6 +1,6 @@
 # Asset Service Worker
 
-The Asset Service worker is an RPC service that handles all static asset storage and serving for the platform. It's called by the orchestrator worker via Cloudflare Service Bindings.
+The Asset Service worker is an RPC service that handles all static asset storage and serving for the platform. It's called by the router worker via Cloudflare Service Bindings.
 
 ## Architecture
 

@@ -1,5 +1,5 @@
 /**
- * Validation schemas and constants using Zod for the Orchestrator API.
+ * Validation schemas and constants using Zod for the Router API.
  * Centralizes all limits and validation logic for consistency.
  */
 

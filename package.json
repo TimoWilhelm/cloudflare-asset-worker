@@ -4,7 +4,7 @@
 	"type": "module",
 	"description": "A Cloudflare Worker for serving static assets from KV storage",
 	"scripts": {
-		"dev": "wrangler dev -c ./workers/orchestrator/wrangler.jsonc -c ./workers/asset-service/wrangler.jsonc"
+		"dev": "wrangler dev -c ./workers/router/wrangler.jsonc -c ./workers/asset-service/wrangler.jsonc"
 	},
 	"workspaces": [
 		"workers/*",
