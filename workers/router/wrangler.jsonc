@@ -4,6 +4,12 @@
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": "./public",
+		"run_worker_first": true,
+		"html_handling": "none"
+	},
 	"observability": {
 		"logs": {
 			"enabled": true

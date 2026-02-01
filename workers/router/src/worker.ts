@@ -148,6 +148,42 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return response;
 		}
 
+		// Serve Admin UI at /admin paths - check BEFORE project extraction
+		if (url.pathname.startsWith('/admin')) {
+			const getCookie = (name: string): string | undefined => {
+				const cookieString = request.headers.get('Cookie');
+				if (!cookieString) return undefined;
+				const cookies = cookieString.split(';');
+				for (const cookie of cookies) {
+					const [key, value] = cookie.split('=').map((c) => c.trim());
+					if (key === name) return value;
+				}
+				return undefined;
+			};
+
+			// Allow access to login page without auth
+			if (url.pathname === '/admin/login.html') {
+				// @ts-ignore - ASSETS binding added in wrangler.jsonc
+				return this.env.ASSETS.fetch(request);
+			}
+
+			const token = getCookie('admin_token');
+			if (token && token === this.env.API_TOKEN) {
+				let assetRequest = request;
+				// Default to index.html if asking for /admin or /admin/
+				if (url.pathname === '/admin' || url.pathname === '/admin/') {
+					const newUrl = new URL(request.url);
+					newUrl.pathname = '/admin/index.html';
+					assetRequest = new Request(newUrl, request);
+				}
+				// @ts-ignore - ASSETS binding added in wrangler.jsonc
+				return this.env.ASSETS.fetch(assetRequest);
+			}
+
+			// Redirect to login if unauthorized
+			return Response.redirect(new URL('/admin/login.html', request.url).toString(), 302);
+		}
+
 		// Project serving - extract project ID from subdomain or path
 		const { projectId, isPathBased } = extractProjectId(url);
 
@@ -157,16 +193,8 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		});
 
 		if (!projectId) {
-			const response = new Response('Project not found. Access via subdomain (project-id.domain.com) or path (/__project/project-id/)', {
-				status: 404,
-			});
-			analytics.setData({
-				requestType: 'project_not_found',
-				status: 404,
-				requestTime: performance.now() - startTime,
-			});
-			analytics.write();
-			return response;
+			// No project and not /admin - return 404
+			return new Response('Not found', { status: 404 });
 		}
 
 		const result = await this.env.RATE_LIMIT_PROJECT.limit({ key: projectId });
