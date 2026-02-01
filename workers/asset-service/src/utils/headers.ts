@@ -38,7 +38,7 @@ export function getAssetHeaders(
 
 	// Always enable debug logging for Sec-Fetch-Mode navigation feature
 	if (configuration.debug && resolver === 'not-found') {
-		headers.append('X-Mf-Additional-Response-Log', '`Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior');
+		headers.append('X-Asset-Additional-Response-Log', '`Sec-Fetch-Mode: navigate` header present - using `not_found_handling` behavior');
 	}
 
 	return headers;
