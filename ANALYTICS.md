@@ -26,21 +26,22 @@ curl "https://api.cloudflare.com/client/v4/accounts/{account_id}/analytics_engin
 
 ### Asset-Service Worker Dataset (`asset_service`)
 
-| Column             | Type     | Description                 |
-| ------------------ | -------- | --------------------------- |
-| `timestamp`        | DateTime | When the event was logged   |
-| `index1`           | string   | Project ID (sampling key)   |
-| `_sample_interval` | integer  | Sample rate multiplier      |
-| `double1`          | double   | Request time (milliseconds) |
-| `double2`          | double   | HTTP status code            |
-| `blob1`            | string   | Hostname                    |
-| `blob2`            | string   | User agent                  |
-| `blob3`            | string   | HTML handling option        |
-| `blob4`            | string   | Not found handling option   |
-| `blob5`            | string   | Error message               |
-| `blob6`            | string   | Worker version              |
-| `blob7`            | string   | Colo region                 |
-| `blob8`            | string   | Cache status                |
+| Column             | Type     | Description                     |
+| ------------------ | -------- | ------------------------------- |
+| `timestamp`        | DateTime | When the event was logged       |
+| `index1`           | string   | Project ID (sampling key)       |
+| `_sample_interval` | integer  | Sample rate multiplier          |
+| `double1`          | double   | Request time (milliseconds)     |
+| `double2`          | double   | HTTP status code                |
+| `double3`          | double   | Asset fetch time (milliseconds) |
+| `blob1`            | string   | Hostname                        |
+| `blob2`            | string   | User agent                      |
+| `blob3`            | string   | HTML handling option            |
+| `blob4`            | string   | Not found handling option       |
+| `blob5`            | string   | Error message                   |
+| `blob6`            | string   | Worker version                  |
+| `blob7`            | string   | Colo region                     |
+| `blob8`            | string   | Cache status                    |
 
 ### Router Worker Dataset (`router`)
 
