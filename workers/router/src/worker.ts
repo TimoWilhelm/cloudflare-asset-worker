@@ -8,7 +8,7 @@ import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
-import { rewriteHtmlPaths } from './html-rewriter';
+import { rewriteHtmlPaths, rewriteJsResponse } from './html-rewriter';
 
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
 	override async fetch(request: Request): Promise<Response> {
@@ -223,8 +223,22 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		// Helper to apply path rewriting for path-based routing
 		const maybeRewritePaths = (response: Response): Response => {
-			if (isPathBased) {
-				return rewriteHtmlPaths(response, projectId);
+			const contentType = response.headers.get('content-type');
+			if (isPathBased && contentType && contentType.includes('text/html')) {
+				const rewritten = rewriteHtmlPaths(response, projectId);
+				rewritten.headers.set('X-Asset-Html-Rewritten', 'true');
+				return rewritten;
+			}
+			return response;
+		};
+
+		// Helper to apply JS rewriting for path-based routing
+		const maybeRewriteJs = async (response: Response): Promise<Response> => {
+			const contentType = response.headers.get('content-type');
+			if (isPathBased && contentType && (contentType.includes('text/javascript') || contentType.includes('application/javascript'))) {
+				const rewritten = await rewriteJsResponse(response, projectId);
+				rewritten.headers.set('X-Asset-Js-Rewritten', 'true');
+				return rewritten;
 			}
 			return response;
 		};
@@ -236,7 +250,10 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				let response = await runServerCode(projectId, rewrittenRequest, {
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
 				});
-				// Rewrite HTML paths for path-based routing
+				// Apply path rewriting for path-based routing
+				// JS rewriting handles dynamic import() paths in JS responses
+				// HTML rewriting handles attributes + inline scripts in HTML responses
+				response = await maybeRewriteJs(response);
 				response = maybeRewritePaths(response);
 				analytics.setData({
 					status: response.status,
@@ -283,11 +300,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				let response = await assets.serveAsset(rewrittenRequest, projectId, project.config);
 
 				// Rewrite JS assets to fix internal absolute paths (e.g. imports of CSS or other chunks)
-				const contentType = response.headers.get('content-type');
-				if (isPathBased && contentType && (contentType.includes('text/javascript') || contentType.includes('application/javascript'))) {
-					const { rewriteJsResponse } = await import('./html-rewriter');
-					response = await rewriteJsResponse(response, projectId);
-				}
+				response = await maybeRewriteJs(response);
 
 				// Rewrite HTML paths for path-based routing (for HTML assets like index.html)
 				response = maybeRewritePaths(response);

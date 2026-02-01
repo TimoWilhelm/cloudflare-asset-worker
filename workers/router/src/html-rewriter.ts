@@ -1,11 +1,14 @@
 /**
- * Rewrites HTML responses to fix relative paths for path-based routing.
+ * Rewrites HTML and JS responses to fix paths for path-based routing.
  *
- * When using /__project/projectId/ routing in development, relative paths like
- * /assets/main.js resolve to /assets/main.js instead of /__project/projectId/assets/main.js.
- * This rewriter fixes that by prepending the project prefix to absolute paths.
+ * When using /__project/projectId/ routing, root-relative paths like
+ * /assets/main.js need to be prefixed to /__project/projectId/assets/main.js.
  */
 
+/** File extensions that indicate static assets (not API endpoints) */
+const ASSET_EXTENSIONS = /\.(js|mjs|css|json|png|jpe?g|gif|svg|ico|webp|woff2?|ttf|eot|map|txt|xml|html)$/i;
+
+/** HTML attributes that may contain paths needing rewriting */
 const PATH_ATTRIBUTES: Record<string, string[]> = {
 	script: ['src'],
 	link: ['href'],
@@ -23,63 +26,59 @@ const PATH_ATTRIBUTES: Record<string, string[]> = {
 };
 
 /**
- * Creates an HTMLRewriter handler that rewrites absolute paths to include the project prefix.
+ * Checks if a path should be rewritten with the project prefix.
+ */
+function shouldRewritePath(path: string, prefix: string): boolean {
+	if (!path.startsWith('/')) return false; // Not root-relative
+	if (path.startsWith('//')) return false; // Protocol-relative URL
+	if (path.startsWith(prefix)) return false; // Already prefixed
+	return true;
+}
+
+/**
+ * Rewrites asset paths in a string (for inline scripts and JS files).
+ * Only rewrites paths with known asset extensions to avoid breaking API calls.
+ */
+function rewriteAssetPaths(content: string, prefix: string): string {
+	return content.replace(/(["'])(\/[^"'\s]+)\1/g, (match, quote, path) => {
+		if (!shouldRewritePath(path, prefix)) return match;
+		if (!ASSET_EXTENSIONS.test(path)) return match;
+		return `${quote}${prefix}${path}${quote}`;
+	});
+}
+
+/**
+ * Rewrites HTML element attributes (src, href, etc.) with the project prefix.
  */
 class PathRewriteHandler implements HTMLRewriterElementContentHandlers {
-	private projectId: string;
-	private attributes: string[];
+	constructor(
+		private projectId: string,
+		private attributes: string[],
+	) {}
 
-	constructor(projectId: string, attributes: string[]) {
-		this.projectId = projectId;
-		this.attributes = attributes;
-	}
-
-	element(element: Element): void | Promise<void> {
+	element(element: Element): void {
 		const prefix = `/__project/${this.projectId}`;
 
 		for (const attr of this.attributes) {
 			const value = element.getAttribute(attr);
-			if (value === null || value === undefined) continue;
+			if (!value) continue;
 
-			// Handle srcset which can have multiple URLs
 			if (attr === 'srcset') {
 				const rewritten = this.rewriteSrcset(value, prefix);
-				if (rewritten !== value) {
-					element.setAttribute(attr, rewritten);
-				}
-				continue;
-			}
-
-			// Only rewrite root-relative paths (starting with /)
-			// Don't rewrite: protocol URLs (http:, https:, data:, javascript:, etc)
-			// Don't rewrite: relative paths (./foo, foo/bar)
-			// Don't rewrite: fragment-only (#anchor)
-			// Don't rewrite: already prefixed paths
-			if (this.shouldRewritePath(value, prefix)) {
+				if (rewritten !== value) element.setAttribute(attr, rewritten);
+			} else if (shouldRewritePath(value, prefix)) {
 				element.setAttribute(attr, prefix + value);
 			}
 		}
 	}
 
-	private shouldRewritePath(value: string, prefix: string): boolean {
-		// Must start with / (root-relative path)
-		if (!value.startsWith('/')) return false;
-		// Already has the project prefix
-		if (value.startsWith(prefix)) return false;
-		// Protocol-relative URLs (//example.com)
-		if (value.startsWith('//')) return false;
-		return true;
-	}
-
 	private rewriteSrcset(srcset: string, prefix: string): string {
-		// srcset format: "url1 1x, url2 2x" or "url1 300w, url2 600w"
 		return srcset
 			.split(',')
 			.map((entry) => {
 				const parts = entry.trim().split(/\s+/);
-				const firstPart = parts[0];
-				if (firstPart && this.shouldRewritePath(firstPart, prefix)) {
-					parts[0] = prefix + firstPart;
+				if (parts[0] && shouldRewritePath(parts[0], prefix)) {
+					parts[0] = prefix + parts[0];
 				}
 				return parts.join(' ');
 			})
@@ -88,31 +87,19 @@ class PathRewriteHandler implements HTMLRewriterElementContentHandlers {
 }
 
 /**
- * Handlers text content in script tags to rewrite paths in inline scripts.
- * TanStack Start injects inline scripts that reference assets, e.g. import('/assets/...')
+ * Rewrites asset paths in inline script content.
  */
 class ScriptTextHandler implements HTMLRewriterElementContentHandlers {
-	private projectId: string;
-	private buffer: string = '';
+	private buffer = '';
 
-	constructor(projectId: string) {
-		this.projectId = projectId;
-	}
+	constructor(private projectId: string) {}
 
-	text(text: Text): void | Promise<void> {
+	text(text: Text): void {
 		this.buffer += text.text;
 
 		if (text.lastInTextNode) {
-			const content = this.buffer;
 			const prefix = `/__project/${this.projectId}`;
-			// Rewrite absolute paths (/assets/...) in import() calls
-			const replaced = content.replace(/(["'])((?:\/|\.\/|\/\.\/)?assets\/.*?)\1/g, (match, quote, path) => {
-				if (path.startsWith('/')) {
-					return `${quote}${prefix}${path}${quote}`;
-				}
-				return match;
-			});
-
+			const replaced = rewriteAssetPaths(this.buffer, prefix);
 			text.replace(replaced, { html: true });
 			this.buffer = '';
 		} else {
@@ -122,113 +109,67 @@ class ScriptTextHandler implements HTMLRewriterElementContentHandlers {
 }
 
 /**
- * Injects a client-side shim into the <head> for path-based routing support.
- *
- * This handler injects:
- * 1. `window.__BASE_PATH__` - Used by TanStack Router's `rewrite` option to know the base path
- * 2. Fetch interception - Ensures API calls (e.g., /api/hello) are prefixed correctly
- *
- * Note: History API interception is NOT needed because TanStack Router's `rewrite` option
- * handles all client-side navigation by transforming URLs in input/output.
+ * Injects a client-side shim for path-based routing (fetch interceptor + base path).
  */
 class HeadInjectionHandler implements HTMLRewriterElementContentHandlers {
-	private projectId: string;
+	constructor(private projectId: string) {}
 
-	constructor(projectId: string) {
-		this.projectId = projectId;
-	}
-
-	element(element: Element): void | Promise<void> {
+	element(element: Element): void {
 		const prefix = `/__project/${this.projectId}`;
 		element.prepend(
 			`<script>
-			(function() {
-				const BASE_PATH = '${prefix}';
-				// Expose base path for TanStack Router's rewrite option
-				window.__BASE_PATH__ = BASE_PATH;
+(function() {
+	const BASE_PATH = '${prefix}';
+	window.__BASE_PATH__ = BASE_PATH;
 
-				// Helper to add base path to root-relative URLs
-				function addBase(path) {
-					if (path.startsWith('/') && !path.startsWith(BASE_PATH) && !path.startsWith('//')) {
-						return BASE_PATH + path;
-					}
-					return path;
-				}
+	const originalFetch = window.fetch;
+	window.fetch = function(input, init) {
+		let url;
+		if (typeof input === 'string') {
+			url = input;
+		} else if (input instanceof URL) {
+			url = input.href;
+		} else if (input instanceof Request) {
+			url = input.url;
+		}
 
-				// Intercept fetch() to prefix API calls with the base path
-				// This is needed because TanStack Router only handles navigation, not data fetching
-				const originalFetch = window.fetch;
-				window.fetch = function(input, init) {
-					let url;
-					if (typeof input === 'string') {
-						url = input;
-					} else if (input instanceof URL) {
-						url = input.toString();
-					} else if (input instanceof Request) {
-						url = input.url;
-					}
-
-					if (url && typeof url === 'string' && url.startsWith('/') && !url.startsWith(BASE_PATH)) {
-						if (!url.startsWith('//')) {
-							const newUrl = addBase(url);
-							if (input instanceof Request) {
-								input = new Request(newUrl, input);
-							} else {
-								input = newUrl;
-							}
-						}
-					}
-					return originalFetch.call(this, input, init);
-				};
-			})();
-		</script>`,
+		if (url && url.startsWith('/') && !url.startsWith('//') && !url.startsWith(BASE_PATH)) {
+			const newUrl = BASE_PATH + url;
+			input = input instanceof Request ? new Request(newUrl, input) : newUrl;
+		}
+		return originalFetch.call(this, input, init);
+	};
+})();
+</script>`,
 			{ html: true },
 		);
 	}
 }
 
 /**
- * Rewrites an HTML response to fix absolute paths for path-based routing.
- *
- * @param response - The original Response to rewrite
- * @param projectId - The project ID to use as prefix
- * @returns A new Response with rewritten paths
+ * Rewrites an HTML response to fix paths for path-based routing.
  */
 export function rewriteHtmlPaths(response: Response, projectId: string): Response {
 	let rewriter = new HTMLRewriter();
 
-	// Add handlers for each element type
 	for (const [selector, attributes] of Object.entries(PATH_ATTRIBUTES)) {
 		rewriter = rewriter.on(selector, new PathRewriteHandler(projectId, attributes));
 	}
-
-	// Add handler for inline scripts
 	rewriter = rewriter.on('script', new ScriptTextHandler(projectId));
-
-	// Add handler for head injection
 	rewriter = rewriter.on('head', new HeadInjectionHandler(projectId));
 
 	return rewriter.transform(response);
 }
 
 /**
- * Rewrites a JavaScript response to inject the project base path into asset references.
- * Pattern matches strings starting with /assets/, ./assets/, or assets/
- *
- * @param response - The original Response containing JS
- * @param projectId - The project ID to use as prefix
- * @returns A new Response with rewritten JS
+ * Rewrites a JavaScript response to prefix asset paths for path-based routing.
  */
 export async function rewriteJsResponse(response: Response, projectId: string): Promise<Response> {
-	const originalBody = await response.text();
+	const body = await response.text();
 	const prefix = `/__project/${projectId}`;
+	const rewritten = rewriteAssetPaths(body, prefix);
 
-	// Rewrite absolute asset paths (/assets/...) in the JS bundle
-	const newBody = originalBody.replace(/(["'])(\/assets\/[^"']*)\1/g, (match, quote, path) => {
-		return `${quote}${prefix}${path}${quote}`;
-	});
-
-	return new Response(newBody, {
+	return new Response(rewritten, {
 		status: response.status,
 		statusText: response.statusText,
 		headers: response.headers,
