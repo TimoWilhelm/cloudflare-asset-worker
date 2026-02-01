@@ -24,7 +24,8 @@ type GetByETag = (
 ) => Promise<{
 	readableStream: ReadableStream;
 	contentType: string | undefined;
-	cacheStatus: 'HIT' | 'MISS';
+	cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+	fetchTimeMs?: number;
 }>;
 
 type AssetIntent = {
@@ -94,6 +95,7 @@ const resolveAssetIntentToResponse = async (
 
 	analytics.setData({
 		cacheStatus: asset.cacheStatus,
+		fetchTimeMs: asset.fetchTimeMs,
 	});
 
 	const headers = getAssetHeaders(assetIntent, asset.contentType, asset.cacheStatus, request, configuration);

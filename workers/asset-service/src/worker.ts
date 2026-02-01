@@ -1,7 +1,8 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfigInput } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
-import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
+import { cachedAssetGet } from './utils/cache';
+import { listAllKeys } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 import { Analytics } from './analytics';
@@ -112,12 +113,12 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	}
 
 	/**
-	 * Retrieves an asset by its eTag (content hash) from KV storage.
+	 * Retrieves an asset by its eTag (content hash) from KV storage with Workers Cache layer.
 	 *
 	 * @param eTag - The content hash of the asset to retrieve
 	 * @param projectId - The project ID for namespaced asset storage
 	 * @param _request - Optional request object (currently unused)
-	 * @returns Object containing the asset's readable stream, content type, and cache status
+	 * @returns Object containing the asset's readable stream, content type, cache status, and asset source
 	 * @throws Error if the asset exists in the manifest but not in KV storage
 	 */
 	async getByETag(
@@ -127,24 +128,33 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
-		cacheStatus: 'HIT' | 'MISS';
+		cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+		fetchTimeMs: number;
 	}> {
-		const startTime = performance.now();
 		const namespacedETag = this.getNamespacedKey(projectId, eTag);
-		const asset = await getAssetWithMetadataFromKV(this.env.KV_ASSETS, namespacedETag);
-		const endTime = performance.now();
-		const assetFetchTime = endTime - startTime;
+		const asset = await cachedAssetGet(this.env.KV_ASSETS, namespacedETag);
 
-		if (!asset || !asset.value) {
+		if (!asset) {
 			throw new Error(`Requested asset ${eTag} exists in the asset manifest but not in the KV namespace for project ${projectId}.`);
 		}
 
-		const cacheStatus = assetFetchTime <= KV_CACHE_HIT_THRESHOLD_MS ? 'HIT' : 'MISS';
+		// Determine cache status:
+		// - CACHE: Served from Workers Cache API
+		// - ORIGIN_CACHE: Served from KV but fast (KV internal cache hit)
+		// - ORIGIN: Served from KV and slow (KV fetch)
+		let cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+		if (asset.source === 'CACHE') {
+			cacheStatus = 'CACHE';
+		} else {
+			// Use timing heuristic for KV's internal cache
+			cacheStatus = asset.fetchTimeMs <= KV_CACHE_HIT_THRESHOLD_MS ? 'ORIGIN_CACHE' : 'ORIGIN';
+		}
 
 		return {
 			readableStream: asset.value,
 			contentType: asset.metadata?.contentType,
 			cacheStatus,
+			fetchTimeMs: asset.fetchTimeMs,
 		};
 	}
 
@@ -163,7 +173,8 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
-		cacheStatus: 'HIT' | 'MISS';
+		cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+		fetchTimeMs: number;
 	} | null> {
 		const eTag = await this.exists(pathname, request, projectId);
 

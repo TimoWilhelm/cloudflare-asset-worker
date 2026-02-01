@@ -17,6 +17,8 @@ type Data = {
 	requestTime?: number;
 	// double2 - Response status code
 	status?: number;
+	// double3 - Time in milliseconds to fetch the asset (from cache or KV)
+	fetchTimeMs?: number;
 
 	// -- Blobs --
 	// blob1 - Hostname of the request
@@ -57,7 +59,7 @@ export class Analytics {
 		}
 		this.analyticsEngineDataset.writeDataPoint({
 			indexes: [this.data.projectId ?? null],
-			doubles: [this.data.requestTime ?? -1, this.data.status ?? -1],
+			doubles: [this.data.requestTime ?? -1, this.data.status ?? -1, this.data.fetchTimeMs ?? -1],
 			blobs: [
 				this.data.hostname?.substring(0, 256) ?? null,
 				this.data.userAgent?.substring(0, 256) ?? null,
