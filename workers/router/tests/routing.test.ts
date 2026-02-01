@@ -2,46 +2,115 @@ import { matchesGlobPatterns, shouldRunWorkerFirst, extractProjectId, rewriteReq
 
 describe('routing utilities', () => {
 	describe('matchesGlobPatterns', () => {
-		it('matches exact paths', () => {
-			expect(matchesGlobPatterns('/api/users', ['/api/users'])).toBe(true);
-			expect(matchesGlobPatterns('/api/users', ['/api/posts'])).toBe(false);
+		describe('basic matching', () => {
+			it('matches exact paths', () => {
+				expect(matchesGlobPatterns('/api/users', ['/api/users'])).toBe(true);
+				expect(matchesGlobPatterns('/api/users', ['/api/posts'])).toBe(false);
+			});
+
+			it('matches wildcard patterns', () => {
+				// Note: /api/* matches /api/users.ext but not /api/users (no extension)
+				// Use /api/** for recursive matching
+				expect(matchesGlobPatterns('/api/users.json', ['/api/*'])).toBe(true);
+				expect(matchesGlobPatterns('/api/users/123', ['/api/*'])).toBe(false);
+				expect(matchesGlobPatterns('/api/users/123', ['/api/**'])).toBe(true);
+				expect(matchesGlobPatterns('/api/users', ['/api/**'])).toBe(true);
+			});
+
+			it('matches multiple patterns (OR logic)', () => {
+				const patterns = ['/api/*', '/admin/**', '/auth/login'];
+
+				expect(matchesGlobPatterns('/api/users', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/admin/dashboard', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/admin/users/edit', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/auth/login', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/public/index.html', patterns)).toBe(false);
+			});
+
+			it('matches file extensions', () => {
+				const patterns = ['**/*.html', '**/*.css'];
+
+				expect(matchesGlobPatterns('/index.html', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/style.css', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/script.js', patterns)).toBe(false);
+			});
+
+			it('handles empty pattern array', () => {
+				expect(matchesGlobPatterns('/any/path', [])).toBe(false);
+			});
+
+			it('handles complex glob patterns', () => {
+				expect(matchesGlobPatterns('/api/v1/users', ['/api/*/users'])).toBe(true);
+				expect(matchesGlobPatterns('/api/v2/posts', ['/api/*/users'])).toBe(false);
+				expect(matchesGlobPatterns('/images/logo.png', ['/**/*.png'])).toBe(true);
+			});
 		});
 
-		it('matches wildcard patterns', () => {
-			// Note: /api/* matches /api/users.ext but not /api/users (no extension)
-			// Use /api/** for recursive matching
-			expect(matchesGlobPatterns('/api/users.json', ['/api/*'])).toBe(true);
-			expect(matchesGlobPatterns('/api/users/123', ['/api/*'])).toBe(false);
-			expect(matchesGlobPatterns('/api/users/123', ['/api/**'])).toBe(true);
-			expect(matchesGlobPatterns('/api/users', ['/api/**'])).toBe(true);
+		describe('negative patterns', () => {
+			it('excludes paths matching negative patterns', () => {
+				// Only negative pattern - should always return false (no positive match)
+				expect(matchesGlobPatterns('/api/internal', ['!/api/internal'])).toBe(false);
+				expect(matchesGlobPatterns('/api/public', ['!/api/internal'])).toBe(false);
+			});
+
+			it('negative patterns have precedence over positive patterns', () => {
+				// Match everything under /api except /api/internal
+				const patterns = ['/api/**', '!/api/internal/**'];
+
+				expect(matchesGlobPatterns('/api/users', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/api/posts', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/api/internal/secret', patterns)).toBe(false);
+				expect(matchesGlobPatterns('/api/internal/admin', patterns)).toBe(false);
+			});
+
+			it('order of patterns does not matter', () => {
+				// Same patterns in different order should produce same results
+				const patterns1 = ['/api/**', '!/api/internal/**'];
+				const patterns2 = ['!/api/internal/**', '/api/**'];
+
+				expect(matchesGlobPatterns('/api/users', patterns1)).toBe(true);
+				expect(matchesGlobPatterns('/api/users', patterns2)).toBe(true);
+
+				expect(matchesGlobPatterns('/api/internal/secret', patterns1)).toBe(false);
+				expect(matchesGlobPatterns('/api/internal/secret', patterns2)).toBe(false);
+			});
+
+			it('handles multiple negative patterns', () => {
+				const patterns = ['/api/**', '!/api/internal/**', '!/api/admin/**'];
+
+				expect(matchesGlobPatterns('/api/users', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/api/posts', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/api/internal/secret', patterns)).toBe(false);
+				expect(matchesGlobPatterns('/api/admin/dashboard', patterns)).toBe(false);
+			});
+
+			it('handles file extension exclusions', () => {
+				const patterns = ['/**/*', '!/**/*.map', '!/**/*.ts'];
+
+				expect(matchesGlobPatterns('/script.js', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/style.css', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/script.js.map', patterns)).toBe(false);
+				expect(matchesGlobPatterns('/component.ts', patterns)).toBe(false);
+			});
+
+			it('works with exact path exclusions', () => {
+				const patterns = ['/api/**', '!/api/health'];
+
+				expect(matchesGlobPatterns('/api/users', patterns)).toBe(true);
+				expect(matchesGlobPatterns('/api/health', patterns)).toBe(false);
+			});
 		});
 
-		it('matches multiple patterns', () => {
-			const patterns = ['/api/*', '/admin/**', '/auth/login'];
+		describe('edge cases', () => {
+			it('returns false when only negative patterns exist', () => {
+				// No positive patterns means nothing can match
+				expect(matchesGlobPatterns('/anything', ['!/excluded'])).toBe(false);
+				expect(matchesGlobPatterns('/excluded', ['!/excluded'])).toBe(false);
+			});
 
-			expect(matchesGlobPatterns('/api/users', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/admin/dashboard', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/admin/users/edit', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/auth/login', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/public/index.html', patterns)).toBe(false);
-		});
-
-		it('matches file extensions', () => {
-			const patterns = ['**/*.html', '**/*.css'];
-
-			expect(matchesGlobPatterns('/index.html', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/style.css', patterns)).toBe(true);
-			expect(matchesGlobPatterns('/script.js', patterns)).toBe(false);
-		});
-
-		it('handles empty pattern array', () => {
-			expect(matchesGlobPatterns('/any/path', [])).toBe(false);
-		});
-
-		it('handles complex glob patterns', () => {
-			expect(matchesGlobPatterns('/api/v1/users', ['/api/*/users'])).toBe(true);
-			expect(matchesGlobPatterns('/api/v2/posts', ['/api/*/users'])).toBe(false);
-			expect(matchesGlobPatterns('/images/logo.png', ['/**/*.png'])).toBe(true);
+			it('handles patterns with no matches', () => {
+				expect(matchesGlobPatterns('/unrelated/path', ['/api/**', '!/api/internal/**'])).toBe(false);
+			});
 		});
 	});
 

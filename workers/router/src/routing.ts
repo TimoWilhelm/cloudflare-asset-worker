@@ -1,24 +1,59 @@
 import { minimatch } from 'minimatch';
 
 /**
- * Checks if a pathname matches all given glob patterns.
- * Uses minimatch's native negation support - a pattern like "!assets/**" returns
- * true when the path does NOT match "assets/**".
+ * Checks if a pathname matches the given glob patterns.
  *
- * All patterns must match (AND logic) to return true.
- * Example: ["**", "!assets/**"] means "match everything except assets"
+ * The array supports glob patterns with * for deep matching and negative patterns
+ * with ! prefix. Negative patterns have precedence over non-negative patterns.
+ *
+ * Returns true if:
+ * - At least one non-negative pattern matches the pathname, AND
+ * - None of the negative patterns match the pathname
+ *
+ * The order in which the patterns are listed is not significant.
  *
  * @param pathname - The pathname to check
- * @param patterns - Array of glob patterns (supports ! prefix for negation via minimatch)
- * @returns True if pathname matches all patterns
+ * @param patterns - Array of glob patterns (supports ! prefix for negation)
+ * @returns True if pathname matches according to the rules above
+ *
+ * @example
+ * // Match all paths under /api
+ * matchesGlobPatterns('/api/users', ['/api/**']) // true
+ *
+ * @example
+ * // Match all paths except those under /api/internal
+ * matchesGlobPatterns('/api/users', ['/api/**', '!/api/internal/**']) // true
+ * matchesGlobPatterns('/api/internal/secret', ['/api/**', '!/api/internal/**']) // false
  */
 export function matchesGlobPatterns(pathname: string, patterns: string[]): boolean {
+	// Separate negative and positive patterns
+	const negativePatterns: string[] = [];
+	const positivePatterns: string[] = [];
+
 	for (const pattern of patterns) {
-		if (!minimatch(pathname, pattern)) {
+		if (pattern.startsWith('!')) {
+			// Store the pattern without the ! prefix for matching
+			negativePatterns.push(pattern.slice(1));
+		} else {
+			positivePatterns.push(pattern);
+		}
+	}
+
+	// Check if any negative pattern matches (these have precedence)
+	for (const pattern of negativePatterns) {
+		if (minimatch(pathname, pattern)) {
 			return false;
 		}
 	}
-	return patterns.length > 0;
+
+	// Check if any positive pattern matches
+	for (const pattern of positivePatterns) {
+		if (minimatch(pathname, pattern)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**

@@ -6,6 +6,7 @@ import { generateJWT, verifyJWT } from './jwt';
 import { getProject } from './project-manager';
 import { assetManifestRequestSchema, uploadPayloadSchema } from './validation';
 import { z } from 'zod';
+import { cachedKvGet, invalidateKvCache } from './kv-cache';
 
 /**
  * Creates an asset upload session for a project.
@@ -151,9 +152,9 @@ export async function uploadAssets(
 		return new Response('Invalid or expired JWT', { status: 401 });
 	}
 
-	// Load session
+	// Load session (cached)
 	const sessionKey = `session:${jwtPayload.sessionId}`;
-	const sessionData = await projectsKv.get(sessionKey, 'text');
+	const sessionData = await cachedKvGet<string>(projectsKv, sessionKey, 'sessions', { type: 'text' });
 	if (!sessionData) {
 		return new Response('Session expired or not found', { status: 404 });
 	}
@@ -221,6 +222,8 @@ export async function uploadAssets(
 	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
 		expirationTtl: 3600,
 	});
+	// Invalidate session cache
+	await invalidateKvCache('sessions', sessionKey);
 
 	// If all uploads complete, return completion JWT
 	if (allUploaded) {
@@ -239,6 +242,8 @@ export async function uploadAssets(
 		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
 			expirationTtl: 3600,
 		});
+		// Invalidate session cache
+		await invalidateKvCache('sessions', sessionKey);
 
 		return new Response(
 			JSON.stringify({

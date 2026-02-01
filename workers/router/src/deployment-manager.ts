@@ -8,6 +8,7 @@ import { verifyJWT } from './jwt';
 import { getProject, getServerCodeKey } from './project-manager';
 import { deploymentPayloadSchema } from './validation';
 import { z } from 'zod';
+import { cachedKvGet, invalidateKvCache } from './kv-cache';
 
 /**
  * Deploys a full-stack project with assets and optional server code.
@@ -64,7 +65,7 @@ export async function deployProject(
 		// Check if session still exists and has the completion token
 		// This prevents JWT reuse after the session expires
 		const sessionKey = `session:${jwtPayload.sessionId}`;
-		const sessionData = await projectsKv.get(sessionKey, 'text');
+		const sessionData = await cachedKvGet<string>(projectsKv, sessionKey, 'sessions', { type: 'text' });
 		if (!sessionData) {
 			// Session expired - JWT may have been used already or is too old
 			return new Response('Upload session expired', { status: 401 });
@@ -77,6 +78,8 @@ export async function deployProject(
 
 		// Delete session after successful verification to prevent reuse
 		await projectsKv.delete(sessionKey);
+		// Invalidate session cache
+		await invalidateKvCache('sessions', sessionKey);
 
 		// Load manifest from JWT
 		const manifest = jwtPayload.manifest as Record<string, { hash: string; size: number }>;
@@ -119,9 +122,9 @@ export async function deployProject(
 			moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
 			totalServerCodeModules++;
 
-			// Check if module already exists in KV
+			// Check if module already exists in KV (cached)
 			const moduleKey = getServerCodeKey(projectId, contentHash);
-			const existingModule = await serverCodeKv.get(moduleKey);
+			const existingModule = await cachedKvGet<string>(serverCodeKv, moduleKey, 'server-code-modules', { type: 'text' });
 
 			if (!existingModule) {
 				// Store base64-encoded content in KV
@@ -167,6 +170,8 @@ export async function deployProject(
 	}
 
 	await projectsKv.put(`project:${projectId}`, JSON.stringify(project));
+	// Invalidate project cache
+	await invalidateKvCache('projects', `project:${projectId}`);
 
 	return new Response(
 		JSON.stringify({
