@@ -185,7 +185,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		expect(response2.status).toBe(307);
 	});
 
-	it('attaches CF-Cache-Status headers to responses', async () => {
+	it('attaches X-Asset-Cache-Status headers to responses', async () => {
 		const configuration = normalizeConfiguration({
 			html_handling: 'none',
 			not_found_handling: 'none',
@@ -202,7 +202,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		const cacheHitResponse = await handleRequest(new Request('https://example.com/'), configuration, exists, getByEtag, new Analytics());
 
 		expect(cacheHitResponse.status).toBe(200);
-		expect(cacheHitResponse.headers.get('CF-Cache-Status')).toBe('HIT');
+		expect(cacheHitResponse.headers.get('X-Asset-Cache-Status')).toBe('HIT');
 
 		// Test cache MISS
 		getByEtag = vi.fn().mockReturnValueOnce({
@@ -214,7 +214,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), configuration, exists, getByEtag, new Analytics());
 
 		expect(cacheMissResponse.status).toBe(200);
-		expect(cacheMissResponse.headers.get('CF-Cache-Status')).toBe('MISS');
+		expect(cacheMissResponse.headers.get('X-Asset-Cache-Status')).toBe('MISS');
 	});
 
 	describe('headers', () => {

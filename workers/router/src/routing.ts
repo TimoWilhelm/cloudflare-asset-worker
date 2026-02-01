@@ -1,19 +1,24 @@
 import { minimatch } from 'minimatch';
 
 /**
- * Checks if a pathname matches any of the given glob patterns.
+ * Checks if a pathname matches all given glob patterns.
+ * Uses minimatch's native negation support - a pattern like "!assets/**" returns
+ * true when the path does NOT match "assets/**".
+ *
+ * All patterns must match (AND logic) to return true.
+ * Example: ["**", "!assets/**"] means "match everything except assets"
  *
  * @param pathname - The pathname to check
- * @param patterns - Array of glob patterns to match against
- * @returns True if pathname matches any pattern, false otherwise
+ * @param patterns - Array of glob patterns (supports ! prefix for negation via minimatch)
+ * @returns True if pathname matches all patterns
  */
 export function matchesGlobPatterns(pathname: string, patterns: string[]): boolean {
 	for (const pattern of patterns) {
-		if (minimatch(pathname, pattern)) {
-			return true;
+		if (!minimatch(pathname, pattern)) {
+			return false;
 		}
 	}
-	return false;
+	return patterns.length > 0;
 }
 
 /**

@@ -8,6 +8,7 @@ import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
+import { rewriteHtmlPaths } from './html-rewriter';
 
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
 	override async fetch(request: Request): Promise<Response> {
@@ -192,13 +193,23 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			rewrittenRequest = rewriteRequestUrl(request, projectId);
 		}
 
+		// Helper to apply path rewriting for path-based routing
+		const maybeRewritePaths = (response: Response): Response => {
+			if (isPathBased) {
+				return rewriteHtmlPaths(response, projectId);
+			}
+			return response;
+		};
+
 		// Helper to run server code with common parameters
 		const executeServerCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
-				const response = await runServerCode(projectId, rewrittenRequest, {
+				let response = await runServerCode(projectId, rewrittenRequest, {
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
 				});
+				// Rewrite HTML paths for path-based routing
+				response = maybeRewritePaths(response);
 				analytics.setData({
 					status: response.status,
 					requestTime: performance.now() - startTime,
@@ -224,29 +235,54 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 		if (runWorkerFirst && project.hasServerCode) {
 			// Run server code first, let it handle everything including static files
-			return executeServerCode();
+			const response = await executeServerCode();
+			// Add header to indicate asset lookup was skipped due to run_worker_first
+			const newResponse = new Response(response.body, response);
+			newResponse.headers.set('X-Asset-Lookup', 'SKIP');
+			return newResponse;
 		}
 
 		// Try to serve static assets first (default behavior)
 		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
 
 		try {
-			const canServeAsset = await assets.canFetch(rewrittenRequest, projectId, project.config);
+			// Clone the request because canFetch (RPC) might consume/read the body,
+			// rendering rewrittenRequest unusable for executeServerCode later.
+			const canServeAsset = await assets.canFetch(rewrittenRequest.clone(), projectId, project.config);
 
 			if (canServeAsset) {
 				analytics.setData({ requestType: 'asset' });
-				const response = await assets.serveAsset(rewrittenRequest, projectId, project.config);
+				let response = await assets.serveAsset(rewrittenRequest, projectId, project.config);
+
+				// Rewrite JS assets to fix internal absolute paths (e.g. imports of CSS or other chunks)
+				const contentType = response.headers.get('content-type');
+				if (isPathBased && contentType && (contentType.includes('text/javascript') || contentType.includes('application/javascript'))) {
+					const { rewriteJsResponse } = await import('./html-rewriter');
+					response = await rewriteJsResponse(response, projectId);
+				}
+
+				// Rewrite HTML paths for path-based routing (for HTML assets like index.html)
+				response = maybeRewritePaths(response);
+
+				// Add header to indicate asset was found
+				const finalResponse = new Response(response.body, response);
+				finalResponse.headers.set('X-Asset-Lookup', 'HIT');
+
 				analytics.setData({
-					status: response.status,
+					status: finalResponse.status,
 					requestTime: performance.now() - startTime,
 				});
 				analytics.write();
-				return response;
+				return finalResponse;
 			}
 
 			// If no asset found and project has server code, run dynamic worker
 			if (project.hasServerCode) {
-				return executeServerCode();
+				const response = await executeServerCode();
+				// Add header to indicate asset lookup was attempted but missed
+				const newResponse = new Response(response.body, response);
+				newResponse.headers.set('X-Asset-Lookup', 'MISS');
+				return newResponse;
 			}
 
 			const response = new Response('Not found', { status: 404 });

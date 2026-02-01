@@ -4,7 +4,7 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Fullstack App Example</title>
-		<link rel="stylesheet" href="style.css" />
+		<link rel="stylesheet" href="/style.css" />
 	</head>
 	<body>
 		<div class="container">
@@ -13,11 +13,11 @@
 			<p><strong>Features:</strong> Demonstrates importing text, JSON, and binary data modules.</p>
 
 			<div class="actions">
-				<button onclick="testAPI('api/hello')">Test API</button>
-				<button onclick="testAPI('api/config')">JSON Module</button>
+				<button onclick="testAPI('/api/hello')">Test API</button>
+				<button onclick="testAPI('/api/config')">JSON Module</button>
 				<button onclick="testTemplate()">Text Module</button>
-				<button onclick="testAPI('api/data')">Data Module</button>
-				<button onclick="testAPI('api/wasm')">Wasm Module</button>
+				<button onclick="testAPI('/api/data')">Data Module</button>
+				<button onclick="testAPI('/api/wasm')">Wasm Module</button>
 			</div>
 
 			<div id="output"></div>
@@ -36,7 +36,7 @@
 
 			async function testTemplate() {
 				try {
-					const response = await fetch('api/template');
+					const response = await fetch('/api/template');
 					const text = await response.text();
 					document.getElementById('output').innerHTML = '<pre>' + text + '</pre>';
 				} catch (error) {

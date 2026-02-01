@@ -133,6 +133,51 @@ api-worker/
 
 ---
 
+### 4. TanStack Start (`tanstack-start/`)
+
+Full-stack React application using [TanStack Start](https://tanstack.com/start/latest) with SSR.
+
+**Features:**
+
+- Full-stack React with TanStack Router
+- Server-side rendering (SSR)
+- Server functions for data loading
+- Modern CSS with dark mode support
+
+**Deploy:**
+
+```bash
+cd examples/tanstack-start
+npm install
+npm run build
+npm run deploy -- --create-project
+```
+
+**Project Structure:**
+
+```text
+tanstack-start/
+├── src/
+│   ├── components/           # React components
+│   ├── routes/               # File-based routes
+│   ├── styles/               # CSS styles
+│   └── router.tsx            # Router config
+├── scripts/
+│   └── deploy.js             # Deploy helper
+├── deploy.config.json        # cf-deploy configuration
+├── package.json
+├── vite.config.ts
+└── tsconfig.json
+```
+
+**Routes:**
+
+- `/` - Home page with server-loaded data
+- `/about` - About page explaining the deployment
+- `/api-demo` - Interactive API demo with server functions
+
+---
+
 ## Common Deployment Patterns
 
 ### Basic Deployment

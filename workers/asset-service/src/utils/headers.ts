@@ -11,7 +11,7 @@ import type { AssetIntentWithResolver } from '../handler';
  * @param cacheStatus - The KV cache status ('HIT' or 'MISS')
  * @param request - The original HTTP request
  * @param configuration - The normalized asset configuration
- * @returns Headers object with ETag, Content-Type, Cache-Control, and CF-Cache-Status
+ * @returns Headers object with ETag, Content-Type, Cache-Control, and X-Asset-Cache-Status
  */
 export function getAssetHeaders(
 	{ eTag, resolver }: AssetIntentWithResolver,
@@ -32,9 +32,9 @@ export function getAssetHeaders(
 		headers.append('Cache-Control', CACHE_CONTROL_BROWSER);
 	}
 
-	// Attach CF-Cache-Status, this will show to users that we are caching assets
-	// and it will also populate the cache fields through the logging pipeline.
-	headers.append('CF-Cache-Status', cacheStatus);
+	// Attach X-Asset-Cache-Status to show users that we are caching assets
+	// (using custom header to avoid conflict with Cloudflare's built-in CF-Cache-Status)
+	headers.append('X-Asset-Cache-Status', cacheStatus);
 
 	// Always enable debug logging for Sec-Fetch-Mode navigation feature
 	if (configuration.debug && resolver === 'not-found') {

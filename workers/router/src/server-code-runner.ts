@@ -74,6 +74,7 @@ export async function runServerCode(projectId: string, request: Request, binding
 	const worker = env.LOADER.get(codeHash, () => {
 		return {
 			compatibilityDate: compatibilityDate || '2025-11-09',
+			compatibilityFlags: ['nodejs_compat'],
 			mainModule: entrypoint,
 			modules,
 			env: {
