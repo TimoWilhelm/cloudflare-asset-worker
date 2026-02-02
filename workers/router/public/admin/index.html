@@ -252,39 +252,22 @@
 				color: var(--text-tertiary);
 			}
 
-			.modal-overlay {
-				position: fixed;
-				top: 0;
-				left: 0;
-				right: 0;
-				bottom: 0;
-				background: rgba(0, 0, 0, 0.5);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				opacity: 0;
-				pointer-events: none;
-				transition: opacity 0.2s;
-				z-index: 100;
-			}
-			.modal-overlay.open {
-				opacity: 1;
-				pointer-events: auto;
-			}
-			.modal {
+			dialog {
 				background: white;
 				border-radius: 12px;
 				width: 90%;
 				max-width: 600px;
 				max-height: 85vh;
-				display: flex;
-				flex-direction: column;
+				padding: 0;
+				border: none;
 				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-				transform: translateY(10px);
-				transition: transform 0.2s;
+				flex-direction: column;
 			}
-			.modal-overlay.open .modal {
-				transform: translateY(0);
+			dialog[open] {
+				display: flex;
+			}
+			dialog::backdrop {
+				background: rgba(0, 0, 0, 0.5);
 			}
 			.modal-header {
 				padding: 1rem 1.5rem;
@@ -354,6 +337,74 @@
 				color: var(--text-tertiary);
 				font-size: 0.95rem;
 			}
+
+			@media (max-width: 768px) {
+				body {
+					padding: 0.5rem;
+				}
+
+				.container {
+					padding: 0;
+				}
+
+				thead {
+					display: none;
+				}
+
+				tr {
+					display: flex;
+					flex-wrap: wrap;
+					gap: 0.5rem;
+					padding: 0.75rem;
+					border-bottom: 1px solid var(--border-color);
+				}
+
+				td {
+					padding: 0;
+					border: none;
+					width: auto;
+				}
+
+				.col-project {
+					width: 100%;
+					order: 1;
+				}
+
+				.col-config {
+					order: 2;
+					flex: 1;
+					min-width: 0;
+				}
+
+				.col-links {
+					flex: 1;
+					order: 3;
+				}
+
+				.col-actions {
+					flex: 1;
+					order: 4;
+				}
+
+				.project-name {
+					word-break: break-all;
+					margin-bottom: 0.25rem;
+				}
+
+				.project-meta {
+					margin-bottom: 0.25rem;
+				}
+
+				.deployment-cell {
+					flex-direction: row;
+					flex-wrap: wrap;
+					align-items: center;
+				}
+
+				.links-cell {
+					justify-content: flex-end;
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -370,17 +421,17 @@
 			</div>
 		</div>
 
-		<div id="configModal" class="modal-overlay">
-			<div class="modal">
-				<div class="modal-header">
-					<h3 id="modalTitle">Project Config</h3>
-					<button class="modal-close" onclick="closeModal()">&times;</button>
-				</div>
-				<div class="modal-body" id="modalBody">
-					<!-- Config content will be injected here -->
-				</div>
+		<dialog id="configModal">
+			<div class="modal-header">
+				<h3 id="modalTitle">Project Config</h3>
+				<form method="dialog">
+					<button class="modal-close">&times;</button>
+				</form>
 			</div>
-		</div>
+			<div class="modal-body" id="modalBody">
+				<!-- Config content will be injected here -->
+			</div>
+		</dialog>
 
 		<script>
 			let projectData = {};
@@ -479,20 +530,18 @@
 				const html = `<pre class="json-view">${formatJSON(fullConfig, userKeys)}</pre>`;
 
 				document.getElementById('modalBody').innerHTML = html;
-				document.getElementById('configModal').classList.add('open');
-			}
-
-			function closeModal() {
-				document.getElementById('configModal').classList.remove('open');
+				document.getElementById('configModal').showModal();
 			}
 
 			// Close on click outside
 			document.getElementById('configModal').addEventListener('click', (e) => {
-				if (e.target.id === 'configModal') closeModal();
-			});
-			// Close on escape
-			document.addEventListener('keydown', (e) => {
-				if (e.key === 'Escape') closeModal();
+				const rect = e.target.getBoundingClientRect();
+				const clickedInDialog =
+					rect.top <= e.clientY && e.clientY <= rect.top + rect.height && rect.left <= e.clientX && e.clientX <= rect.left + rect.width;
+
+				if (!clickedInDialog) {
+					e.target.close();
+				}
 			});
 
 			const token = localStorage.getItem('admin_token');
@@ -551,12 +600,19 @@
 				});
 			}
 
-			function renderProjects(projects) {
+			function renderProjects(projectsData) {
 				const app = document.getElementById('app');
-				if (!projects || projects.length === 0) {
+				if (!projectsData || projectsData.length === 0) {
 					app.innerHTML = '<div class="empty-state">No projects found. Deploy some!</div>';
 					return;
 				}
+
+				// Sort projects by updatedAt (deploy time) descending
+				const projects = [...projectsData].sort((a, b) => {
+					const dateA = new Date(a.updatedAt || a.createdAt).getTime();
+					const dateB = new Date(b.updatedAt || b.createdAt).getTime();
+					return dateB - dateA;
+				});
 
 				const hostname = window.location.hostname;
 				const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.');
@@ -574,6 +630,7 @@
 						const subdomainHost = `${p.id}.${baseDomain}${port}`;
 						const subdomainUrl = `${window.location.protocol}//${subdomainHost}/`;
 						const assetsCount = p.assetsCount || 0;
+						const deployTime = p.updatedAt || p.createdAt;
 
 						// Deployment Status Logic
 						const isSSR = p.hasServerCode;
@@ -602,7 +659,7 @@
 								<div class="project-cell">
 									<div class="project-name">${p.id}</div>
 									<div class="project-meta">
-										<span>${formatDate(p.createdAt)}</span>
+										<span>${formatDate(deployTime)}</span>
 										<span class="meta-separator">&bull;</span>
 										<span>${assetsCount} asset${assetsCount !== 1 ? 's' : ''}</span>
 									</div>
