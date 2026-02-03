@@ -3,7 +3,6 @@ import type AssetApi from '../../asset-service/src/worker';
 import { listAllKeys } from './util/kv';
 import { createProjectRequestSchema } from './validation';
 import { z } from 'zod';
-import { cachedKvGet, invalidateKvCache } from './kv-cache';
 
 // Pagination constants
 const DEFAULT_PAGE_SIZE = 100;
@@ -84,7 +83,7 @@ export async function listProjects(projectsKv: KVNamespace, options: ListProject
 
 	const projects = await Promise.all(
 		keys.map(async (key: { name: string }) => {
-			return await cachedKvGet<ProjectMetadata>(projectsKv, key.name, 'projects', { type: 'json' });
+			return await projectsKv.get<ProjectMetadata>(key.name, { type: 'json' });
 		}),
 	);
 
@@ -169,8 +168,6 @@ export async function deleteProject(
 
 	// Delete project metadata
 	await projectsKv.delete(`project:${projectId}`);
-	// Invalidate project cache
-	await invalidateKvCache('projects', `project:${projectId}`);
 
 	return new Response(
 		JSON.stringify({
@@ -196,7 +193,7 @@ export async function deleteProject(
  * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
-	return await cachedKvGet<ProjectMetadata>(projectsKv, `project:${projectId}`, 'projects', { type: 'json' });
+	return await projectsKv.get<ProjectMetadata>(`project:${projectId}`, { type: 'json' });
 }
 
 /**

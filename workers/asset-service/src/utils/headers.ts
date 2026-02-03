@@ -8,7 +8,7 @@ import type { AssetIntentWithResolver } from '../handler';
  *
  * @param intent - The resolved asset intent with eTag and resolver info
  * @param contentType - The MIME type of the asset
- * @param cacheStatus - The cache status ('CACHE', 'ORIGIN_CACHE', or 'ORIGIN')
+ * @param cacheStatus - The cache status ('HIT' or 'MISS')
  * @param request - The original HTTP request
  * @param configuration - The normalized asset configuration
  * @returns Headers object with ETag, Content-Type, Cache-Control, and X-Asset-Cache-Status

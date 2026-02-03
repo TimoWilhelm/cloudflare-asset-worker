@@ -24,8 +24,8 @@ type GetByETag = (
 ) => Promise<{
 	readableStream: ReadableStream;
 	contentType: string | undefined;
-	cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
-	fetchTimeMs?: number;
+	cacheStatus: 'HIT' | 'MISS';
+	fetchTimeMs: number;
 }>;
 
 type AssetIntent = {

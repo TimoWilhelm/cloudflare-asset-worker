@@ -3,7 +3,6 @@ import type { ServerCodeManifest } from './types';
 import * as base64 from '@stablelib/base64';
 import { computeContentHash } from './content-utils';
 import { getServerCodeKey } from './project-manager';
-import { cachedKvGet } from './kv-cache';
 
 /**
  * Executes server code for a project using dynamic worker loading.
@@ -17,7 +16,7 @@ import { cachedKvGet } from './kv-cache';
 export async function runServerCode(projectId: string, request: Request, bindings: any): Promise<Response> {
 	// Load the manifest (cached)
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
-	const manifest = await cachedKvGet<ServerCodeManifest>(env.KV_SERVER_CODE, manifestKey, 'server-code-manifest', { type: 'json' });
+	const manifest = await env.KV_SERVER_CODE.get<ServerCodeManifest>(manifestKey, { type: 'json' });
 
 	if (!manifest) {
 		return new Response('Server code not found', { status: 404 });
@@ -31,7 +30,7 @@ export async function runServerCode(projectId: string, request: Request, binding
 		Object.entries(moduleManifest).map(async ([modulePath, { hash: contentHash, type }]) => {
 			const moduleKey = getServerCodeKey(projectId, contentHash);
 			// Load module from KV (cached)
-			const base64Content = await cachedKvGet<string>(env.KV_SERVER_CODE, moduleKey, 'server-code-modules', { type: 'text' });
+			const base64Content = await env.KV_SERVER_CODE.get(moduleKey, { type: 'text' });
 
 			if (!base64Content) {
 				throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);

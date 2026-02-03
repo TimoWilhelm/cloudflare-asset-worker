@@ -1,8 +1,7 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfigInput } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
-import { cachedAssetGet } from './utils/cache';
-import { listAllKeys } from './utils/kv';
+import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 import { Analytics } from './analytics';
@@ -128,33 +127,26 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
-		cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+		cacheStatus: 'HIT' | 'MISS';
 		fetchTimeMs: number;
 	}> {
+		const startTime = performance.now();
 		const namespacedETag = this.getNamespacedKey(projectId, eTag);
-		const asset = await cachedAssetGet(this.env.KV_ASSETS, namespacedETag);
+		const asset = await getAssetWithMetadataFromKV(this.env.KV_ASSETS, namespacedETag);
+		const endTime = performance.now();
+		const assetFetchTime = endTime - startTime;
 
-		if (!asset) {
+		if (!asset || !asset.value) {
 			throw new Error(`Requested asset ${eTag} exists in the asset manifest but not in the KV namespace for project ${projectId}.`);
 		}
 
-		// Determine cache status:
-		// - CACHE: Served from Workers Cache API
-		// - ORIGIN_CACHE: Served from KV but fast (KV internal cache hit)
-		// - ORIGIN: Served from KV and slow (KV fetch)
-		let cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
-		if (asset.source === 'CACHE') {
-			cacheStatus = 'CACHE';
-		} else {
-			// Use timing heuristic for KV's internal cache
-			cacheStatus = asset.fetchTimeMs <= KV_CACHE_HIT_THRESHOLD_MS ? 'ORIGIN_CACHE' : 'ORIGIN';
-		}
+		const cacheStatus = assetFetchTime <= KV_CACHE_HIT_THRESHOLD_MS ? 'HIT' : 'MISS';
 
 		return {
 			readableStream: asset.value,
 			contentType: asset.metadata?.contentType,
 			cacheStatus,
-			fetchTimeMs: asset.fetchTimeMs,
+			fetchTimeMs: assetFetchTime,
 		};
 	}
 
@@ -173,7 +165,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	): Promise<{
 		readableStream: ReadableStream;
 		contentType: string | undefined;
-		cacheStatus: 'CACHE' | 'ORIGIN_CACHE' | 'ORIGIN';
+		cacheStatus: 'HIT' | 'MISS';
 		fetchTimeMs: number;
 	} | null> {
 		const eTag = await this.exists(pathname, request, projectId);
