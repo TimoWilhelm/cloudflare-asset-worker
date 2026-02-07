@@ -6,6 +6,7 @@ import * as base64 from '@stablelib/base64';
 import { computeContentHash, inferModuleType } from './content-utils';
 import { verifyJWT } from './jwt';
 import { getProject, getServerCodeKey } from './project-manager';
+import { batchGetKv } from '../../shared/kv';
 import { deploymentPayloadSchema } from './validation';
 import { z } from 'zod';
 
@@ -100,7 +101,7 @@ export async function deployProject(
 		if (payload.serverCode) {
 			// Compute content hash for each module and store them separately
 			const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
-			const modulesToUpload: { hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
+			const moduleEntries: { path: string; hash: string; base64Content: string; type: ModuleType }[] = [];
 
 			for (const [modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
 				// Handle both formats: string (base64) or { content: base64, type: ModuleType }
@@ -120,13 +121,20 @@ export async function deployProject(
 				moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
 				totalServerCodeModules++;
 
-				// Check if module already exists in KV
-				const moduleKey = getServerCodeKey(projectId, contentHash);
-				const existingModule = await serverCodeKv.get(moduleKey, { type: 'arrayBuffer' });
+				moduleEntries.push({ path: modulePath, hash: contentHash, base64Content, type: moduleType });
+			}
 
-				if (!existingModule) {
+			// Batch-check which modules already exist in KV (chunked into batches of 100)
+			const moduleKeys = moduleEntries.map(({ hash }) => getServerCodeKey(projectId, hash));
+			const existingModules = await batchGetKv(serverCodeKv, moduleKeys, { type: 'text' });
+
+			// Only upload modules that don't already exist
+			const modulesToUpload: { hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
+			for (const entry of moduleEntries) {
+				const moduleKey = getServerCodeKey(projectId, entry.hash);
+				if (existingModules.get(moduleKey) == null) {
 					// Decode and store as raw binary for optimal storage and read performance
-					modulesToUpload.push({ hash: contentHash, content: base64.decode(base64Content).buffer as ArrayBuffer, type: moduleType });
+					modulesToUpload.push({ hash: entry.hash, content: base64.decode(entry.base64Content).buffer as ArrayBuffer, type: entry.type });
 				}
 			}
 

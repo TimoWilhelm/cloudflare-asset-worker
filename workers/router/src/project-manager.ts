@@ -1,6 +1,6 @@
 import type { ProjectMetadata } from './types';
 import type AssetApi from '../../asset-service/src/worker';
-import { listAllKeys } from './util/kv';
+import { listAllKeys } from '../../shared/kv';
 import { createProjectRequestSchema } from './validation';
 import { z } from 'zod';
 

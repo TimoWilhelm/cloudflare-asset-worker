@@ -1,7 +1,8 @@
 import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfigInput } from './configuration';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
-import { getAssetWithMetadataFromKV, listAllKeys } from './utils/kv';
+import { getAssetWithMetadataFromKV } from './utils/kv';
+import { batchGetKv, listAllKeys } from '../../shared/kv';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 import { Analytics } from './analytics';
@@ -249,15 +250,12 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			namespacedKey: this.getNamespacedKey(projectId, entry.contentHash),
 		}));
 
-		const existenceChecks: { entry: ManifestEntry; exists: boolean }[] = [];
-		for (let i = 0; i < namespacedEntries.length; i += 100) {
-			const batch = namespacedEntries.slice(i, i + 100);
-			const keys = batch.map(({ namespacedKey }) => namespacedKey);
-			const results = await this.env.KV_ASSETS.get(keys, { type: 'text' });
-			for (const { entry, namespacedKey } of batch) {
-				existenceChecks.push({ entry, exists: results.get(namespacedKey) !== null });
-			}
-		}
+		const allKeys = namespacedEntries.map(({ namespacedKey }) => namespacedKey);
+		const results = await batchGetKv(this.env.KV_ASSETS, allKeys, { type: 'text' });
+		const existenceChecks = namespacedEntries.map(({ entry, namespacedKey }) => ({
+			entry,
+			exists: results.get(namespacedKey) != null,
+		}));
 
 		// Filter to only entries that need uploading
 		const newEntries = existenceChecks.filter(({ exists }) => !exists).map(({ entry }) => entry);
@@ -325,19 +323,13 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			namespacedMap.set(this.getNamespacedKey(projectId, hash), hash);
 		}
 
-		const results: Array<{ hash: string; exists: boolean }> = [];
 		const allKeys = Array.from(namespacedMap.keys());
+		const batchResults = await batchGetKv(this.env.KV_ASSETS, allKeys, { type: 'text' });
 
-		// Batch get: max 100 keys per call, each call counts as 1 subrequest
-		for (let i = 0; i < allKeys.length; i += 100) {
-			const batchKeys = allKeys.slice(i, i + 100);
-			const batchResults = await this.env.KV_ASSETS.get(batchKeys, { type: 'text' });
-			for (const key of batchKeys) {
-				results.push({ hash: namespacedMap.get(key)!, exists: batchResults.get(key) !== null });
-			}
-		}
-
-		return results;
+		return allKeys.map((key) => ({
+			hash: namespacedMap.get(key)!,
+			exists: batchResults.get(key) != null,
+		}));
 	}
 
 	/**
