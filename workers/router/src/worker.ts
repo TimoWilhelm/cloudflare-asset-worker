@@ -6,7 +6,7 @@ import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './rou
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
 import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
-import { runServerCode } from './server-code-runner';
+import { runServerCode, getServerCodeManifest } from './server-code-runner';
 import { Analytics } from './analytics';
 import { runWatchdog } from './watchdog';
 import { rewriteHtmlPaths, rewriteJsResponse } from './html-rewriter';
@@ -261,13 +261,17 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return response;
 		};
 
+		// Prefetch server code manifest in parallel with asset lookup when project has server code
+		const manifestPromise = project.hasServerCode ? getServerCodeManifest(projectId) : null;
+
 		// Helper to run server code with common parameters
 		const executeServerCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
+				const prefetchedManifest = manifestPromise ? await manifestPromise : undefined;
 				let response = await runServerCode(projectId, rewrittenRequest, {
 					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
-				});
+				}, prefetchedManifest);
 				// Apply path rewriting for path-based routing
 				// JS rewriting handles dynamic import() paths in JS responses
 				// HTML rewriting handles attributes + inline scripts in HTML responses
