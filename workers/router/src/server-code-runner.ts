@@ -1,6 +1,5 @@
 import { env } from 'cloudflare:workers';
 import type { ServerCodeManifest } from './types';
-import * as base64 from '@stablelib/base64';
 import { computeContentHash } from './content-utils';
 import { getServerCodeKey } from './project-manager';
 
@@ -30,14 +29,14 @@ export async function runServerCode(projectId: string, request: Request, binding
 		Object.entries(moduleManifest).map(async ([modulePath, { hash: contentHash, type }]) => {
 			const moduleKey = getServerCodeKey(projectId, contentHash);
 			// Load module from KV (cached)
-			const base64Content = await env.KV_SERVER_CODE.get(moduleKey, { type: 'text' });
+			const rawBuffer = await env.KV_SERVER_CODE.get(moduleKey, { type: 'arrayBuffer' });
 
-			if (!base64Content) {
+			if (!rawBuffer) {
 				throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);
 			}
 
-			// Decode base64 content and format according to module type
-			const decodedBytes = base64.decode(base64Content);
+			// Format raw binary content according to module type
+			const decodedBytes = new Uint8Array(rawBuffer);
 
 			switch (type) {
 				case 'js':

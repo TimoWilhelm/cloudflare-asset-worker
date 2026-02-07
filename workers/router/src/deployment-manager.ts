@@ -64,7 +64,7 @@ export async function deployProject(
 
 			// Check if session still exists and has the completion token
 			// This prevents JWT reuse after the session expires
-			const sessionKey = `session:${jwtPayload.sessionId}`;
+			const sessionKey = `upload-session/${projectId}/${jwtPayload.sessionId}`;
 			const sessionData = await projectsKv.get(sessionKey, { type: 'text' });
 			if (!sessionData) {
 				// Session expired - JWT may have been used already or is too old
@@ -100,7 +100,7 @@ export async function deployProject(
 		if (payload.serverCode) {
 			// Compute content hash for each module and store them separately
 			const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
-			const modulesToUpload: { hash: string; content: string; type: ModuleType }[] = [];
+			const modulesToUpload: { hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
 
 			for (const [modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
 				// Handle both formats: string (base64) or { content: base64, type: ModuleType }
@@ -122,17 +122,17 @@ export async function deployProject(
 
 				// Check if module already exists in KV (cached)
 				const moduleKey = getServerCodeKey(projectId, contentHash);
-				const existingModule = await serverCodeKv.get(moduleKey, { type: 'text' });
+				const existingModule = await serverCodeKv.get(moduleKey, { type: 'arrayBuffer' });
 
 				if (!existingModule) {
-					// Store base64-encoded content in KV
-					modulesToUpload.push({ hash: contentHash, content: base64Content, type: moduleType });
+					// Decode and store as raw binary for optimal storage and read performance
+					modulesToUpload.push({ hash: contentHash, content: base64.decode(base64Content).buffer as ArrayBuffer, type: moduleType });
 				}
 			}
 
 			newServerCodeModules = modulesToUpload.length;
 
-			// Upload new modules (stored as base64)
+			// Upload new modules (stored as raw binary)
 			await Promise.all(
 				modulesToUpload.map(async ({ hash, content }) => {
 					const moduleKey = getServerCodeKey(projectId, hash);
@@ -169,10 +169,16 @@ export async function deployProject(
 			project.run_worker_first = payload.run_worker_first;
 		}
 
+		// Re-check project still exists before finalizing (prevents resurrecting a deleted project)
+		const currentProject = await getProject(projectId, projectsKv);
+		if (!currentProject) {
+			return new Response('Project was deleted during deployment', { status: 404 });
+		}
+
 		// Mark status as READY
 		project.status = 'READY';
 
-		await projectsKv.put(`project:${projectId}`, JSON.stringify(project));
+		await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
 
 		return new Response(
 			JSON.stringify({
@@ -192,10 +198,13 @@ export async function deployProject(
 			},
 		);
 	} catch (error) {
-		// Mark status as ERROR and persist
-		project.status = 'ERROR';
-		project.updatedAt = new Date().toISOString();
-		await projectsKv.put(`project:${projectId}`, JSON.stringify(project));
+		// Mark status as ERROR and persist (only if project still exists to avoid resurrection)
+		const stillExists = await getProject(projectId, projectsKv);
+		if (stillExists) {
+			project.status = 'ERROR';
+			project.updatedAt = new Date().toISOString();
+			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
+		}
 
 		// Re-throw to be handled by the caller or return error response
 		// Since this is the handler, we should probably return a response

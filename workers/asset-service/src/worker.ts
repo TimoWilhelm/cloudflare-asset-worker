@@ -24,11 +24,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * Generates a namespaced key by prefixing with the project ID.
 	 */
 	private getNamespacedKey(projectId: string, key: string): string {
-		return `${projectId}:${key}`;
+		return `project/${projectId}/asset/${key}`;
 	}
 
 	private async getAssetsManifest(projectId: string): Promise<AssetsManifest> {
-		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
+		const manifestKey = `project/${projectId}/manifest`;
 		const manifestBuffer = await this.env.KV_ASSETS.get(manifestKey, 'arrayBuffer');
 		if (!manifestBuffer) {
 			throw new Error(`Failed to load assets manifest for project ${projectId}`);
@@ -258,7 +258,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		// Generate binary manifest
 		const manifestBuffer = await this.generateManifestBuffer(entries);
 
-		const manifestKey = this.getNamespacedKey(projectId, 'ASSETS_MANIFEST');
+		const manifestKey = `project/${projectId}/manifest`;
 		await this.env.KV_ASSETS.put(manifestKey, manifestBuffer);
 
 		return newEntries;
@@ -329,12 +329,18 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		let deletedManifest = false;
 
 		// List all keys with the project prefix in KV_ASSETS
-		const assetPrefix = `${projectId}:`;
+		const assetPrefix = `project/${projectId}/`;
+
+		const manifestKey = `project/${projectId}/manifest`;
 
 		// Delete all assets using listAllKeys for pagination
 		for await (const key of listAllKeys(this.env.KV_ASSETS, { prefix: assetPrefix })) {
 			await this.env.KV_ASSETS.delete(key.name);
-			deletedAssets++;
+			if (key.name === manifestKey) {
+				deletedManifest = true;
+			} else {
+				deletedAssets++;
+			}
 		}
 
 		return { deletedAssets, deletedManifest };

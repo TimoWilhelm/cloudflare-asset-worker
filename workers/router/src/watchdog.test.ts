@@ -16,9 +16,9 @@ const createMockKV = () => {
 		}),
 		put: vi.fn(async (key, value) => store.set(key, value)),
 		delete: vi.fn(async (key) => store.delete(key)),
-		list: vi.fn(async () => ({
+		list: vi.fn(async (opts?: { prefix?: string }) => ({
 			keys: Array.from(store.keys())
-				.filter((k) => k.startsWith('project:'))
+				.filter((k) => !opts?.prefix || k.startsWith(opts.prefix))
 				.map((name) => ({ name })),
 			list_complete: true,
 			cursor: null,
@@ -56,7 +56,7 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:ready-project', JSON.stringify(project));
+		await mockProjectsKV.put('project/ready-project/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
@@ -74,11 +74,11 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:error-project', JSON.stringify(project));
+		await mockProjectsKV.put('project/error-project/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
-		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project:error-project');
+		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/error-project/metadata');
 		expect(mockAssetWorker.deleteProjectAssets).toHaveBeenCalledWith('error-project');
 	});
 
@@ -93,7 +93,7 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:fresh-error', JSON.stringify(project));
+		await mockProjectsKV.put('project/fresh-error/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
@@ -111,11 +111,11 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:stale-pending', JSON.stringify(project));
+		await mockProjectsKV.put('project/stale-pending/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
-		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project:stale-pending');
+		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/stale-pending/metadata');
 	});
 
 	it('should keep fresh PENDING projects (<30m)', async () => {
@@ -129,7 +129,7 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:fresh-pending', JSON.stringify(project));
+		await mockProjectsKV.put('project/fresh-pending/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
@@ -146,10 +146,10 @@ describe('Watchdog Cleanup', () => {
 			hasServerCode: false,
 			assetsCount: 0,
 		};
-		await mockProjectsKV.put('project:legacy-project', JSON.stringify(project));
+		await mockProjectsKV.put('project/legacy-project/metadata', JSON.stringify(project));
 
 		await runWatchdog(env);
 
-		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project:legacy-project');
+		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/legacy-project/metadata');
 	});
 });

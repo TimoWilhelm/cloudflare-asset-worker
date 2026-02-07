@@ -42,7 +42,7 @@ describe('project-manager', () => {
 		serverCodeKv = env.KV_SERVER_CODE;
 
 		// Clear KV namespaces before each test
-		const projectKeys = await projectsKv.list({ prefix: 'project:' });
+		const projectKeys = await projectsKv.list({ prefix: 'project/' });
 		for (const key of projectKeys.keys) {
 			await projectsKv.delete(key.name);
 		}
@@ -99,7 +99,7 @@ describe('project-manager', () => {
 			const projectId = data.project.id;
 
 			// Verify project is stored in KV
-			const stored = await projectsKv.get<ProjectMetadata>(`project:${projectId}`, 'json');
+			const stored = await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, 'json');
 			expect(stored).toBeDefined();
 			expect(stored?.name).toBe('Test Project');
 		});
@@ -347,13 +347,12 @@ describe('project-manager', () => {
 				hasServerCode: true,
 				assetsCount: 0,
 			};
-			await projectsKv.put(`project:${projectId}`, JSON.stringify(project));
+			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
 
-			// Add some server code modules
-			const prefix = getServerCodePrefix(projectId);
-			await serverCodeKv.put(`${prefix}module1`, 'content1');
-			await serverCodeKv.put(`${prefix}module2`, 'content2');
-			await serverCodeKv.put(`${prefix}MANIFEST`, 'manifest-content');
+			// Add some server code modules using the real key format
+			await serverCodeKv.put(getServerCodeKey(projectId, 'hash1'), 'content1');
+			await serverCodeKv.put(getServerCodeKey(projectId, 'hash2'), 'content2');
+			await serverCodeKv.put(getServerCodeKey(projectId, 'MANIFEST'), 'manifest-content');
 
 			const mockAssetWorker = {
 				deleteProjectAssets: async () => ({ deletedAssets: 5, deletedManifest: true }),
@@ -375,7 +374,7 @@ describe('project-manager', () => {
 			expect(data.deletedServerCodeModules).toBe(3);
 
 			// Verify server code is deleted
-			const module1 = await serverCodeKv.get(`${prefix}module1`);
+			const module1 = await serverCodeKv.get(getServerCodeKey(projectId, 'hash1'));
 			expect(module1).toBeNull();
 		});
 
@@ -414,19 +413,19 @@ describe('project-manager', () => {
 	describe('utility functions', () => {
 		describe('getServerCodePrefix', () => {
 			it('returns correct prefix', () => {
-				expect(getServerCodePrefix('project-123')).toBe('project-123:');
-				expect(getServerCodePrefix('abc')).toBe('abc:');
+				expect(getServerCodePrefix('project-123')).toBe('project/project-123/module/');
+				expect(getServerCodePrefix('abc')).toBe('project/abc/module/');
 			});
 		});
 
 		describe('getServerCodeKey', () => {
 			it('returns namespaced key', () => {
-				expect(getServerCodeKey('project-123', 'module.js')).toBe('project-123:module.js');
-				expect(getServerCodeKey('abc', 'MANIFEST')).toBe('abc:MANIFEST');
+				expect(getServerCodeKey('project-123', 'module.js')).toBe('project/project-123/module/module.js');
+				expect(getServerCodeKey('abc', 'MANIFEST')).toBe('project/abc/module/MANIFEST');
 			});
 
 			it('handles complex keys', () => {
-				expect(getServerCodeKey('proj-1', 'path/to/module.js')).toBe('proj-1:path/to/module.js');
+				expect(getServerCodeKey('proj-1', 'path/to/module.js')).toBe('project/proj-1/module/path/to/module.js');
 			});
 		});
 	});

@@ -75,7 +75,7 @@ export async function createAssetUploadSession(
 		session.completionToken = completionJwt;
 
 		// Still need to store session for deployment phase to verify the completion token
-		const sessionKey = `session:${sessionId}`;
+		const sessionKey = `upload-session/${projectId}/${sessionId}`;
 		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
 			expirationTtl: 3600, // 1 hour
 		});
@@ -98,7 +98,7 @@ export async function createAssetUploadSession(
 	}
 
 	// Store session in KV with 1 hour expiration
-	const sessionKey = `session:${sessionId}`;
+	const sessionKey = `upload-session/${projectId}/${sessionId}`;
 	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
 		expirationTtl: 3600, // 1 hour
 	});
@@ -151,8 +151,14 @@ export async function uploadAssets(
 		return new Response('Invalid or expired JWT', { status: 401 });
 	}
 
+	// Verify project still exists (may have been deleted or cleaned up)
+	const project = await getProject(projectId, projectsKv);
+	if (!project) {
+		return new Response('Project not found', { status: 404 });
+	}
+
 	// Load session (cached)
-	const sessionKey = `session:${jwtPayload.sessionId}`;
+	const sessionKey = `upload-session/${projectId}/${jwtPayload.sessionId}`;
 	const sessionData = await projectsKv.get(sessionKey, { type: 'text' });
 	if (!sessionData) {
 		return new Response('Session expired or not found', { status: 404 });

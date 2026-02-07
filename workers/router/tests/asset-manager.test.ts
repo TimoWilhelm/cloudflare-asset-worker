@@ -296,7 +296,7 @@ describe('asset-manager', () => {
 			const sessionId = jwtPayload.sessionId;
 
 			// Verify session is stored
-			const session = await projectsKv.get(`session:${sessionId}`, 'json');
+			const session = await projectsKv.get(`upload-session/${projectId}/${sessionId}`, 'json');
 			expect(session).toBeDefined();
 		});
 	});

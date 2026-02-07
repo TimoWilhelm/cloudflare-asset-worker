@@ -45,7 +45,7 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 	};
 
 	// PENDING projects auto-expire after 5 minutes if deployment never completes
-	await projectsKv.put(`project:${projectId}`, JSON.stringify(project), { expirationTtl: 300 });
+	await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project), { expirationTtl: 300 });
 
 	return new Response(
 		JSON.stringify({
@@ -76,7 +76,7 @@ export async function listProjects(projectsKv: KVNamespace, options: ListProject
 	const cursor = options.cursor || undefined;
 
 	const result = await projectsKv.list({
-		prefix: 'project:',
+		prefix: 'project/',
 		limit,
 		cursor,
 	});
@@ -168,8 +168,13 @@ export async function deleteProject(
 		}
 	}
 
+	// Delete any remaining upload sessions for this project
+	for await (const key of listAllKeys(projectsKv, { prefix: `upload-session/${projectId}/` })) {
+		await projectsKv.delete(key.name);
+	}
+
 	// Delete project metadata
-	await projectsKv.delete(`project:${projectId}`);
+	await projectsKv.delete(`project/${projectId}/metadata`);
 
 	return new Response(
 		JSON.stringify({
@@ -195,7 +200,7 @@ export async function deleteProject(
  * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
-	return await projectsKv.get<ProjectMetadata>(`project:${projectId}`, { type: 'json' });
+	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json' });
 }
 
 /**
@@ -205,7 +210,7 @@ export async function getProject(projectId: string, projectsKv: KVNamespace): Pr
  * @returns The prefix string used for server code KV keys
  */
 export function getServerCodePrefix(projectId: string): string {
-	return `${projectId}:`;
+	return `project/${projectId}/module/`;
 }
 
 /**
@@ -216,5 +221,5 @@ export function getServerCodePrefix(projectId: string): string {
  * @returns The full namespaced key for KV storage
  */
 export function getServerCodeKey(projectId: string, key: string): string {
-	return `${projectId}:${key}`;
+	return `project/${projectId}/module/${key}`;
 }
