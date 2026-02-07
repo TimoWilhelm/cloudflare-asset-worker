@@ -37,13 +37,15 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 	const project: ProjectMetadata = {
 		id: projectId,
 		name: body.name || `Project ${projectId}`,
+		status: 'PENDING',
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 		hasServerCode: false,
 		assetsCount: 0,
 	};
 
-	await projectsKv.put(`project:${projectId}`, JSON.stringify(project));
+	// PENDING projects auto-expire after 5 minutes if deployment never completes
+	await projectsKv.put(`project:${projectId}`, JSON.stringify(project), { expirationTtl: 300 });
 
 	return new Response(
 		JSON.stringify({

@@ -710,6 +710,18 @@
 						const deployTime = p.updatedAt || p.createdAt;
 
 						// Deployment Status Logic
+						const status = p.status || 'READY'; // Default to READY for legacy/unknown
+						let statusBadge = '';
+						if (status === 'PENDING') {
+							statusBadge = `<span class="badge" style="background: #fff8c4; color: #b45309; border-color: #fde047;">Pending</span>`;
+						} else if (status === 'ERROR') {
+							statusBadge = `<span class="badge" style="background: #fef2f2; color: #b91c1c; border-color: #fecaca;">Error</span>`;
+						} else {
+							// Ready/Success - maybe we don't need a badge or just a small dot, but let's be explicit for now or just hide it if it's the norm.
+							// User asked to "show in admin UI", so explicit is better.
+							statusBadge = `<span class="badge" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0;">Ready</span>`;
+						}
+
 						const isSSR = p.hasServerCode;
 						const isWorkerFirst = p.run_worker_first === true || (Array.isArray(p.run_worker_first) && p.run_worker_first.length > 0);
 
@@ -745,6 +757,7 @@
 							<td class="col-config">
 								<div class="deployment-cell">
 									<div class="status-row">
+										${statusBadge}
 										${isSSR ? `<span class="badge badge-ssr">SSR</span>` : `<span class="badge badge-static">Static</span>`}
 									</div>
 									<div class="routes-row">

@@ -3,6 +3,7 @@ import type { AssetConfigInput } from '../../asset-service/src/configuration';
 export interface ProjectMetadata {
 	id: string;
 	name: string;
+	status: 'PENDING' | 'READY' | 'ERROR';
 	createdAt: string;
 	updatedAt: string;
 	hasServerCode: boolean;

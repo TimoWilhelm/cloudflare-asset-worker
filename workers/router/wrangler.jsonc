@@ -46,6 +46,9 @@
 	"version_metadata": {
 		"binding": "VERSION"
 	},
+	"triggers": {
+		"crons": ["0 */3 * * *"]
+	},
 	"ratelimits": [
 		{
 			"name": "RATE_LIMIT_API",

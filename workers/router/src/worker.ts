@@ -8,6 +8,7 @@ import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
 import { runServerCode } from './server-code-runner';
 import { Analytics } from './analytics';
+import { runWatchdog } from './watchdog';
 import { rewriteHtmlPaths, rewriteJsResponse } from './html-rewriter';
 
 export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
@@ -18,6 +19,10 @@ export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; con
 }
 
 export default class AssetManager extends WorkerEntrypoint<Env> {
+	override async scheduled(event: ScheduledEvent): Promise<void> {
+		this.ctx.waitUntil(runWatchdog(this.env));
+	}
+
 	override async fetch(request: Request): Promise<Response> {
 		const startTime = performance.now();
 		const analytics = new Analytics();
@@ -202,13 +207,24 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			return new Response('Rate limit exceeded', { status: 429 });
 		}
 
-		// Verify project exists
+		// Verify project exists and is ready to serve
 		const project = await getProject(projectId, this.env.KV_PROJECTS);
 		if (!project) {
 			const response = new Response('Project not found', { status: 404 });
 			analytics.setData({
 				requestType: 'project_not_found',
 				status: 404,
+				requestTime: performance.now() - startTime,
+			});
+			analytics.write();
+			return response;
+		}
+
+		if (project.status !== 'READY') {
+			const response = new Response('Project not ready', { status: 503 });
+			analytics.setData({
+				requestType: 'project_not_ready',
+				status: 503,
 				requestTime: performance.now() - startTime,
 			});
 			analytics.write();

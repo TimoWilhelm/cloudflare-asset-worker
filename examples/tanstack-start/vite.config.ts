@@ -14,6 +14,7 @@ export default defineConfig({
 				rollupOptions: {
 					preserveEntrySignatures: 'strict', // https://github.com/cloudflare/workers-sdk/issues/10213
 					output: {
+						entryFileNames: 'index.js',
 						// inlineDynamicImports: true, // bundle to single file
 					},
 				},

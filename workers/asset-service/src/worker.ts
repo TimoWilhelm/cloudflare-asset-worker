@@ -107,8 +107,16 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @returns True if an asset exists for this request, false otherwise
 	 */
 	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfigInput): Promise<boolean> {
-		const config = normalizeConfiguration(projectConfig);
-		return handleCanFetch(request, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
+		try {
+			const config = normalizeConfiguration(projectConfig);
+			return await handleCanFetch(request, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
+		} catch (e) {
+			console.error('Error in canFetch RPC method:', e);
+			if (e instanceof Error) {
+				throw new Error(`Asset Service canFetch failed: ${e.message}`);
+			}
+			throw new Error(`Asset Service canFetch failed with unknown error: ${String(e)}`);
+		}
 	}
 
 	/**

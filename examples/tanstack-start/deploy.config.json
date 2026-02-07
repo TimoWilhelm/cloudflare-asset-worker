@@ -7,7 +7,7 @@
 		"ignore": ["**/*.map"]
 	},
 	"serverCode": {
-		"entrypoint": "server.js",
+		"entrypoint": "index.js",
 		"modulesDirectory": "./dist/server",
 		"compatibilityDate": "2025-09-24"
 	},
