@@ -157,7 +157,7 @@ export async function uploadAssets(
 		return new Response('Project not found', { status: 404 });
 	}
 
-	// Load session (cached)
+	// Load session
 	const sessionKey = `upload-session/${projectId}/${jwtPayload.sessionId}`;
 	const sessionData = await projectsKv.get(sessionKey, { type: 'text' });
 	if (!sessionData) {
@@ -166,6 +166,12 @@ export async function uploadAssets(
 
 	const session: UploadSession = JSON.parse(sessionData);
 	session.uploadedHashes = new Set(session.uploadedHashes); // Restore Set from JSON
+
+	// Build reverse index: hash -> { pathname, size } for O(1) lookups
+	const hashIndex = new Map<string, { pathname: string; size: number }>();
+	for (const [pathname, data] of Object.entries(session.manifest)) {
+		hashIndex.set(data.hash, { pathname, size: data.size });
+	}
 
 	// Parse body - expecting JSON with base64 encoded files
 	const payload = await request.json();
@@ -179,8 +185,8 @@ export async function uploadAssets(
 	// Upload each asset
 	for (const [hash, base64Content] of Object.entries(payloadValidation.data)) {
 		// Verify hash is in the manifest
-		const isValidHash = Object.values(session.manifest).some((entry) => entry.hash === hash);
-		if (!isValidHash) {
+		const indexEntry = hashIndex.get(hash);
+		if (!indexEntry) {
 			return new Response(`Hash ${hash} not found in manifest`, { status: 400 });
 		}
 
@@ -198,21 +204,13 @@ export async function uploadAssets(
 			return new Response(`Content hash mismatch: expected ${hash}, got ${actualHash}`, { status: 400 });
 		}
 
-		// Verify size matches manifest (optional but recommended)
-		const manifestEntry = Object.entries(session.manifest).find(([_, data]) => data.hash === hash);
-		if (manifestEntry) {
-			const [pathname, data] = manifestEntry;
-			if (data.size && content.length !== data.size) {
-				return new Response(`Size mismatch for ${pathname}: expected ${data.size}, got ${content.length}`, { status: 400 });
-			}
+		// Verify size matches manifest
+		if (indexEntry.size && content.length !== indexEntry.size) {
+			return new Response(`Size mismatch for ${indexEntry.pathname}: expected ${indexEntry.size}, got ${content.length}`, { status: 400 });
 		}
 
 		// Find content type for this hash
-		let contentType: string | undefined;
-		if (manifestEntry) {
-			const pathname = manifestEntry[0];
-			contentType = guessContentType(pathname);
-		}
+		const contentType = guessContentType(indexEntry.pathname);
 
 		// Upload to KV via AssetApi
 		await assetWorker.uploadAsset(hash, content.buffer as ArrayBuffer, projectId, contentType);

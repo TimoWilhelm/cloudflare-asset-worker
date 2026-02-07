@@ -120,7 +120,7 @@ export async function deployProject(
 				moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
 				totalServerCodeModules++;
 
-				// Check if module already exists in KV (cached)
+				// Check if module already exists in KV
 				const moduleKey = getServerCodeKey(projectId, contentHash);
 				const existingModule = await serverCodeKv.get(moduleKey, { type: 'arrayBuffer' });
 
@@ -145,7 +145,7 @@ export async function deployProject(
 				entrypoint: payload.serverCode.entrypoint,
 				modules: moduleManifest,
 				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
-				env: { ...payload.env },
+				env: { ...(payload.env ?? {}) },
 			};
 
 			const manifestKey = getServerCodeKey(projectId, 'MANIFEST');

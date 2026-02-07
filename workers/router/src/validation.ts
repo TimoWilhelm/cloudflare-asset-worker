@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';
 
 // =============================================================================
 // Utility Functions
@@ -68,11 +69,8 @@ export const MAX_ENV_VAR_SIZE = 5 * 1000;
 /** Maximum length of a project name */
 export const MAX_PROJECT_NAME_LENGTH = 128;
 
-/** Maximum number of static redirects */
-export const MAX_STATIC_REDIRECTS = 2000;
-
-/** Maximum number of dynamic redirects */
-export const MAX_DYNAMIC_REDIRECTS = 100;
+// Re-export shared limits for backward compatibility
+export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };
 
 /** Maximum length of a redirect pattern (source path) */
 export const MAX_REDIRECT_PATTERN_LENGTH = 2048;

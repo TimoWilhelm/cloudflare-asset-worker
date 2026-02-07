@@ -22,8 +22,8 @@ export async function runWatchdog(env: Env): Promise<void> {
  *
  * Cleanup criteria:
  * 1. Status is 'PENDING' and created > 30 minutes ago.
- * 2. Status is 'ERROR'.
- * 3. Status is missing (legacy/undefined) -> Treated as invalid/incomplete per strict mode.
+ * 2. Status is 'ERROR' and updated > 30 minutes ago.
+ * 3. Status is missing (legacy/undefined) -> Treated as invalid/incomplete.
  *
  * @param env - The worker environment bindings
  */
@@ -31,13 +31,6 @@ async function cleanupStaleDeployments(env: Env): Promise<void> {
 	const projectsKv = env.KV_PROJECTS;
 	const serverCodeKv = env.KV_SERVER_CODE;
 	const assetWorker = env.ASSET_WORKER as Service<AssetApi>;
-
-	// List all projects (pagination might be needed if > 1000 projects, but for now we do one batch)
-	// Ideally we would iterate all keys, but let's stick to the listProjects helper or direct listing if helper is paginated
-	// listProjects helper fetches values which is good for checking status.
-	// For a robust implementation with many projects, we should stream keys.
-	// Given the scope, let's use listProjects with a higher limit or loop.
-	// For this task, I'll loop until no more cursor.
 
 	let cursor: string | undefined = undefined;
 	let hasMore = true;
@@ -58,38 +51,47 @@ async function cleanupStaleDeployments(env: Env): Promise<void> {
 			let shouldDelete = false;
 			let reason = '';
 
-			// Check for missing status (breaking change: invalid)
-			if (!project.status) {
+			if (!project.status || !['PENDING', 'READY', 'ERROR'].includes(project.status)) {
+				// Missing or unknown status — treat as invalid/incomplete
 				shouldDelete = true;
-				reason = 'Missing status (Legacy/Invalid)';
-			}
-			// Check for ERROR status (with grace period)
-			else if (project.status === 'ERROR') {
+				reason = `Invalid or missing status: '${project.status ?? 'undefined'}'`;
+			} else if (project.status === 'ERROR') {
+				// Check for ERROR status (with grace period)
 				const updatedAt = new Date(project.updatedAt).getTime();
-				const now = Date.now();
-				const ageInMinutes = (now - updatedAt) / (1000 * 60);
-
-				if (ageInMinutes > 30) {
+				if (isNaN(updatedAt)) {
 					shouldDelete = true;
-					reason = `Deployment failed (ERROR state, ${ageInMinutes.toFixed(0)}m old)`;
+					reason = 'ERROR state with invalid updatedAt timestamp';
+				} else {
+					const ageInMinutes = (Date.now() - updatedAt) / (1000 * 60);
+					if (ageInMinutes > 30) {
+						shouldDelete = true;
+						reason = `Deployment failed (ERROR state, ${ageInMinutes.toFixed(0)}m old)`;
+					}
 				}
-			}
-			// Check for stale PENDING status (> 30 mins)
-			else if (project.status === 'PENDING') {
+			} else if (project.status === 'PENDING') {
+				// Check for stale PENDING status (> 30 mins)
 				const createdAt = new Date(project.createdAt).getTime();
-				const now = Date.now();
-				const ageInMinutes = (now - createdAt) / (1000 * 60);
-
-				if (ageInMinutes > 30) {
+				if (isNaN(createdAt)) {
 					shouldDelete = true;
-					reason = `Stale PENDING state (${ageInMinutes.toFixed(0)}m old)`;
+					reason = 'PENDING state with invalid createdAt timestamp';
+				} else {
+					const ageInMinutes = (Date.now() - createdAt) / (1000 * 60);
+					if (ageInMinutes > 30) {
+						shouldDelete = true;
+						reason = `Stale PENDING state (${ageInMinutes.toFixed(0)}m old)`;
+					}
 				}
 			}
 
 			if (shouldDelete) {
-				console.log(`🗑️ Deleting project ${project.id} (${project.name}): ${reason}`);
-				await deleteProject(project.id, projectsKv, serverCodeKv, assetWorker);
-				deletedCount++;
+				try {
+					console.log(`🗑️ Deleting project ${project.id} (${project.name}): ${reason}`);
+					await deleteProject(project.id, projectsKv, serverCodeKv, assetWorker);
+					deletedCount++;
+				} catch (err) {
+					const errorMessage = err instanceof Error ? err.message : String(err);
+					console.error(`❌ Failed to delete project ${project.id}: ${errorMessage}`);
+				}
 			}
 		}
 

@@ -1,5 +1,5 @@
-// Import redirect limits from centralized validation
-import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../router/src/validation';
+// Import redirect limits from shared constants
+import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';
 
 // Re-export for backward compatibility
 export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };

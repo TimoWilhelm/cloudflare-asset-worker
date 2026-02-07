@@ -13,9 +13,9 @@ import { getServerCodeKey } from './project-manager';
  * @throws Error if the server code manifest or modules are not found
  */
 export async function runServerCode(projectId: string, request: Request, bindings: any): Promise<Response> {
-	// Load the manifest (cached)
+	// Load the manifest
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
-	const manifest = await env.KV_SERVER_CODE.get<ServerCodeManifest>(manifestKey, { type: 'json' });
+	const manifest = await env.KV_SERVER_CODE.get<ServerCodeManifest>(manifestKey, { type: 'json', cacheTtl: 300 });
 
 	if (!manifest) {
 		return new Response('Server code not found', { status: 404 });
@@ -28,8 +28,8 @@ export async function runServerCode(projectId: string, request: Request, binding
 	await Promise.all(
 		Object.entries(moduleManifest).map(async ([modulePath, { hash: contentHash, type }]) => {
 			const moduleKey = getServerCodeKey(projectId, contentHash);
-			// Load module from KV (cached)
-			const rawBuffer = await env.KV_SERVER_CODE.get(moduleKey, { type: 'arrayBuffer' });
+			// Load module from KV
+			const rawBuffer = await env.KV_SERVER_CODE.get(moduleKey, { type: 'arrayBuffer', cacheTtl: 86400 });
 
 			if (!rawBuffer) {
 				throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);

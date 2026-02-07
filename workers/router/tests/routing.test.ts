@@ -251,11 +251,20 @@ describe('routing utilities', () => {
 				expect(result.isPathBased).toBe(false);
 			});
 
+			it('handles .localhost subdomains', () => {
+				const url = new URL('http://myproject.localhost:3000/');
+				const result = extractProjectId(url);
+
+				expect(result.projectId).toBeNull();
+				expect(result.isPathBased).toBe(false);
+			});
+
 			it('handles IP addresses', () => {
 				const url = new URL('http://192.168.1.1/');
 				const result = extractProjectId(url);
 
-				expect(result.projectId).toBe('192');
+				// IP addresses should not be treated as subdomain routing
+				expect(result.projectId).toBeNull();
 				expect(result.isPathBased).toBe(false);
 			});
 		});

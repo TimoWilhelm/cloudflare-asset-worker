@@ -81,7 +81,9 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 					);
 				}
 
-				if (!authHeader || authHeader !== apiToken) {
+				// Support both raw token and "Bearer <token>" formats
+				const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+				if (!providedToken || providedToken !== apiToken) {
 					return c.json(
 						{
 							success: false,

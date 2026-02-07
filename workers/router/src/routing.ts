@@ -93,8 +93,15 @@ export function extractProjectId(url: URL): { projectId: string | null; isPathBa
 	}
 
 	// Check for subdomain-based routing: project-id.domain.com
-	const subdomain = url.hostname.split('.')[0];
-	if (subdomain && subdomain !== 'www' && !url.hostname.startsWith('localhost')) {
+	const hostname = url.hostname.toLowerCase();
+	const isLocal =
+		hostname === 'localhost' ||
+		hostname.endsWith('.localhost') ||
+		hostname === '127.0.0.1' ||
+		hostname === '::1' ||
+		/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname);
+	const subdomain = hostname.split('.')[0];
+	if (subdomain && subdomain !== 'www' && !isLocal) {
 		return {
 			projectId: subdomain,
 			isPathBased: false,
@@ -121,9 +128,5 @@ export function rewriteRequestUrl(request: Request, projectId: string): Request 
 		url.pathname = newPathname;
 	}
 
-	return new Request(url.toString(), {
-		method: request.method,
-		headers: request.headers,
-		body: request.body,
-	});
+	return new Request(url.toString(), request);
 }

@@ -29,7 +29,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 
 	private async getAssetsManifest(projectId: string): Promise<AssetsManifest> {
 		const manifestKey = `project/${projectId}/manifest`;
-		const manifestBuffer = await this.env.KV_ASSETS.get(manifestKey, 'arrayBuffer');
+		const manifestBuffer = await this.env.KV_ASSETS.get(manifestKey, { type: 'arrayBuffer', cacheTtl: 300 });
 		if (!manifestBuffer) {
 			throw new Error(`Failed to load assets manifest for project ${projectId}`);
 		}
@@ -243,14 +243,21 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			}
 		}
 
-		// Check which etags already exist in KV storage
-		const existenceChecks = await Promise.all(
-			entries.map(async (entry) => {
-				const namespacedETag = this.getNamespacedKey(projectId, entry.contentHash);
-				const exists = await this.env.KV_ASSETS.get(namespacedETag, 'stream');
-				return { entry, exists: exists !== null };
-			}),
-		);
+		// Check which etags already exist in KV storage using batch get (max 100 keys per call)
+		const namespacedEntries = entries.map((entry) => ({
+			entry,
+			namespacedKey: this.getNamespacedKey(projectId, entry.contentHash),
+		}));
+
+		const existenceChecks: { entry: ManifestEntry; exists: boolean }[] = [];
+		for (let i = 0; i < namespacedEntries.length; i += 100) {
+			const batch = namespacedEntries.slice(i, i + 100);
+			const keys = batch.map(({ namespacedKey }) => namespacedKey);
+			const results = await this.env.KV_ASSETS.get(keys, { type: 'text' });
+			for (const { entry, namespacedKey } of batch) {
+				existenceChecks.push({ entry, exists: results.get(namespacedKey) !== null });
+			}
+		}
 
 		// Filter to only entries that need uploading
 		const newEntries = existenceChecks.filter(({ exists }) => !exists).map(({ entry }) => entry);
@@ -290,6 +297,11 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const manifestSize = HEADER_SIZE + entries.length * ENTRY_SIZE;
 		const manifest = new Uint8Array(manifestSize);
 
+		// Write header: version (4 bytes) + entry count (4 bytes) + reserved (8 bytes)
+		const headerView = new DataView(manifest.buffer, manifest.byteOffset, manifest.byteLength);
+		headerView.setUint32(0, 1, false); // version 1, big-endian
+		headerView.setUint32(4, entries.length, false); // entry count, big-endian
+
 		// Write entries (path hash + content hash)
 		hashedEntries.forEach((entry, index) => {
 			const offset = HEADER_SIZE + index * ENTRY_SIZE;
@@ -308,13 +320,23 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @returns Array of objects with hash and exists boolean for each input
 	 */
 	async checkAssetsExist(eTags: string[], projectId: string): Promise<Array<{ hash: string; exists: boolean }>> {
-		const results = await Promise.all(
-			eTags.map(async (hash) => {
-				const namespacedKey = this.getNamespacedKey(projectId, hash);
-				const exists = await this.env.KV_ASSETS.get(namespacedKey, 'stream');
-				return { hash, exists: exists !== null };
-			}),
-		);
+		const namespacedMap = new Map<string, string>();
+		for (const hash of eTags) {
+			namespacedMap.set(this.getNamespacedKey(projectId, hash), hash);
+		}
+
+		const results: Array<{ hash: string; exists: boolean }> = [];
+		const allKeys = Array.from(namespacedMap.keys());
+
+		// Batch get: max 100 keys per call, each call counts as 1 subrequest
+		for (let i = 0; i < allKeys.length; i += 100) {
+			const batchKeys = allKeys.slice(i, i + 100);
+			const batchResults = await this.env.KV_ASSETS.get(batchKeys, { type: 'text' });
+			for (const key of batchKeys) {
+				results.push({ hash: namespacedMap.get(key)!, exists: batchResults.get(key) !== null });
+			}
+		}
+
 		return results;
 	}
 

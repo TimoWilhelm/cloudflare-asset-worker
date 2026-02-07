@@ -200,9 +200,10 @@ export class ApiClient {
 
 		// Phase 2: Upload session
 		console.log('\n🔄 Phase 2: Starting upload session...');
-		const { jwt: uploadJwt, buckets } = await this.createUploadSession(projectId, manifest);
+		const { jwt: sessionJwt, buckets } = await this.createUploadSession(projectId, manifest);
 
-		let completionJwt = uploadJwt;
+		// If no buckets, sessionJwt is already a completion token; otherwise it's an upload token
+		let completionJwt = sessionJwt;
 
 		if (buckets.length === 0) {
 			console.log('  ✓ All assets cached, skipping upload');
@@ -226,7 +227,7 @@ export class ApiClient {
 					}
 				}
 
-				const result = await this.uploadAssetBucket(projectId, uploadJwt, payload);
+				const result = await this.uploadAssetBucket(projectId, sessionJwt, payload);
 				if (result.jwt) {
 					completionJwt = result.jwt;
 				}

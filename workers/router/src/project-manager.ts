@@ -44,8 +44,8 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 		assetsCount: 0,
 	};
 
-	// PENDING projects auto-expire after 5 minutes if deployment never completes
-	await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project), { expirationTtl: 300 });
+	// PENDING projects auto-expire after 1 hour if deployment never completes
+	await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project), { expirationTtl: 3600 });
 
 	return new Response(
 		JSON.stringify({
@@ -83,8 +83,10 @@ export async function listProjects(projectsKv: KVNamespace, options: ListProject
 	const { keys, list_complete } = result;
 	const nextCursor = list_complete ? null : result.cursor;
 
+	// Only fetch metadata keys to avoid wasting reads on module/session keys
+	const metadataKeys = keys.filter((key: { name: string }) => key.name.endsWith('/metadata'));
 	const projects = await Promise.all(
-		keys.map(async (key: { name: string }) => {
+		metadataKeys.map(async (key: { name: string }) => {
 			return await projectsKv.get<ProjectMetadata>(key.name, { type: 'json' });
 		}),
 	);
@@ -200,7 +202,7 @@ export async function deleteProject(
  * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
-	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json' });
+	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json', cacheTtl: 300 });
 }
 
 /**
