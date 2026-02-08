@@ -96,6 +96,7 @@
 				width: 100%;
 				border-collapse: collapse;
 				text-align: left;
+				table-layout: fixed;
 			}
 
 			th {
@@ -142,12 +143,27 @@
 			.project-cell {
 				display: flex;
 				flex-direction: column;
+				min-width: 0;
 			}
 			.project-name {
 				font-size: 0.95rem;
 				font-weight: 600;
 				color: var(--text-primary);
 				margin-bottom: 0.15rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 100%;
+			}
+			.project-id {
+				font-size: 0.75rem;
+				color: var(--text-tertiary);
+				font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+				margin-bottom: 0.25rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 100%;
 			}
 			.project-meta {
 				font-size: 0.8125rem;
@@ -198,6 +214,10 @@
 				padding: 0.1rem 0.4rem;
 				border-radius: 4px;
 				border: 1px solid #e4e7ec;
+				max-width: 100%;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
 			}
 
 			/* Specific Badges */
@@ -275,11 +295,16 @@
 				display: flex;
 				justify-content: space-between;
 				align-items: center;
+				min-width: 0;
 			}
 			.modal-header h3 {
 				margin: 0;
 				font-size: 1.1rem;
 				font-weight: 600;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 100%;
 			}
 			.modal-close {
 				background: transparent;
@@ -338,7 +363,7 @@
 				font-size: 0.95rem;
 			}
 
-			@media (max-width: 768px) {
+			@media (max-width: 1024px) {
 				body {
 					padding: 0.5rem;
 				}
@@ -387,7 +412,6 @@
 				}
 
 				.project-name {
-					word-break: break-all;
 					margin-bottom: 0.25rem;
 				}
 
@@ -583,7 +607,10 @@
 				const project = projectData[projectId];
 				if (!project) return;
 
-				document.getElementById('modalTitle').textContent = `Config: ${projectId}`;
+				const displayName = project.name || projectId;
+				const titleElement = document.getElementById('modalTitle');
+				titleElement.textContent = `Config: ${displayName}`;
+				titleElement.title = `Config: ${displayName}`;
 
 				// Determine user-set keys (top-level only for now for bolding)
 				const userConfig = project.config || {};
@@ -645,7 +672,9 @@
 			}
 
 			async function deleteProject(id) {
-				if (!confirm(`Are you sure you want to delete project "${id}"?`)) return;
+				const project = projectData[id];
+				const displayName = project ? project.name || id : id;
+				if (!confirm(`Are you sure you want to delete project "${displayName}"?`)) return;
 				setLoading(true);
 				try {
 					const res = await fetch(`/__api/projects/${id}`, {
@@ -746,7 +775,8 @@
 						<tr>
 							<td class="col-project">
 								<div class="project-cell">
-									<div class="project-name">${p.id}</div>
+									<div class="project-name" title="${p.name || p.id}">${p.name || p.id}</div>
+									<div class="project-id" title="${p.id}">${p.id}</div>
 									<div class="project-meta">
 										<span>${formatDate(deployTime)}</span>
 										<span class="meta-separator">&bull;</span>
@@ -763,9 +793,9 @@
 									<div class="routes-row">
 										${routes
 											.slice(0, 3)
-											.map((r) => `<span class="route-pill">${r}</span>`)
+											.map((r) => `<span class="route-pill" title="${r}">${r}</span>`)
 											.join('')}
-										${routes.length > 3 ? `<span class="route-pill">+${routes.length - 3}</span>` : ''}
+										${routes.length > 3 ? `<span class="route-pill" title="${routes.slice(3).join(', ')}">+${routes.length - 3}</span>` : ''}
 									</div>
 								</div>
 							</td>
