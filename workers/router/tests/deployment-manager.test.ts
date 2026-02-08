@@ -1,7 +1,19 @@
+import { env } from 'cloudflare:test';
+
+import { createMock } from '../../shared/test-utilities';
 import { deployProject } from '../src/deployment-manager';
 import { createProject } from '../src/project-manager';
-import { generateJWT } from '../src/jwt';
-import { env } from 'cloudflare:test';
+
+import type AssetWorker from '../../asset-service/src/worker';
+
+interface ProjectResponse {
+	success: boolean;
+	project: { id: string };
+}
+
+interface DeployResponse {
+	success: boolean;
+}
 
 describe('deployment-manager', () => {
 	let projectsKv: KVNamespace;
@@ -24,9 +36,9 @@ describe('deployment-manager', () => {
 		}
 	});
 
-	const mockAssetWorker = {
+	const mockAssetWorker = createMock<Service<AssetWorker>>({
 		uploadManifest: async () => [],
-	} as any;
+	});
 
 	describe('environment variables validation', () => {
 		it('should accept deployments with 64 or fewer environment variables', async () => {
@@ -37,13 +49,13 @@ describe('deployment-manager', () => {
 			});
 
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			// Create 64 environment variables (at the limit)
-			const env: Record<string, string> = {};
-			for (let i = 1; i <= 64; i++) {
-				env[`VAR_${i}`] = `value_${i}`;
+			const environment: Record<string, string> = {};
+			for (let index = 1; index <= 64; index++) {
+				environment[`VAR_${index}`] = `value_${index}`;
 			}
 
 			// Deploy with 64 env vars
@@ -51,14 +63,14 @@ describe('deployment-manager', () => {
 				method: 'POST',
 				body: JSON.stringify({
 					projectName: 'Test Project',
-					env,
+					env: environment,
 				}),
 			});
 
 			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<DeployResponse>();
 			expect(data.success).toBe(true);
 		});
 
@@ -70,13 +82,13 @@ describe('deployment-manager', () => {
 			});
 
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			// Create 65 environment variables (exceeds limit)
-			const env: Record<string, string> = {};
-			for (let i = 1; i <= 65; i++) {
-				env[`VAR_${i}`] = `value_${i}`;
+			const environment: Record<string, string> = {};
+			for (let index = 1; index <= 65; index++) {
+				environment[`VAR_${index}`] = `value_${index}`;
 			}
 
 			// Deploy with 65 env vars
@@ -84,7 +96,7 @@ describe('deployment-manager', () => {
 				method: 'POST',
 				body: JSON.stringify({
 					projectName: 'Test Project',
-					env,
+					env: environment,
 				}),
 			});
 
@@ -105,7 +117,7 @@ describe('deployment-manager', () => {
 			});
 
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			// Deploy without env vars
@@ -119,7 +131,7 @@ describe('deployment-manager', () => {
 			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<DeployResponse>();
 			expect(data.success).toBe(true);
 		});
 
@@ -131,7 +143,7 @@ describe('deployment-manager', () => {
 			});
 
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			// Create an env var with exactly 5 KB of data (5000 bytes)
@@ -150,7 +162,7 @@ describe('deployment-manager', () => {
 			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<DeployResponse>();
 			expect(data.success).toBe(true);
 		});
 
@@ -162,7 +174,7 @@ describe('deployment-manager', () => {
 			});
 
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			// Create an env var with more than 5 KB of data (5001 bytes)

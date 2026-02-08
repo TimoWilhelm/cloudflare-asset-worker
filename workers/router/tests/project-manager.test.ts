@@ -1,3 +1,6 @@
+import { env } from 'cloudflare:test';
+
+import { createMock } from '../../shared/test-utilities';
 import {
 	createProject,
 	listProjects,
@@ -7,8 +10,8 @@ import {
 	getServerCodePrefix,
 	getServerCodeKey,
 } from '../src/project-manager';
-import { env } from 'cloudflare:test';
 import { ProjectMetadata } from '../src/types';
+
 import type AssetApi from '../../asset-service/src/worker';
 
 interface ProjectResponse {
@@ -27,7 +30,7 @@ interface ListProjectsResponse {
 	success: boolean;
 	projects: ProjectMetadata[];
 	pagination: {
-		nextCursor: string | null;
+		nextCursor: string | undefined;
 		hasMore: boolean;
 		limit: number;
 	};
@@ -134,7 +137,7 @@ describe('project-manager', () => {
 			expect(data.projects).toEqual([]);
 			expect(data.pagination).toBeDefined();
 			expect(data.pagination.hasMore).toBe(false);
-			expect(data.pagination.nextCursor).toBeNull();
+			expect(data.pagination.nextCursor).toBeUndefined();
 		});
 
 		it('returns all projects with pagination metadata', async () => {
@@ -163,10 +166,10 @@ describe('project-manager', () => {
 
 		it('respects custom limit parameter', async () => {
 			// Create 5 projects
-			for (let i = 1; i <= 5; i++) {
+			for (let index = 1; index <= 5; index++) {
 				const request = new Request('http://example.com', {
 					method: 'POST',
-					body: JSON.stringify({ name: `Project ${i}` }),
+					body: JSON.stringify({ name: `Project ${index}` }),
 				});
 				await createProject(request, projectsKv);
 			}
@@ -183,10 +186,10 @@ describe('project-manager', () => {
 
 		it('supports cursor-based pagination', async () => {
 			// Create 5 projects
-			for (let i = 1; i <= 5; i++) {
+			for (let index = 1; index <= 5; index++) {
 				const request = new Request('http://example.com', {
 					method: 'POST',
-					body: JSON.stringify({ name: `Project ${i}` }),
+					body: JSON.stringify({ name: `Project ${index}` }),
 				});
 				await createProject(request, projectsKv);
 			}
@@ -197,7 +200,7 @@ describe('project-manager', () => {
 
 			expect(data1.projects).toHaveLength(2);
 			expect(data1.pagination.hasMore).toBe(true);
-			expect(data1.pagination.nextCursor).not.toBeNull();
+			expect(data1.pagination.nextCursor).toBeDefined();
 
 			// Second page using cursor
 			const response2 = await listProjects(projectsKv, { limit: 2, cursor: data1.pagination.nextCursor! });
@@ -212,7 +215,7 @@ describe('project-manager', () => {
 
 			expect(data3.projects).toHaveLength(1);
 			expect(data3.pagination.hasMore).toBe(false);
-			expect(data3.pagination.nextCursor).toBeNull();
+			expect(data3.pagination.nextCursor).toBeUndefined();
 
 			// All projects should be unique across pages
 			const allProjectIds = [...data1.projects.map((p) => p.id), ...data2.projects.map((p) => p.id), ...data3.projects.map((p) => p.id)];
@@ -310,9 +313,9 @@ describe('project-manager', () => {
 			const projectId = createData.project.id;
 
 			// Mock AssetApi
-			const mockAssetWorker = {
+			const mockAssetWorker = createMock<Service<AssetApi>>({
 				deleteProjectAssets: async () => ({ deletedAssets: 0, deletedManifest: false }),
-			} as unknown as Service<AssetApi>;
+			});
 
 			// Delete the project
 			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
@@ -328,9 +331,9 @@ describe('project-manager', () => {
 		});
 
 		it('returns 404 for non-existent project', async () => {
-			const mockAssetWorker = {
+			const mockAssetWorker = createMock<Service<AssetApi>>({
 				deleteProjectAssets: async () => ({ deletedAssets: 0, deletedManifest: false }),
-			} as unknown as Service<AssetApi>;
+			});
 
 			const response = await deleteProject('non-existent-id', projectsKv, serverCodeKv, mockAssetWorker);
 			expect(response.status).toBe(404);
@@ -354,9 +357,9 @@ describe('project-manager', () => {
 			await serverCodeKv.put(getServerCodeKey(projectId, 'hash2'), 'content2');
 			await serverCodeKv.put(getServerCodeKey(projectId, 'MANIFEST'), 'manifest-content');
 
-			const mockAssetWorker = {
+			const mockAssetWorker = createMock<Service<AssetApi>>({
 				deleteProjectAssets: async () => ({ deletedAssets: 5, deletedManifest: true }),
-			} as unknown as Service<AssetApi>;
+			});
 
 			// Delete the project
 			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
@@ -389,12 +392,12 @@ describe('project-manager', () => {
 			const projectId = createData.project.id;
 
 			let calledWithProjectId: string | undefined;
-			const mockAssetWorker = {
+			const mockAssetWorker = createMock<Service<AssetApi>>({
 				deleteProjectAssets: async (id: string) => {
 					calledWithProjectId = id;
 					return { deletedAssets: 10, deletedManifest: true };
 				},
-			} as unknown as Service<AssetApi>;
+			});
 
 			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
 			const data = await response.json<{

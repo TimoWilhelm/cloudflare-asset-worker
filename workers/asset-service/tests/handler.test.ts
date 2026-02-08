@@ -1,10 +1,10 @@
 /// <reference types="../worker-configuration.d.ts" />
 
 import { vi } from 'vitest';
+
+import { Analytics } from '../src/analytics';
 import { normalizeConfiguration } from '../src/configuration';
 import { canFetch, handleRequest } from '../src/handler';
-import { Analytics } from '../src/analytics';
-import { env } from 'cloudflare:test';
 
 describe('[Asset Worker] `handleRequest`', () => {
 	it('attaches ETag headers to responses', async () => {
@@ -18,6 +18,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT',
+			fetchTimeMs: 0,
 		});
 
 		const response = await handleRequest(new Request('https://example.com/'), configuration, exists, getByETag, new Analytics());
@@ -37,6 +38,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT',
+			fetchTimeMs: 0,
 		});
 
 		const response = await handleRequest(
@@ -63,6 +65,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT',
+			fetchTimeMs: 0,
 		});
 
 		const response = await handleRequest(
@@ -89,6 +92,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT',
+			fetchTimeMs: 0,
 		});
 
 		const response = await handleRequest(
@@ -116,18 +120,12 @@ describe('[Asset Worker] `handleRequest`', () => {
 		let response = await handleRequest(
 			new Request('https://example.com/blog/../test'),
 			normalizeConfiguration({}),
-			async (pathname: string) => {
-				if (pathname.startsWith('/blog/')) {
-					// our route
-					return assets[pathname] ?? null;
-				} else {
-					return null;
-				}
-			},
+			async (pathname: string) => (pathname.startsWith('/blog/') ? assets[pathname] : undefined),
 			async (_: string) => ({
 				readableStream: new ReadableStream(),
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
+				fetchTimeMs: 0,
 			}),
 			new Analytics(),
 		);
@@ -138,18 +136,12 @@ describe('[Asset Worker] `handleRequest`', () => {
 		response = await handleRequest(
 			new Request('https://example.com/blog/%2E%2E/test'),
 			normalizeConfiguration({}),
-			async (pathname: string) => {
-				if (pathname.startsWith('/blog/')) {
-					// our route
-					return assets[pathname] ?? null;
-				} else {
-					return null;
-				}
-			},
+			async (pathname: string) => (pathname.startsWith('/blog/') ? assets[pathname] : undefined),
 			async (_: string) => ({
 				readableStream: new ReadableStream(),
 				contentType: 'text/html',
 				cacheStatus: 'HIT',
+				fetchTimeMs: 0,
 			}),
 			new Analytics(),
 		);
@@ -168,12 +160,13 @@ describe('[Asset Worker] `handleRequest`', () => {
 		});
 
 		const exists = async (pathname: string) => {
-			return assets[pathname] ?? null;
+			return assets[pathname];
 		};
 		const getByEtag = async (_: string) => ({
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT' as const,
+			fetchTimeMs: 0,
 		});
 
 		// first malformed URL should return 404 as no match above
@@ -196,6 +189,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'HIT',
+			fetchTimeMs: 0,
 		});
 
 		// Test cache HIT
@@ -209,6 +203,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 			readableStream: new ReadableStream(),
 			contentType: 'text/html',
 			cacheStatus: 'MISS',
+			fetchTimeMs: 0,
 		});
 
 		const cacheMissResponse = await handleRequest(new Request('https://example.com/'), configuration, exists, getByEtag, new Analytics());
@@ -374,7 +369,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						return eTag;
 					}
 
-					return null;
+					return;
 				},
 				getByETag,
 				new Analytics(),
@@ -407,7 +402,9 @@ describe('[Asset Worker] `handleRequest`', () => {
 						dynamic: { '/foo': { status: 301, to: '/bar' } },
 					},
 				},
-				() => Promise.resolve(null),
+				async (): Promise<string | undefined> => {
+					return;
+				},
 				() => {
 					throw new Error('bang');
 				},
@@ -517,7 +514,9 @@ describe('[Asset Worker] `handleRequest`', () => {
 			response = await handleRequest(
 				new Request('https://example.com/foo'),
 				configuration,
-				() => Promise.resolve(null),
+				async (): Promise<string | undefined> => {
+					return;
+				},
 				() => {
 					throw new Error('bang');
 				},
@@ -536,7 +535,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						return 'other-etag';
 					}
 
-					return null;
+					return;
 				},
 				async (requestedETag: string) => {
 					if (requestedETag === 'other-etag') {
@@ -549,6 +548,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 							}),
 							contentType: 'application/octet-stream',
 							cacheStatus: 'HIT' as const,
+							fetchTimeMs: 0,
 						};
 					}
 					throw new Error('bang');
@@ -568,7 +568,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						return 'other-etag';
 					}
 
-					return null;
+					return;
 				},
 				async (requestedETag: string) => {
 					if (requestedETag === 'other-etag') {
@@ -581,6 +581,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 							}),
 							contentType: 'text/html',
 							cacheStatus: 'HIT' as const,
+							fetchTimeMs: 0,
 						};
 					}
 					throw new Error('bang');
@@ -600,7 +601,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						return 'other-etag';
 					}
 
-					return null;
+					return;
 				},
 				async (requestedETag: string) => {
 					if (requestedETag === 'other-etag') {
@@ -613,6 +614,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 							}),
 							contentType: 'text/html',
 							cacheStatus: 'HIT' as const,
+							fetchTimeMs: 0,
 						};
 					}
 					throw new Error('bang');
@@ -632,7 +634,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 						return '404-etag';
 					}
 
-					return null;
+					return;
 				},
 				async (requestedETag: string) => {
 					if (requestedETag === '404-etag') {
@@ -645,6 +647,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 							}),
 							contentType: 'text/html',
 							cacheStatus: 'HIT' as const,
+							fetchTimeMs: 0,
 						};
 					}
 					throw new Error('bang');
@@ -659,7 +662,9 @@ describe('[Asset Worker] `handleRequest`', () => {
 			response = await handleRequest(
 				new Request('https://example.com/proxy'),
 				{ ...configuration, not_found_handling: 'none' },
-				async () => null,
+				async (): Promise<string | undefined> => {
+					return;
+				},
 				() => {
 					throw new Error('bang');
 				},
@@ -811,7 +816,7 @@ describe('[Asset Worker] `handleRequest`', () => {
 					},
 				},
 			});
-			const exists = vi.fn().mockReturnValue(null);
+			const exists = vi.fn();
 			const getByETag = vi.fn().mockReturnValue({
 				readableStream: new ReadableStream(),
 				contentType: 'text/html',
@@ -845,7 +850,7 @@ describe('[Asset Worker] `canFetch`', () => {
 				return 'some-etag';
 			}
 
-			return null;
+			return;
 		};
 
 		expect(
@@ -867,7 +872,7 @@ describe('[Asset Worker] `canFetch`', () => {
 				return 'some-etag';
 			}
 
-			return null;
+			return;
 		};
 
 		for (const notFoundHandling of ['single-page-application', '404-page'] as const) {
@@ -895,7 +900,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			if (['/404.html', '/index.html'].includes(pathname)) {
 				return 'some-etag';
 			}
-			return null;
+			return;
 		};
 
 		it('returns true for all requests with has_static_routing enabled', async () => {
@@ -919,7 +924,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			if (pathname === '/foo.html') {
 				return 'some-etag';
 			}
-			return null;
+			return;
 		};
 
 		expect(await canFetch(new Request('https://example.com/foo', { method: 'POST' }), normalizeConfiguration(), exists)).toBeTruthy();
@@ -933,7 +938,7 @@ describe('[Asset Worker] `canFetch`', () => {
 				return 'some-etag';
 			}
 
-			return null;
+			return;
 		};
 
 		const configuration = normalizeConfiguration({
@@ -965,14 +970,22 @@ describe('[Asset Worker] `canFetch`', () => {
 		expect(await canFetch(new Request('https://example.com/proxy-valid'), configuration, exists)).toBeTruthy();
 
 		expect(
-			await canFetch(new Request('https://example.com/proxy-invalid'), { ...configuration, not_found_handling: 'none' }, async () => null),
+			await canFetch(
+				new Request('https://example.com/proxy-invalid'),
+				{ ...configuration, not_found_handling: 'none' },
+				async (): Promise<string | undefined> => {
+					return;
+				},
+			),
 		).toBeTruthy();
 
 		expect(
 			await canFetch(
 				new Request('https://example.com/proxy-invalid'),
 				{ ...configuration, not_found_handling: '404-page' },
-				async () => null,
+				async (): Promise<string | undefined> => {
+					return;
+				},
 			),
 		).toBeTruthy();
 	});
@@ -982,7 +995,7 @@ describe('[Asset Worker] `canFetch`', () => {
 			if (['/404.html', '/index.html', '/foo.html'].includes(pathname)) {
 				return 'some-etag';
 			}
-			return null;
+			return;
 		};
 
 		it('respects not_found_handling when Sec-Fetch-Mode: navigate header is present', async () => {

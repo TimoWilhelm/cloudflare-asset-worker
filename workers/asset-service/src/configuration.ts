@@ -2,7 +2,6 @@
 import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';
 
 // Re-export for backward compatibility
-export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };
 
 // Base configuration properties shared by input and internal config
 interface AssetConfigBase {
@@ -81,3 +80,5 @@ export const normalizeConfiguration = (configuration?: AssetConfigInput): Requir
 		debug: configuration?.debug ?? false,
 	};
 };
+
+export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';

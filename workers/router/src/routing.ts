@@ -82,12 +82,12 @@ export function shouldRunWorkerFirst(config: boolean | string[] | undefined, pat
  * @param url - The URL to extract the project ID from
  * @returns Object containing the project ID (or null) and whether path-based routing was used
  */
-export function extractProjectId(url: URL): { projectId: string | null; isPathBased: boolean } {
+export function extractProjectId(url: URL): { projectId: string | undefined; isPathBased: boolean } {
 	// Check for path-based routing: /__project/project-id/...
 	if (url.pathname.startsWith('/__project/')) {
 		const parts = url.pathname.split('/');
 		return {
-			projectId: parts[2] || null,
+			projectId: parts[2] || undefined,
 			isPathBased: true,
 		};
 	}
@@ -108,7 +108,7 @@ export function extractProjectId(url: URL): { projectId: string | null; isPathBa
 		};
 	}
 
-	return { projectId: null, isPathBased: false };
+	return { projectId: undefined, isPathBased: false };
 }
 
 /**

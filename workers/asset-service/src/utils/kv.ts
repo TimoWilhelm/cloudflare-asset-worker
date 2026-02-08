@@ -18,30 +18,40 @@ export async function getAssetWithMetadataFromKV(assetsKVNamespace: KVNamespace,
 		try {
 			const asset = await assetsKVNamespace.getWithMetadata<AssetMetadata>(assetKey, {
 				type: 'stream',
-				cacheTtl: 31536000, // 1 year
+				cacheTtl: 31_536_000, // 1 year
 			});
 
 			if (asset.value === null) {
 				// Don't cache a 404 for a year by re-requesting with a minimum cacheTtl
-				const retriedAsset = await assetsKVNamespace.getWithMetadata<AssetMetadata>(assetKey, {
-					type: 'stream',
-					cacheTtl: 60, // Minimum value allowed
-				});
+				try {
+					const retriedAsset = await assetsKVNamespace.getWithMetadata<AssetMetadata>(assetKey, {
+						type: 'stream',
+						cacheTtl: 60, // Minimum value allowed
+					});
 
-				return retriedAsset;
+					return retriedAsset;
+				} catch {
+					// If the low-cacheTtl retry fails, return the original null result
+					// rather than bypassing the outer retry loop
+					return asset;
+				}
 			}
 			return asset;
-		} catch (err) {
+		} catch (error) {
 			if (attempts >= retries) {
 				let message = `KV GET ${assetKey} failed.`;
-				if (err instanceof Error) {
-					message = `KV GET ${assetKey} failed: ${err.message}`;
+				if (error instanceof Error) {
+					message = `KV GET ${assetKey} failed: ${error.message}`;
 				}
 				throw new Error(message);
 			}
 
-			// Exponential backoff, 1 second first time, then 2 second, then 4 second etc.
-			await new Promise((resolvePromise) => setTimeout(resolvePromise, Math.pow(2, attempts++) * 1000));
+			// Exponential backoff, 1 second first time, then 2 seconds, then 4 seconds etc.
+			await new Promise((resolvePromise) => setTimeout(resolvePromise, Math.pow(2, attempts) * 1000));
+			attempts++;
 		}
 	}
+
+	// Unreachable: the loop always returns or throws, but TypeScript can't prove it
+	throw new Error(`KV GET ${assetKey} failed after ${retries} retries.`);
 }

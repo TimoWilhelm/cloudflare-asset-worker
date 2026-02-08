@@ -6,7 +6,7 @@ export class AssetsManifest {
 	async get(pathname: string) {
 		const pathHash = await hashPath(pathname);
 		const entry = binarySearch(this.data, pathHash);
-		return entry ? Uint8ToHexString(entry) : null;
+		return entry ? Uint8ToHexString(entry) : undefined;
 	}
 }
 
@@ -19,7 +19,7 @@ export class AssetsManifest {
 export const hashPath = async (path: string) => {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(path);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer);
 	return new Uint8Array(hashBuffer, 0, PATH_HASH_SIZE);
 };
 
@@ -76,14 +76,14 @@ function comparePathHashWithEntry(searchValue: Uint8Array, manifest: Uint8Array,
 	let pathHashOffset = HEADER_SIZE + entryIndex * ENTRY_SIZE + PATH_HASH_OFFSET;
 	for (let offset = 0; offset < PATH_HASH_SIZE; offset++, pathHashOffset++) {
 		// We know that both values could not be undefined
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 		const s = searchValue[offset]!;
-		// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-		const e = manifest[pathHashOffset]!;
-		if (s < e) {
+
+		const entry = manifest[pathHashOffset]!;
+		if (s < entry) {
 			return -1;
 		}
-		if (s > e) {
+		if (s > entry) {
 			return 1;
 		}
 	}

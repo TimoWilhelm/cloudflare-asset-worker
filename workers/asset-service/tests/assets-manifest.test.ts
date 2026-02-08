@@ -1,21 +1,21 @@
-import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from '../src/constants';
-import AssetManifestFixture from '../fixtures/AssetManifest.bin';
+import AssetManifestFixture from './fixtures/AssetManifest.bin';
 import { binarySearch, hashPath } from '../src/assets-manifest';
+import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from '../src/constants';
 
 const encoder = new TextEncoder();
 
 async function SHA_256(value: string, length: number) {
 	const data = encoder.encode(value);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', new Uint8Array(data).buffer);
 	return new Uint8Array(hashBuffer, 0, length);
 }
 
 function hexToBytes(hex: string) {
-	if (!hex.match(/^([0-9a-f]{2})+$/gi)) {
+	if (!/^([0-9a-f]{2})+$/gi.test(hex)) {
 		throw new TypeError(`Invalid byte string:  ${hex}`);
 	}
 
-	return new Uint8Array(hex.match(/[0-9a-f]{2}/gi)?.map((b) => parseInt(b, 16)) ?? []);
+	return new Uint8Array(hex.match(/[0-9a-f]{2}/gi)?.map((b) => Number.parseInt(b, 16)) ?? []);
 }
 
 const encode = async (assetEntries: { path: string; contentHash: string }[]) => {
@@ -30,9 +30,9 @@ const encode = async (assetEntries: { path: string; contentHash: string }[]) => 
 
 	const assetManifestBytes = new Uint8Array(HEADER_SIZE + entries.length * ENTRY_SIZE);
 
-	for (const [i, { pathHashBytes, contentHash }] of entries.entries()) {
+	for (const [index, { pathHashBytes, contentHash }] of entries.entries()) {
 		const contentHashBytes = hexToBytes(contentHash);
-		const entryOffset = HEADER_SIZE + i * ENTRY_SIZE;
+		const entryOffset = HEADER_SIZE + index * ENTRY_SIZE;
 
 		assetManifestBytes.set(pathHashBytes, entryOffset + PATH_HASH_OFFSET);
 		assetManifestBytes.set(contentHashBytes, entryOffset + CONTENT_HASH_OFFSET);
@@ -104,9 +104,9 @@ describe('encode()', () => {
 const makePathForId = (id: number) => `/path${id}`;
 
 const makeManifestOfLength = async (length: number) => {
-	const entries = new Array(length).fill(undefined).map((_, i) => ({
-		path: makePathForId(i),
-		contentHash: String(i).padEnd(64, 'f'),
+	const entries = Array.from({ length }).map((_, index) => ({
+		path: makePathForId(index),
+		contentHash: String(index).padEnd(64, 'f'),
 	}));
 	return { entries, manifest: await encode(entries) };
 };
@@ -123,9 +123,11 @@ describe('search methods', async () => {
 			const { manifest, entries } = await makeManifestOfLength(1);
 			for (const searchEntry of entries) {
 				const path = await hashPath(searchEntry.path);
-				const foundEntry = binarySearch(new Uint8Array(manifest), path) as Uint8Array;
+				const foundEntry = binarySearch(new Uint8Array(manifest), path);
 				expect(foundEntry).not.toBe(false);
-				expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				if (foundEntry !== false) {
+					expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				}
 			}
 		});
 
@@ -133,9 +135,11 @@ describe('search methods', async () => {
 			const { manifest, entries } = await makeManifestOfLength(2);
 			for (const searchEntry of entries) {
 				const path = await hashPath(searchEntry.path);
-				const foundEntry = binarySearch(new Uint8Array(manifest), path) as Uint8Array;
+				const foundEntry = binarySearch(new Uint8Array(manifest), path);
 				expect(foundEntry).not.toBe(false);
-				expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				if (foundEntry !== false) {
+					expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				}
 			}
 		});
 
@@ -143,9 +147,11 @@ describe('search methods', async () => {
 			const { manifest, entries } = await makeManifestOfLength(3);
 			for (const searchEntry of entries) {
 				const path = await hashPath(searchEntry.path);
-				const foundEntry = binarySearch(new Uint8Array(manifest), path) as Uint8Array;
+				const foundEntry = binarySearch(new Uint8Array(manifest), path);
 				expect(foundEntry).not.toBe(false);
-				expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				if (foundEntry !== false) {
+					expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				}
 			}
 		});
 
@@ -153,9 +159,11 @@ describe('search methods', async () => {
 			const { manifest, entries } = await makeManifestOfLength(20_000);
 			for (const searchEntry of entries) {
 				const path = await hashPath(searchEntry.path);
-				const foundEntry = binarySearch(new Uint8Array(manifest), path) as Uint8Array;
+				const foundEntry = binarySearch(new Uint8Array(manifest), path);
 				expect(foundEntry).not.toBe(false);
-				expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				if (foundEntry !== false) {
+					expect(foundEntry).toEqual(hexToBytes(searchEntry.contentHash));
+				}
 			}
 		});
 
@@ -194,12 +202,12 @@ function compare(a: Uint8Array, b: Uint8Array) {
 		return 1;
 	}
 
-	for (const [i, v] of a.entries()) {
-		const bVal = b[i] as number;
-		if (v < bVal) {
+	for (const [index, v] of a.entries()) {
+		const bValue = b[index]!;
+		if (v < bValue) {
 			return -1;
 		}
-		if (v > bVal) {
+		if (v > bValue) {
 			return 1;
 		}
 	}

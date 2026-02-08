@@ -4,11 +4,29 @@
 	"type": "module",
 	"description": "A Cloudflare Worker for serving static assets from KV storage",
 	"scripts": {
+		"prepare": "husky",
 		"dev": "wrangler dev -c ./workers/router/wrangler.jsonc -c ./workers/asset-service/wrangler.jsonc",
-		"deploy": "bun run --filter '@cloudflare-asset-worker/*' deploy"
+		"deploy": "bun run --filter '@cloudflare-asset-worker/*' deploy",
+		"lint": "prettier --check . && eslint --cache --format=stylish .",
+		"format": "prettier --write . && eslint --cache --format=stylish --fix ."
 	},
 	"workspaces": [
 		"workers/*",
 		"cli"
-	]
+	],
+	"devDependencies": {
+		"@eslint/js": "^9.39.2",
+		"eslint": "^9.39.2",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-import-resolver-typescript": "^4.4.4",
+		"eslint-plugin-import-x": "^4.16.1",
+		"eslint-plugin-unicorn": "^62.0.0",
+		"eslint-plugin-unused-imports": "^4.3.0",
+		"globals": "^16.5.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.2.7",
+		"prettier": "^3.7.4",
+		"typescript": "^5.9.3",
+		"typescript-eslint": "^8.50.1"
+	}
 }

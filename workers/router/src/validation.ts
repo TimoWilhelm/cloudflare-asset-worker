@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+
 import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';
 
 // =============================================================================
@@ -19,20 +20,21 @@ import { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits
  * @returns Formatted string with appropriate unit
  */
 export function formatBytes(bytes: number, decimals: number = 2, binary: boolean = true): string {
+	if (bytes < 0) return `-${formatBytes(-bytes, decimals, binary)}`;
 	if (bytes === 0) return '0 B';
 	if (bytes === 1) return '1 B';
 
 	const k = binary ? 1024 : 1000;
-	const dm = decimals < 0 ? 0 : decimals;
+	const dm = Math.max(decimals, 0);
 	const sizes = binary ? ['B', 'KiB', 'MiB', 'GiB', 'TiB'] : ['B', 'KB', 'MB', 'GB', 'TB'];
 
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	const value = bytes / Math.pow(k, i);
+	const index = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+	const value = bytes / Math.pow(k, index);
 
 	// Don't show decimals for whole numbers
 	const formatted = value % 1 === 0 ? value.toString() : value.toFixed(dm);
 
-	return `${formatted} ${sizes[i]}`;
+	return `${formatted} ${sizes[index]}`;
 }
 
 // =============================================================================
@@ -70,7 +72,6 @@ export const MAX_ENV_VAR_SIZE = 5 * 1000;
 export const MAX_PROJECT_NAME_LENGTH = 128;
 
 // Re-export shared limits for backward compatibility
-export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS };
 
 /** Maximum length of a redirect pattern (source path) */
 export const MAX_REDIRECT_PATTERN_LENGTH = 2048;
@@ -152,7 +153,7 @@ export const uploadPayloadSchema = z
  * Schema for environment variables.
  * Validates count, key names, and value sizes.
  */
-export const envVarsSchema = z
+export const environmentVariablesSchema = z
 	.record(
 		z
 			.string()
@@ -160,19 +161,19 @@ export const envVarsSchema = z
 			.max(MAX_ENV_VAR_NAME_LENGTH, `Environment variable name cannot exceed ${MAX_ENV_VAR_NAME_LENGTH} characters`),
 		z.string(),
 	)
-	.superRefine((env, ctx) => {
-		const envVarCount = Object.keys(env).length;
-		if (envVarCount > MAX_ENV_VARS) {
-			ctx.addIssue({
+	.superRefine((environment, context) => {
+		const environmentVariableCount = Object.keys(environment).length;
+		if (environmentVariableCount > MAX_ENV_VARS) {
+			context.addIssue({
 				code: 'custom',
-				message: `Too many environment variables: ${envVarCount}. Maximum allowed is ${MAX_ENV_VARS}.`,
+				message: `Too many environment variables: ${environmentVariableCount}. Maximum allowed is ${MAX_ENV_VARS}.`,
 			});
 		}
 
-		for (const [key, value] of Object.entries(env)) {
+		for (const [key, value] of Object.entries(environment)) {
 			const valueSize = new TextEncoder().encode(String(value)).length;
 			if (valueSize > MAX_ENV_VAR_SIZE) {
-				ctx.addIssue({
+				context.addIssue({
 					code: 'custom',
 					path: [key],
 					message: `Environment variable '${key}' is too large: ${formatBytes(valueSize, 2, false)}. Maximum allowed is ${formatBytes(
@@ -255,9 +256,7 @@ const headerNameSchema = z
 	.max(MAX_HEADER_NAME_LENGTH, `Header name cannot exceed ${MAX_HEADER_NAME_LENGTH} characters`);
 
 /** Schema for header value */
-const headerValueSchema = z
-	.string()
-	.max(MAX_HEADER_VALUE_LENGTH, `Header value cannot exceed ${MAX_HEADER_VALUE_LENGTH} characters`);
+const headerValueSchema = z.string().max(MAX_HEADER_VALUE_LENGTH, `Header value cannot exceed ${MAX_HEADER_VALUE_LENGTH} characters`);
 
 /** Schema for header rule pattern (path matcher) */
 const headerRulePatternSchema = z
@@ -286,11 +285,11 @@ export const assetConfigSchema = z
 				static: z.record(redirectPatternSchema, redirectRuleSchema).optional(),
 				dynamic: z.record(redirectPatternSchema, redirectRuleSchema).optional(),
 			})
-			.superRefine((redirects, ctx) => {
+			.superRefine((redirects, context) => {
 				if (redirects.static) {
 					const staticCount = Object.keys(redirects.static).length;
 					if (staticCount > MAX_STATIC_REDIRECTS) {
-						ctx.addIssue({
+						context.addIssue({
 							code: 'custom',
 							path: ['static'],
 							message: `Too many static redirects: ${staticCount}. Maximum allowed is ${MAX_STATIC_REDIRECTS}.`,
@@ -300,7 +299,7 @@ export const assetConfigSchema = z
 				if (redirects.dynamic) {
 					const dynamicCount = Object.keys(redirects.dynamic).length;
 					if (dynamicCount > MAX_DYNAMIC_REDIRECTS) {
-						ctx.addIssue({
+						context.addIssue({
 							code: 'custom',
 							path: ['dynamic'],
 							message: `Too many dynamic redirects: ${dynamicCount}. Maximum allowed is ${MAX_DYNAMIC_REDIRECTS}.`,
@@ -329,7 +328,7 @@ export const deploymentPayloadSchema = z.object({
 	serverCode: z
 		.object({
 			entrypoint: z.string().min(1, 'Entrypoint cannot be empty'),
-			modules: z.record(modulePathSchema, serverCodeModuleSchema).superRefine((modules, ctx) => {
+			modules: z.record(modulePathSchema, serverCodeModuleSchema).superRefine((modules, context) => {
 				// Validate total server code size
 				let totalSize = 0;
 				for (const [_path, moduleData] of Object.entries(modules)) {
@@ -338,14 +337,14 @@ export const deploymentPayloadSchema = z.object({
 						// Estimate decoded size (base64 is ~4/3 the size of original)
 						const decodedSize = Math.ceil((base64Content.length * 3) / 4);
 						totalSize += decodedSize;
-					} catch (e) {
+					} catch {
 						// If we can't decode, skip size check for this module
 						continue;
 					}
 				}
 
 				if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
-					ctx.addIssue({
+					context.addIssue({
 						code: 'custom',
 						message: `Server code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`,
 					});
@@ -356,7 +355,7 @@ export const deploymentPayloadSchema = z.object({
 		.optional(),
 	config: assetConfigSchema,
 	run_worker_first: z.union([z.boolean(), z.array(z.string())]).optional(),
-	env: envVarsSchema,
+	env: environmentVariablesSchema,
 });
 
 /**
@@ -372,3 +371,5 @@ export const assetManifestRequestSchema = z.object({
 export const createProjectRequestSchema = z.object({
 	name: projectNameSchema,
 });
+
+export { MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../../shared/limits';

@@ -1,5 +1,6 @@
+import { createMock } from '../../shared/test-utilities';
 import { getAssetWithMetadataFromKV } from '../src/utils/kv';
-import type { AssetMetadata } from '../src/utils/kv';
+
 import type { MockInstance } from 'vitest';
 
 describe('[Asset Worker] Fetching assets from KV', () => {
@@ -8,9 +9,9 @@ describe('[Asset Worker] Fetching assets from KV', () => {
 		let spy: MockInstance;
 
 		beforeEach(() => {
-			mockKVNamespace = {
+			mockKVNamespace = createMock<KVNamespace>({
 				getWithMetadata: () => Promise.resolve(),
-			} as unknown as KVNamespace;
+			});
 
 			spy = vi.spyOn(mockKVNamespace, 'getWithMetadata');
 		});
@@ -26,7 +27,7 @@ describe('[Asset Worker] Fetching assets from KV', () => {
 					metadata: {
 						contentType: 'text/html',
 					},
-				}) as unknown as Promise<KVNamespaceGetWithMetadataResult<ReadableStream, AssetMetadata>>,
+				}),
 			);
 
 			const asset = await getAssetWithMetadataFromKV(mockKVNamespace, 'abcd');
@@ -70,18 +71,17 @@ describe('[Asset Worker] Fetching assets from KV', () => {
 		it('should retry on 404 and cache with 30s ttl', async () => {
 			let attempts = 0;
 			spy.mockImplementation(() => {
-				if (attempts++ === 0) {
-					return Promise.resolve({
-						value: null,
-					}) as unknown as Promise<KVNamespaceGetWithMetadataResult<ReadableStream, AssetMetadata>>;
-				} else {
-					return Promise.resolve({
-						value: '<html>Hello world</html>',
-						metadata: {
-							contentType: 'text/html',
-						},
-					}) as unknown as Promise<KVNamespaceGetWithMetadataResult<ReadableStream, AssetMetadata>>;
-				}
+				return attempts++ === 0
+					? Promise.resolve({
+							// eslint-disable-next-line unicorn/no-null -- KV API returns null for missing values
+							value: null,
+						})
+					: Promise.resolve({
+							value: '<html>Hello world</html>',
+							metadata: {
+								contentType: 'text/html',
+							},
+						});
 			});
 
 			const asset = await getAssetWithMetadataFromKV(mockKVNamespace, 'abcd');

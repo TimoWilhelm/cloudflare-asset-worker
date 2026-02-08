@@ -40,7 +40,7 @@ A simple static website with HTML and CSS.
 
 ```bash
 cd examples/static-site
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 **Project Structure:**
@@ -71,7 +71,7 @@ Complete application with both frontend assets and backend API.
 
 ```bash
 cd examples/fullstack-app
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 **Project Structure:**
@@ -108,7 +108,7 @@ Backend-only service with no static assets.
 
 ```bash
 cd examples/api-worker
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 **Project Structure:**
@@ -150,7 +150,7 @@ Full-stack React application using [TanStack Start](https://tanstack.com/start/l
 cd examples/tanstack-start
 npm install
 npm run build
-npm run deploy -- --create-project
+npm run deploy
 ```
 
 **Project Structure:**
@@ -185,7 +185,7 @@ tanstack-start/
 ```bash
 cd examples/<example-name>
 export CF_API_TOKEN=your-token
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 ### Dry Run (Preview)
@@ -194,14 +194,6 @@ See what would be deployed without actually deploying:
 
 ```bash
 npx cf-deploy deploy --dry-run
-```
-
-### Update Existing Project
-
-Deploy to an existing project by its ID:
-
-```bash
-npx cf-deploy deploy --project-id your-project-id
 ```
 
 ### List All Projects
@@ -217,7 +209,6 @@ Each example includes a `deploy.config.json` file:
 ```json
 {
   "projectName": "My App",
-  "projectId": null,
   "assets": {
     "directory": "./public",
     "patterns": ["**/*"]
@@ -369,13 +360,9 @@ Standard HTML handling:
 
 ## Tips
 
-### Fast Redeployment
+### Immutable Deployments
 
-Changes to assets or server code can be redeployed quickly:
-
-```bash
-npx cf-deploy deploy  # Uses projectId from config
-```
+Each `deploy` creates a new immutable project. Old projects can be cleaned up via the management API.
 
 ### Multiple Environments
 

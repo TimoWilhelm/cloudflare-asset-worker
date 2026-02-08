@@ -9,7 +9,8 @@ A command-line tool for automated deployment of applications to the Cloudflare M
 - **Server code deployment** - Deploy JavaScript/Python modules with automatic discovery
 - **Three-phase upload flow** - Efficient content-addressed uploads with deduplication
 - **Environment variable support** - Use ${ENV_VAR} syntax in config files
-- **Project management** - Create, list, and deploy to multiple projects
+- **Immutable deployments** - Each deploy creates a new project (no redeploys)
+- **Project management** - List and manage deployed projects
 - **Dry run mode** - Preview deployments before executing
 
 ## Installation
@@ -41,7 +42,6 @@ Edit `deploy.config.json`:
 ```json
 {
   "projectName": "My Application",
-  "projectId": null,
   "assets": {
     "directory": "./dist",
     "patterns": ["**/*"],
@@ -87,10 +87,10 @@ export CF_API_TOKEN=your-api-token
 
 ### 4. Deploy
 
-Deploy your application:
+Deploy your application (a new immutable project is created each time):
 
 ```bash
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 ## Commands
@@ -106,11 +106,11 @@ npx cf-deploy deploy [options]
 **Options:**
 
 - `-c, --config <path>` - Path to configuration file (default: `deploy.config.json`)
-- `--create-project` - Create a new project instead of using existing ID
-- `--project-id <id>` - Override project ID from config
 - `--api-token <token>` - API token for authentication (or use CF_API_TOKEN env var)
 - `--router-url <url>` - Router URL (or use CF_ROUTER_URL env var, default: <http://127.0.0.1:8787>)
 - `--dry-run` - Show what would be deployed without actually deploying
+
+Each deploy creates a new immutable project. To update an application, deploy again and switch traffic to the new project.
 
 **Examples:**
 
@@ -120,12 +120,6 @@ npx cf-deploy deploy
 
 # Deploy with custom config
 npx cf-deploy deploy -c production.config.json
-
-# Create a new project and deploy
-npx cf-deploy deploy --create-project
-
-# Deploy to specific project
-npx cf-deploy deploy --project-id abc123
 
 # Dry run to preview deployment
 npx cf-deploy deploy --dry-run
@@ -172,13 +166,9 @@ npx cf-deploy init -o staging.config.json
 
 ### Required Fields
 
-- **`projectName`** (string) - Name of the project
+- **`projectName`** (string) - Name of the project. A new immutable project is created for each deployment.
 
 ### Optional Fields
-
-#### `projectId`
-
-(string) - Existing project ID. If omitted, use `--create-project` flag to create a new project.
 
 #### `assets`
 
@@ -522,7 +512,7 @@ project/
 └── production.config.json      # Production
 ```
 
-Deploy to different environments:
+Each deploy creates a new immutable project. Old projects can be cleaned up via the `list` command and the management API.
 
 ```bash
 # Development

@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 import { Command } from 'commander';
-import path from 'path';
-import fs from 'fs/promises';
-import { loadConfig, scanAssets, loadServerCode, formatSize } from '../lib/utils.js';
+
 import { ApiClient } from '../lib/api-client.js';
 import { createLogger } from '../lib/logger.js';
+import { loadConfig, scanAssets, loadServerCode, formatSize } from '../lib/utilities.js';
 
 const program = new Command();
 
@@ -16,10 +18,8 @@ program.name('cf-deploy').description('CLI tool for deploying applications to Cl
  */
 program
 	.command('deploy')
-	.description('Deploy an application based on configuration file')
+	.description('Deploy an application based on configuration file (creates a new immutable project each time)')
 	.option('-c, --config <path>', 'Path to configuration file', 'deploy.config.json')
-	.option('--create-project', 'Create a new project instead of using existing ID')
-	.option('--project-id <id>', 'Override project ID from config')
 	.option('--api-token <token>', 'API token for authentication (or use CF_API_TOKEN env var)')
 	.option('--router-url <url>', 'Router URL (or use CF_ROUTER_URL env var)', 'http://127.0.0.1:8787')
 	.option('--dry-run', 'Show what would be deployed without actually deploying')
@@ -32,7 +32,7 @@ program
 			// Load configuration
 			log.log(`📄 Loading configuration from: ${options.config}`);
 			const config = await loadConfig(options.config);
-			const configDir = path.dirname(path.resolve(options.config));
+			const configDirectory = path.dirname(path.resolve(options.config));
 
 			// Get API token and router URL
 			const apiToken = options.apiToken || process.env.CF_API_TOKEN;
@@ -44,29 +44,15 @@ program
 
 			const client = new ApiClient(routerUrl, apiToken);
 
-			// Determine project ID
-			let projectId = options.projectId || config.projectId;
-
-			if (options.createProject || !projectId) {
-				log.log('');
-				log.log(`📦 Creating new project: ${config.projectName}`);
-				await log.indent(async (log) => {
-					const project = await client.createProject(config.projectName);
-					projectId = project.id;
-					log.log(`✓ Project created: ${projectId}`);
-				});
-			} else {
-				log.log('');
-				log.log(`📦 Using existing project: ${projectId}`);
-				await log.indent(async (log) => {
-					try {
-						const project = await client.getProject(projectId);
-						log.log(`✓ Project found: ${project.name}`);
-					} catch (error) {
-						log.error(`⚠️  Warning: Could not verify project exists`);
-					}
-				});
-			}
+			// Create a new project for each deployment (immutable deployment model)
+			let projectId;
+			log.log('');
+			log.log(`📦 Creating new project: ${config.projectName}`);
+			await log.indent(async (log) => {
+				const project = await client.createProject(config.projectName);
+				projectId = project.id;
+				log.log(`✓ Project created: ${projectId}`);
+			});
 
 			// Validate redirect limits
 			if (config.config?.redirects) {
@@ -93,11 +79,11 @@ program
 			// Validate environment variables limit
 			if (config.env) {
 				const MAX_ENV_VARS = 64;
-				const MAX_ENV_VAR_SIZE = 5 * 1024; // 5 KB
+				const MAX_ENV_VAR_SIZE = 5 * 1000; // 5 KB
 
-				const envVarCount = Object.keys(config.env).length;
-				if (envVarCount > MAX_ENV_VARS) {
-					console.error(`\n❌ Error: Too many environment variables (${envVarCount}). Maximum allowed is ${MAX_ENV_VARS}.`);
+				const environmentVariableCount = Object.keys(config.env).length;
+				if (environmentVariableCount > MAX_ENV_VARS) {
+					console.error(`\n❌ Error: Too many environment variables (${environmentVariableCount}). Maximum allowed is ${MAX_ENV_VARS}.`);
 					process.exit(1);
 				}
 
@@ -127,12 +113,12 @@ program
 				log.log('');
 				log.log(`📁 Scanning assets from: ${config.assets.directory}`);
 				await log.indent(async (log) => {
-					const assetsDir = path.resolve(configDir, config.assets.directory);
-					deployment.assets = await scanAssets(assetsDir, config.assets.patterns || ['**/*'], config.assets.ignore || []);
+					const assetsDirectory = path.resolve(configDirectory, config.assets.directory);
+					deployment.assets = await scanAssets(assetsDirectory, config.assets.patterns || ['**/*'], config.assets.ignore || []);
 					log.log(`✓ Found ${deployment.assets.length} assets`);
 
 					// Validate asset count limit
-					const MAX_ASSETS = 20000;
+					const MAX_ASSETS = 20_000;
 					if (deployment.assets.length > MAX_ASSETS) {
 						log.log('');
 						log.error(`❌ Error: Too many assets (${deployment.assets.length}). Maximum allowed is ${MAX_ASSETS}.`);
@@ -152,8 +138,8 @@ program
 				log.log('');
 				log.log(`⚙️  Loading server code from: ${config.serverCode.modulesDirectory}`);
 				await log.indent(async (log) => {
-					const serverDir = path.resolve(configDir, config.serverCode.modulesDirectory);
-					deployment.serverCode = await loadServerCode(serverDir, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
+					const serverDirectory = path.resolve(configDirectory, config.serverCode.modulesDirectory);
+					deployment.serverCode = await loadServerCode(serverDirectory, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
 					log.log(`✓ Loaded ${Object.keys(deployment.serverCode.modules).length} modules`);
 					log.log(`📌 Entrypoint: ${deployment.serverCode.entrypoint}`);
 
@@ -195,7 +181,7 @@ program
 			log.log(`📊 Deployment Summary:`);
 			log.indent((log) => {
 				log.log(`- Project: ${config.projectName} (${projectId})`);
-				log.log(`- Assets deployed: ${result.deployedAssets || deployment.assets.length}`);
+				log.log(`- Assets deployed: ${result.deployedAssets || Math.max(deployment.assets.length, 0)}`);
 				if (result.newAssets !== undefined) {
 					log.log(`- New assets: ${result.newAssets}`);
 					log.log(`- Cached assets: ${result.skippedAssets}`);
@@ -247,7 +233,7 @@ program
 
 			console.log('\n📋 Projects:\n');
 			const subdomainTemplate = client.getSubdomainRoutingDomain();
-			projects.forEach((project) => {
+			for (const project of projects) {
 				console.log(`  • ${project.name} (${project.id})`);
 				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServerCode ? 'Yes' : 'No'}`);
 				if (subdomainTemplate) {
@@ -257,7 +243,7 @@ program
 					console.log(`    URL: ${client.getProjectUrl(project.id)}`);
 				}
 				console.log('');
-			});
+			}
 
 			console.log(`Total: ${projects.length} project(s)`);
 		} catch (error) {
@@ -281,14 +267,13 @@ program
 				console.error(`\n❌ File already exists: ${options.output}`);
 				console.log('   Use a different path with --output or remove the existing file.');
 				process.exit(1);
-			} catch (error) {
+			} catch {
 				// File doesn't exist, continue
 			}
 
 			// Create example config
 			const exampleConfig = {
 				projectName: 'My Application',
-				projectId: null,
 				assets: {
 					directory: './dist',
 					patterns: ['**/*'],
@@ -317,12 +302,12 @@ program
 				},
 			};
 
-			await fs.writeFile(options.output, JSON.stringify(exampleConfig, null, 2));
+			await fs.writeFile(options.output, JSON.stringify(exampleConfig, undefined, 2));
 			console.log(`\n\u2705 Created configuration file: ${options.output}`);
-			console.log('\n\ud83d\udcdd Next steps:');
+			console.log('\n\uD83D\uDCDD Next steps:');
 			console.log('  1. Edit the configuration file with your project details');
 			console.log('  2. Set your CF_API_TOKEN environment variable');
-			console.log('  3. Run: cf-deploy deploy --create-project');
+			console.log('  3. Run: cf-deploy deploy');
 		} catch (error) {
 			console.error('\n❌ Failed to create config:', error.message);
 			process.exit(1);

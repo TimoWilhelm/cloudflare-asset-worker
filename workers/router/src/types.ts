@@ -1,4 +1,9 @@
-import type { AssetConfigInput } from '../../asset-service/src/configuration';
+import { AssetConfigInput } from '../../asset-service/src/configuration';
+import AssetWorker from '../../asset-service/src/worker';
+
+export interface RouterEnvironment extends Env {
+	ASSET_WORKER: Service<AssetWorker>;
+}
 
 export interface ProjectMetadata {
 	id: string;
@@ -49,4 +54,11 @@ export interface DeploymentPayload {
 	config?: AssetConfigInput;
 	run_worker_first?: boolean | string[];
 	env?: Record<string, string>;
+}
+
+export interface CompletionJwtPayload {
+	sessionId: string;
+	projectId: string;
+	phase: 'complete';
+	manifest: Record<string, { hash: string; size: number }>;
 }

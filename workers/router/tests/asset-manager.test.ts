@@ -1,9 +1,53 @@
-import { createAssetUploadSession, uploadAssets } from '../src/asset-manager';
-import { createProject } from '../src/project-manager';
-import { generateJWT, verifyJWT } from '../src/jwt';
-import { computeContentHash } from '../src/content-utils';
 import * as base64 from '@stablelib/base64';
 import { env } from 'cloudflare:test';
+
+import { createMock } from '../../shared/test-utilities';
+import { createAssetUploadSession, uploadAssets } from '../src/asset-manager';
+import { computeContentHash } from '../src/content-utilities';
+import { generateJWT, verifyJWT } from '../src/jwt';
+import { createProject } from '../src/project-manager';
+
+import type AssetApi from '../../asset-service/src/worker';
+
+interface ProjectResponse {
+	success: boolean;
+	project: { id: string };
+}
+
+interface SessionResponse {
+	success: boolean;
+	result: {
+		jwt: string;
+		buckets: string[][];
+	};
+}
+
+interface UploadResponse {
+	success: boolean;
+	result: {
+		jwt: string | null;
+	};
+}
+
+interface JwtPayload {
+	[key: string]: unknown;
+	phase?: string;
+	sessionId?: string;
+}
+
+// Factory function for creating mock AssetApi at module scope
+const createMockAssetWorker = (existingHashes: Set<string> = new Set()): Service<AssetApi> =>
+	createMock<Service<AssetApi>>({
+		checkAssetsExist: async (hashes: string[], _projectId: string) => {
+			return hashes.map((hash) => ({
+				hash,
+				exists: existingHashes.has(hash),
+			}));
+		},
+		uploadAsset: async (hash: string, _content: ArrayBuffer, _projectId: string, _contentType?: string) => {
+			existingHashes.add(hash);
+		},
+	});
 
 describe('asset-manager', () => {
 	let projectsKv: KVNamespace;
@@ -19,20 +63,6 @@ describe('asset-manager', () => {
 		}
 	});
 
-	// Mock AssetApi
-	const createMockAssetWorker = (existingHashes: Set<string> = new Set()) =>
-		({
-			checkAssetsExist: async (hashes: string[], projectId: string) => {
-				return hashes.map((hash) => ({
-					hash,
-					exists: existingHashes.has(hash),
-				}));
-			},
-			uploadAsset: async (hash: string, content: ArrayBuffer, projectId: string, contentType?: string) => {
-				existingHashes.add(hash);
-			},
-		}) as any;
-
 	describe('createAssetUploadSession', () => {
 		it('creates upload session with valid manifest', async () => {
 			// Create a project first
@@ -41,7 +71,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -58,7 +88,7 @@ describe('asset-manager', () => {
 			const response = await createAssetUploadSession(projectId, request, projectsKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<SessionResponse>();
 			expect(data.success).toBe(true);
 			expect(data.result.jwt).toBeDefined();
 			expect(data.result.buckets).toBeDefined();
@@ -87,7 +117,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const request = new Request('http://example.com', {
@@ -107,7 +137,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const request = new Request('http://example.com', {
@@ -127,7 +157,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -151,7 +181,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -175,7 +205,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -199,7 +229,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const hash1 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -220,14 +250,14 @@ describe('asset-manager', () => {
 			const response = await createAssetUploadSession(projectId, request, projectsKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<SessionResponse>();
 			expect(data.success).toBe(true);
 			expect(data.result.buckets).toHaveLength(0);
 			expect(data.result.jwt).toBeDefined();
 
 			// Verify JWT is a completion token
-			const jwtPayload = await verifyJWT(data.result.jwt, jwtSecret);
-			expect(jwtPayload.phase).toBe('complete');
+			const jwtPayload = await verifyJWT<JwtPayload>(data.result.jwt, jwtSecret);
+			expect(jwtPayload!.phase).toBe('complete');
 		});
 
 		it('only uploads missing assets', async () => {
@@ -236,7 +266,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const hash1 = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -259,7 +289,7 @@ describe('asset-manager', () => {
 			const response = await createAssetUploadSession(projectId, request, projectsKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
-			const data = (await response.json()) as any;
+			const data = await response.json<SessionResponse>();
 			expect(data.success).toBe(true);
 
 			// Should only upload hash2 and hash3
@@ -276,7 +306,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -291,9 +321,9 @@ describe('asset-manager', () => {
 			const mockAssetWorker = createMockAssetWorker();
 			const response = await createAssetUploadSession(projectId, request, projectsKv, mockAssetWorker, jwtSecret);
 
-			const data = (await response.json()) as any;
-			const jwtPayload = await verifyJWT(data.result.jwt, jwtSecret);
-			const sessionId = jwtPayload.sessionId;
+			const data = await response.json<SessionResponse>();
+			const jwtPayload = await verifyJWT<JwtPayload>(data.result.jwt, jwtSecret);
+			const sessionId = jwtPayload!.sessionId;
 
 			// Verify session is stored
 			const session = await projectsKv.get(`upload-session/${projectId}/${sessionId}`, 'json');
@@ -309,7 +339,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const content = new TextEncoder().encode('test content');
@@ -325,7 +355,7 @@ describe('asset-manager', () => {
 
 			const mockAssetWorker = createMockAssetWorker();
 			const sessionResponse = await createAssetUploadSession(projectId, sessionRequest, projectsKv, mockAssetWorker, jwtSecret);
-			const sessionData = (await sessionResponse.json()) as any;
+			const sessionData = await sessionResponse.json<SessionResponse>();
 			const uploadJwt = sessionData.result.jwt;
 
 			// Upload the asset
@@ -342,14 +372,14 @@ describe('asset-manager', () => {
 			const uploadResponse = await uploadAssets(projectId, uploadRequest, projectsKv, mockAssetWorker, jwtSecret);
 			expect(uploadResponse.status).toBe(201);
 
-			const uploadData = (await uploadResponse.json()) as any;
+			const uploadData = await uploadResponse.json<UploadResponse>();
 			expect(uploadData.success).toBe(true);
 			expect(uploadData.result.jwt).toBeDefined();
 
 			// Verify completion JWT
-			const completionJwt = uploadData.result.jwt;
-			const jwtPayload = await verifyJWT(completionJwt, jwtSecret);
-			expect(jwtPayload.phase).toBe('complete');
+			const completionJwt = uploadData.result.jwt!;
+			const jwtPayload = await verifyJWT<JwtPayload>(completionJwt, jwtSecret);
+			expect(jwtPayload!.phase).toBe('complete');
 		});
 
 		it('rejects request without authorization', async () => {
@@ -410,7 +440,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const manifest = {
@@ -424,7 +454,7 @@ describe('asset-manager', () => {
 
 			const mockAssetWorker = createMockAssetWorker();
 			const sessionResponse = await createAssetUploadSession(projectId, sessionRequest, projectsKv, mockAssetWorker, jwtSecret);
-			const sessionData = (await sessionResponse.json()) as any;
+			const sessionData = await sessionResponse.json<SessionResponse>();
 			const uploadJwt = sessionData.result.jwt;
 
 			// Try to upload with wrong hash
@@ -449,7 +479,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const hash = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
@@ -464,7 +494,7 @@ describe('asset-manager', () => {
 
 			const mockAssetWorker = createMockAssetWorker();
 			const sessionResponse = await createAssetUploadSession(projectId, sessionRequest, projectsKv, mockAssetWorker, jwtSecret);
-			const sessionData = (await sessionResponse.json()) as any;
+			const sessionData = await sessionResponse.json<SessionResponse>();
 			const uploadJwt = sessionData.result.jwt;
 
 			// Upload content that doesn't match the hash
@@ -490,7 +520,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const content = new TextEncoder().encode('test content');
@@ -507,7 +537,7 @@ describe('asset-manager', () => {
 
 			const mockAssetWorker = createMockAssetWorker();
 			const sessionResponse = await createAssetUploadSession(projectId, sessionRequest, projectsKv, mockAssetWorker, jwtSecret);
-			const sessionData = (await sessionResponse.json()) as any;
+			const sessionData = await sessionResponse.json<SessionResponse>();
 			const uploadJwt = sessionData.result.jwt;
 
 			// First upload
@@ -546,7 +576,7 @@ describe('asset-manager', () => {
 				body: JSON.stringify({ name: 'Test Project' }),
 			});
 			const createResponse = await createProject(createRequest, projectsKv);
-			const createData = (await createResponse.json()) as any;
+			const createData = await createResponse.json<ProjectResponse>();
 			const projectId = createData.project.id;
 
 			const content1 = new TextEncoder().encode('content 1');
@@ -566,7 +596,7 @@ describe('asset-manager', () => {
 
 			const mockAssetWorker = createMockAssetWorker();
 			const sessionResponse = await createAssetUploadSession(projectId, sessionRequest, projectsKv, mockAssetWorker, jwtSecret);
-			const sessionData = (await sessionResponse.json()) as any;
+			const sessionData = await sessionResponse.json<SessionResponse>();
 			const uploadJwt = sessionData.result.jwt;
 
 			// Upload only first asset
@@ -583,9 +613,9 @@ describe('asset-manager', () => {
 			const uploadResponse = await uploadAssets(projectId, uploadRequest, projectsKv, mockAssetWorker, jwtSecret);
 			expect(uploadResponse.status).toBe(200);
 
-			const uploadData = (await uploadResponse.json()) as any;
+			const uploadData = await uploadResponse.json<UploadResponse>();
 			expect(uploadData.success).toBe(true);
-			expect(uploadData.result.jwt).toBeNull();
+			expect(uploadData.result.jwt).toBeUndefined();
 		});
 	});
 });

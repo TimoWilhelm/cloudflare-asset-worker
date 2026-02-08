@@ -1,6 +1,6 @@
-import { computeContentHash, guessContentType, inferModuleType, createBuckets } from '../src/content-utils';
+import { computeContentHash, guessContentType, inferModuleType, createBuckets } from '../src/content-utilities';
 
-describe('content-utils', () => {
+describe('content-utilities', () => {
 	describe('computeContentHash', () => {
 		it('computes SHA-256 hash from ArrayBuffer', async () => {
 			const content = new TextEncoder().encode('Hello, World!');
@@ -122,7 +122,7 @@ describe('content-utils', () => {
 
 	describe('createBuckets', () => {
 		it('creates buckets with default size of 10', () => {
-			const hashes = Array.from({ length: 25 }, (_, i) => `hash${i}`);
+			const hashes = Array.from({ length: 25 }, (_, index) => `hash${index}`);
 			const buckets = createBuckets(hashes);
 
 			expect(buckets).toHaveLength(3);
@@ -132,7 +132,7 @@ describe('content-utils', () => {
 		});
 
 		it('creates buckets with custom size', () => {
-			const hashes = Array.from({ length: 13 }, (_, i) => `hash${i}`);
+			const hashes = Array.from({ length: 13 }, (_, index) => `hash${index}`);
 			const buckets = createBuckets(hashes, 5);
 
 			expect(buckets).toHaveLength(3);
@@ -153,7 +153,7 @@ describe('content-utils', () => {
 		});
 
 		it('handles exact multiple of bucket size', () => {
-			const hashes = Array.from({ length: 20 }, (_, i) => `hash${i}`);
+			const hashes = Array.from({ length: 20 }, (_, index) => `hash${index}`);
 			const buckets = createBuckets(hashes, 10);
 
 			expect(buckets).toHaveLength(2);

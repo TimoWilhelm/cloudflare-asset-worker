@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { normalizeConfiguration, MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../src/configuration';
 
 describe('Configuration Validation', () => {
@@ -7,7 +8,7 @@ describe('Configuration Validation', () => {
 			const config = {
 				redirects: {
 					static: Object.fromEntries(
-						Array.from({ length: MAX_STATIC_REDIRECTS }, (_, i) => [`/path${i}`, { status: 301, to: `/new${i}` }]),
+						Array.from({ length: MAX_STATIC_REDIRECTS }, (_, index) => [`/path${index}`, { status: 301, to: `/new${index}` }]),
 					),
 					dynamic: {},
 				},
@@ -20,7 +21,7 @@ describe('Configuration Validation', () => {
 			const config = {
 				redirects: {
 					static: Object.fromEntries(
-						Array.from({ length: MAX_STATIC_REDIRECTS + 1 }, (_, i) => [`/path${i}`, { status: 301, to: `/new${i}` }]),
+						Array.from({ length: MAX_STATIC_REDIRECTS + 1 }, (_, index) => [`/path${index}`, { status: 301, to: `/new${index}` }]),
 					),
 					dynamic: {},
 				},
@@ -36,7 +37,7 @@ describe('Configuration Validation', () => {
 				redirects: {
 					static: {},
 					dynamic: Object.fromEntries(
-						Array.from({ length: MAX_DYNAMIC_REDIRECTS }, (_, i) => [`/path${i}/*`, { status: 301, to: `/new${i}/:splat` }]),
+						Array.from({ length: MAX_DYNAMIC_REDIRECTS }, (_, index) => [`/path${index}/*`, { status: 301, to: `/new${index}/:splat` }]),
 					),
 				},
 			};
@@ -49,7 +50,10 @@ describe('Configuration Validation', () => {
 				redirects: {
 					static: {},
 					dynamic: Object.fromEntries(
-						Array.from({ length: MAX_DYNAMIC_REDIRECTS + 1 }, (_, i) => [`/path${i}/*`, { status: 301, to: `/new${i}/:splat` }]),
+						Array.from({ length: MAX_DYNAMIC_REDIRECTS + 1 }, (_, index) => [
+							`/path${index}/*`,
+							{ status: 301, to: `/new${index}/:splat` },
+						]),
 					),
 				},
 			};
@@ -63,10 +67,10 @@ describe('Configuration Validation', () => {
 			const config = {
 				redirects: {
 					static: Object.fromEntries(
-						Array.from({ length: MAX_STATIC_REDIRECTS }, (_, i) => [`/path${i}`, { status: 301, to: `/new${i}` }]),
+						Array.from({ length: MAX_STATIC_REDIRECTS }, (_, index) => [`/path${index}`, { status: 301, to: `/new${index}` }]),
 					),
 					dynamic: Object.fromEntries(
-						Array.from({ length: MAX_DYNAMIC_REDIRECTS }, (_, i) => [`/dyn${i}/*`, { status: 301, to: `/new${i}/:splat` }]),
+						Array.from({ length: MAX_DYNAMIC_REDIRECTS }, (_, index) => [`/dyn${index}/*`, { status: 301, to: `/new${index}/:splat` }]),
 					),
 				},
 			};

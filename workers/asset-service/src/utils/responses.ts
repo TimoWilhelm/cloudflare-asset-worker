@@ -9,7 +9,7 @@ export class OkResponse extends Response {
 export class FoundResponse extends Response {
 	static readonly status = 302;
 	constructor(location: string, init?: ResponseInit) {
-		super(null, {
+		super(undefined, {
 			...init,
 			status: FoundResponse.status,
 			headers: { ...init?.headers, Location: location },
@@ -20,7 +20,7 @@ export class FoundResponse extends Response {
 export class SeeOtherResponse extends Response {
 	static readonly status = 303;
 	constructor(location: string, init?: ResponseInit) {
-		super(null, {
+		super(undefined, {
 			...init,
 			status: SeeOtherResponse.status,
 			headers: { ...init?.headers, Location: location },
@@ -38,7 +38,7 @@ export class NotModifiedResponse extends Response {
 export class TemporaryRedirectResponse extends Response {
 	static readonly status = 307;
 	constructor(location: string, init?: ResponseInit) {
-		super(null, {
+		super(undefined, {
 			...init,
 			status: TemporaryRedirectResponse.status,
 			headers: { ...init?.headers, Location: location },
@@ -49,7 +49,7 @@ export class TemporaryRedirectResponse extends Response {
 export class PermanentRedirectResponse extends Response {
 	static readonly status = 308;
 	constructor(location: string, init?: ResponseInit) {
-		super(null, {
+		super(undefined, {
 			...init,
 			status: PermanentRedirectResponse.status,
 			headers: { ...init?.headers, Location: location },
@@ -60,7 +60,7 @@ export class PermanentRedirectResponse extends Response {
 export class MovedPermanentlyResponse extends Response {
 	static readonly status = 301;
 	constructor(location: string, init?: ResponseInit) {
-		super(null, {
+		super(undefined, {
 			...init,
 			status: MovedPermanentlyResponse.status,
 			headers: { ...init?.headers, Location: location },
@@ -78,7 +78,7 @@ export class NotFoundResponse extends Response {
 export class MethodNotAllowedResponse extends Response {
 	static readonly status = 405;
 	constructor(init?: ResponseInit) {
-		super(null, { ...init, status: MethodNotAllowedResponse.status });
+		super(undefined, { ...init, status: MethodNotAllowedResponse.status });
 	}
 }
 
@@ -93,6 +93,6 @@ export class InternalServerErrorResponse extends Response {
 export class NoIntentResponse extends Response {
 	static readonly status = 404;
 	constructor(init?: ResponseInit) {
-		super(null, { ...init, status: NoIntentResponse.status });
+		super(undefined, { ...init, status: NoIntentResponse.status });
 	}
 }

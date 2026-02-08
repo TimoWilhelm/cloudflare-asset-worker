@@ -31,7 +31,10 @@ const PATH_ATTRIBUTES: Record<string, string[]> = {
 function shouldRewritePath(path: string, prefix: string): boolean {
 	if (!path.startsWith('/')) return false; // Not root-relative
 	if (path.startsWith('//')) return false; // Protocol-relative URL
-	if (path.startsWith(prefix)) return false; // Already prefixed
+	// Check if already prefixed: must match prefix followed by / or end-of-string
+	// to avoid false matches with longer project IDs (e.g. prefix "/__project/abc"
+	// should not match path "/__project/abcdef/file.js")
+	if (path.startsWith(prefix) && (path.length === prefix.length || path[prefix.length] === '/')) return false;
 	return true;
 }
 
@@ -40,9 +43,11 @@ function shouldRewritePath(path: string, prefix: string): boolean {
  * Only rewrites paths with known asset extensions to avoid breaking API calls.
  */
 function rewriteAssetPaths(content: string, prefix: string): string {
-	return content.replace(/(["'])(\/[^"'\s]+)\1/g, (match, quote, path) => {
+	return content.replaceAll(/(["'])(\/(?:[^"'\\]|\\.)+)\1/g, (match, quote, path) => {
 		if (!shouldRewritePath(path, prefix)) return match;
-		if (!ASSET_EXTENSIONS.test(path)) return match;
+		// Strip query string and fragment before testing the file extension
+		const pathWithoutQuery = path.split(/[?#]/)[0];
+		if (!ASSET_EXTENSIONS.test(pathWithoutQuery)) return match;
 		return `${quote}${prefix}${path}${quote}`;
 	});
 }
@@ -59,15 +64,15 @@ class PathRewriteHandler implements HTMLRewriterElementContentHandlers {
 	element(element: Element): void {
 		const prefix = `/__project/${this.projectId}`;
 
-		for (const attr of this.attributes) {
-			const value = element.getAttribute(attr);
+		for (const attribute of this.attributes) {
+			const value = element.getAttribute(attribute);
 			if (!value) continue;
 
-			if (attr === 'srcset') {
+			if (attribute === 'srcset') {
 				const rewritten = this.rewriteSrcset(value, prefix);
-				if (rewritten !== value) element.setAttribute(attr, rewritten);
+				if (rewritten !== value) element.setAttribute(attribute, rewritten);
 			} else if (shouldRewritePath(value, prefix)) {
-				element.setAttribute(attr, prefix + value);
+				element.setAttribute(attribute, prefix + value);
 			}
 		}
 	}
@@ -116,10 +121,11 @@ class HeadInjectionHandler implements HTMLRewriterElementContentHandlers {
 
 	element(element: Element): void {
 		const prefix = `/__project/${this.projectId}`;
+		const safePrefix = JSON.stringify(prefix);
 		element.prepend(
 			`<script>
 (function() {
-	const BASE_PATH = '${prefix}';
+	const BASE_PATH = ${safePrefix};
 	window.__BASE_PATH__ = BASE_PATH;
 
 	const originalFetch = window.fetch;

@@ -183,7 +183,7 @@ describe('routing utilities', () => {
 				const url = new URL('https://example.com/__project/');
 				const result = extractProjectId(url);
 
-				expect(result.projectId).toBeNull();
+				expect(result.projectId).toBeUndefined();
 				expect(result.isPathBased).toBe(true);
 			});
 		});
@@ -209,7 +209,7 @@ describe('routing utilities', () => {
 				const url = new URL('https://www.example.com/');
 				const result = extractProjectId(url);
 
-				expect(result.projectId).toBeNull();
+				expect(result.projectId).toBeUndefined();
 				expect(result.isPathBased).toBe(false);
 			});
 
@@ -217,7 +217,7 @@ describe('routing utilities', () => {
 				const url = new URL('http://localhost:3000/');
 				const result = extractProjectId(url);
 
-				expect(result.projectId).toBeNull();
+				expect(result.projectId).toBeUndefined();
 				expect(result.isPathBased).toBe(false);
 			});
 
@@ -255,7 +255,7 @@ describe('routing utilities', () => {
 				const url = new URL('http://myproject.localhost:3000/');
 				const result = extractProjectId(url);
 
-				expect(result.projectId).toBeNull();
+				expect(result.projectId).toBeUndefined();
 				expect(result.isPathBased).toBe(false);
 			});
 
@@ -264,7 +264,7 @@ describe('routing utilities', () => {
 				const result = extractProjectId(url);
 
 				// IP addresses should not be treated as subdomain routing
-				expect(result.projectId).toBeNull();
+				expect(result.projectId).toBeUndefined();
 				expect(result.isPathBased).toBe(false);
 			});
 		});

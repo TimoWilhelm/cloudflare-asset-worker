@@ -1,11 +1,13 @@
-import type { AssetManifestRequest, UploadSession, ProjectMetadata } from './types';
-import type AssetApi from '../../asset-service/src/worker';
 import * as base64 from '@stablelib/base64';
-import { computeContentHash, guessContentType, createBuckets } from './content-utils';
+import { z } from 'zod';
+
+import { computeContentHash, guessContentType, createBuckets } from './content-utilities';
 import { generateJWT, verifyJWT } from './jwt';
 import { getProject } from './project-manager';
 import { assetManifestRequestSchema, uploadPayloadSchema } from './validation';
-import { z } from 'zod';
+import AssetWorker from '../../asset-service/src/worker';
+
+import type { UploadSession } from './types';
 
 /**
  * Creates an asset upload session for a project.
@@ -22,7 +24,7 @@ export async function createAssetUploadSession(
 	projectId: string,
 	request: Request,
 	projectsKv: KVNamespace,
-	assetWorker: Service<AssetApi>,
+	assetWorker: Service<AssetWorker>,
 	jwtSecret: string,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
@@ -76,20 +78,20 @@ export async function createAssetUploadSession(
 
 		// Still need to store session for deployment phase to verify the completion token
 		const sessionKey = `upload-session/${projectId}/${sessionId}`;
-		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: [...session.uploadedHashes] }), {
 			expirationTtl: 3600, // 1 hour
 		});
 
-		return new Response(
-			JSON.stringify({
+		return Response.json(
+			{
 				result: {
 					jwt: completionJwt,
 					buckets: [],
 				},
 				success: true,
-				errors: null,
-				messages: null,
-			}),
+				errors: undefined,
+				messages: undefined,
+			},
 			{
 				status: 200,
 				headers: { 'Content-Type': 'application/json' },
@@ -99,20 +101,20 @@ export async function createAssetUploadSession(
 
 	// Store session in KV with 1 hour expiration
 	const sessionKey = `upload-session/${projectId}/${sessionId}`;
-	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: [...session.uploadedHashes] }), {
 		expirationTtl: 3600, // 1 hour
 	});
 
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			result: {
 				jwt: uploadJwt,
 				buckets,
 			},
 			success: true,
-			errors: null,
-			messages: null,
-		}),
+			errors: undefined,
+			messages: undefined,
+		},
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
@@ -135,7 +137,7 @@ export async function uploadAssets(
 	projectId: string,
 	request: Request,
 	projectsKv: KVNamespace,
-	assetWorker: Service<AssetApi>,
+	assetWorker: Service<AssetWorker>,
 	jwtSecret: string,
 ): Promise<Response> {
 	// Extract JWT from Authorization header
@@ -144,7 +146,7 @@ export async function uploadAssets(
 		return new Response('Missing or invalid Authorization header', { status: 401 });
 	}
 
-	const jwt = authHeader.substring(7);
+	const jwt = authHeader.slice(7);
 	const jwtPayload = await verifyJWT(jwt, jwtSecret);
 
 	if (!jwtPayload || jwtPayload.phase !== 'upload' || jwtPayload.projectId !== projectId) {
@@ -168,9 +170,12 @@ export async function uploadAssets(
 	session.uploadedHashes = new Set(session.uploadedHashes); // Restore Set from JSON
 
 	// Build reverse index: hash -> { pathname, size } for O(1) lookups
+	// If multiple pathnames share a hash, keep the first one (sizes must match for the same content hash)
 	const hashIndex = new Map<string, { pathname: string; size: number }>();
 	for (const [pathname, data] of Object.entries(session.manifest)) {
-		hashIndex.set(data.hash, { pathname, size: data.size });
+		if (!hashIndex.has(data.hash)) {
+			hashIndex.set(data.hash, { pathname, size: data.size });
+		}
 	}
 
 	// Parse body - expecting JSON with base64 encoded files
@@ -205,7 +210,7 @@ export async function uploadAssets(
 		}
 
 		// Verify size matches manifest
-		if (indexEntry.size && content.length !== indexEntry.size) {
+		if (content.length !== indexEntry.size) {
 			return new Response(`Size mismatch for ${indexEntry.pathname}: expected ${indexEntry.size}, got ${content.length}`, { status: 400 });
 		}
 
@@ -213,7 +218,8 @@ export async function uploadAssets(
 		const contentType = guessContentType(indexEntry.pathname);
 
 		// Upload to KV via AssetApi
-		await assetWorker.uploadAsset(hash, content.buffer as ArrayBuffer, projectId, contentType);
+		// new Uint8Array() ensures a copy is made and returns an underlying ArrayBuffer, avoiding SharedArrayBuffer issues
+		await assetWorker.uploadAsset(actualHash, new Uint8Array(content).buffer, projectId, contentType);
 		session.uploadedHashes.add(hash);
 	}
 
@@ -222,7 +228,7 @@ export async function uploadAssets(
 	const allUploaded = allHashesInBuckets.every((hash) => session.uploadedHashes.has(hash));
 
 	// Update session
-	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+	await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: [...session.uploadedHashes] }), {
 		expirationTtl: 3600,
 	});
 
@@ -240,19 +246,19 @@ export async function uploadAssets(
 
 		// Update session with completion token
 		session.completionToken = completionJwt;
-		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: Array.from(session.uploadedHashes) }), {
+		await projectsKv.put(sessionKey, JSON.stringify({ ...session, uploadedHashes: [...session.uploadedHashes] }), {
 			expirationTtl: 3600,
 		});
 
-		return new Response(
-			JSON.stringify({
+		return Response.json(
+			{
 				result: {
 					jwt: completionJwt,
 				},
 				success: true,
-				errors: null,
-				messages: null,
-			}),
+				errors: undefined,
+				messages: undefined,
+			},
 			{
 				status: 201,
 				headers: { 'Content-Type': 'application/json' },
@@ -261,15 +267,15 @@ export async function uploadAssets(
 	}
 
 	// More uploads pending
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			result: {
-				jwt: null,
+				jwt: undefined,
 			},
 			success: true,
-			errors: null,
-			messages: null,
-		}),
+			errors: undefined,
+			messages: undefined,
+		},
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },

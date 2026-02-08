@@ -1,5 +1,6 @@
 import { CACHE_CONTROL_BROWSER } from '../constants';
 import { generateRulesMatcher, replacer } from './rules-engine';
+
 import type { AssetConfig } from '../configuration';
 import type { AssetIntentWithResolver } from '../handler';
 
@@ -60,9 +61,9 @@ export function attachCustomHeaders(request: Request, response: Response, config
 	// Iterate through rules and find rules that match the path
 	const headersMatcher = generateRulesMatcher(configuration.headers.rules, ({ set = {}, unset = [] }, replacements) => {
 		const replacedSet: Record<string, string> = {};
-		Object.entries(set).forEach(([key, value]) => {
+		for (const [key, value] of Object.entries(set)) {
 			replacedSet[key] = replacer(value, replacements);
-		});
+		}
 		return {
 			set: replacedSet,
 			unset,
@@ -75,19 +76,19 @@ export function attachCustomHeaders(request: Request, response: Response, config
 	// existing and extra ones
 	const setMap = new Set();
 	// Apply every matched rule in order
-	matches.forEach(({ set = {}, unset = [] }) => {
-		unset.forEach((key) => {
+	for (const { set = {}, unset = [] } of matches) {
+		for (const key of unset) {
 			response.headers.delete(key);
-		});
-		Object.entries(set).forEach(([key, value]) => {
+		}
+		for (const [key, value] of Object.entries(set)) {
 			if (setMap.has(key.toLowerCase())) {
 				response.headers.append(key, value);
 			} else {
 				response.headers.set(key, value);
 				setMap.add(key.toLowerCase());
 			}
-		});
-	});
+		}
+	}
 
 	return response;
 }

@@ -8,9 +8,7 @@ import type { ModuleType } from './types';
  */
 export async function computeContentHash(content: ArrayBuffer | ArrayBufferView): Promise<string> {
 	const contentHashBuffer = await crypto.subtle.digest('SHA-256', content);
-	const contentHash = Array.from(new Uint8Array(contentHashBuffer))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+	const contentHash = [...new Uint8Array(contentHashBuffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
 	return contentHash;
 }
 
@@ -21,7 +19,7 @@ export async function computeContentHash(content: ArrayBuffer | ArrayBufferView)
  * @returns The MIME type string or undefined if the extension is not recognized
  */
 export function guessContentType(pathname: string): string | undefined {
-	const ext = pathname.split('.').pop()?.toLowerCase();
+	const extension = pathname.split('.').pop()?.toLowerCase();
 	const contentTypes: Record<string, string> = {
 		html: 'text/html',
 		css: 'text/css',
@@ -44,7 +42,7 @@ export function guessContentType(pathname: string): string | undefined {
 		eot: 'application/vnd.ms-fontobject',
 		otf: 'font/otf',
 	};
-	return ext ? contentTypes[ext] : undefined;
+	return extension ? contentTypes[extension] : undefined;
 }
 
 /**
@@ -54,27 +52,36 @@ export function guessContentType(pathname: string): string | undefined {
  * @returns The inferred module type (defaults to 'js' for unknown extensions)
  */
 export function inferModuleType(modulePath: string): ModuleType {
-	const ext = modulePath.split('.').pop()?.toLowerCase();
-	switch (ext) {
+	const extension = modulePath.split('.').pop()?.toLowerCase();
+	switch (extension) {
 		case 'js':
-		case 'mjs':
+		case 'mjs': {
 			return 'js';
-		case 'cjs':
+		}
+		case 'cjs': {
 			return 'cjs';
-		case 'py':
+		}
+		case 'py': {
 			return 'py';
-		case 'txt':
+		}
+		case 'txt': {
 			return 'text';
-		case 'html':
+		}
+		case 'html': {
 			return 'text';
-		case 'json':
+		}
+		case 'json': {
 			return 'json';
-		case 'bin':
+		}
+		case 'bin': {
 			return 'data';
-		case 'wasm':
+		}
+		case 'wasm': {
 			return 'wasm';
-		default:
-			return 'js'; // Default to ES modules
+		}
+		default: {
+			return 'js';
+		} // Default to ES modules
 	}
 }
 
@@ -87,8 +94,8 @@ export function inferModuleType(modulePath: string): ModuleType {
  */
 export function createBuckets(hashes: string[], maxPerBucket: number = 10): string[][] {
 	const buckets: string[][] = [];
-	for (let i = 0; i < hashes.length; i += maxPerBucket) {
-		buckets.push(hashes.slice(i, i + maxPerBucket));
+	for (let index = 0; index < hashes.length; index += maxPerBucket) {
+		buckets.push(hashes.slice(index, index + maxPerBucket));
 	}
 	return buckets;
 }

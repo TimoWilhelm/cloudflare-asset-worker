@@ -49,8 +49,10 @@ export CF_API_TOKEN=your-token
 
 ## Step 4: Deploy
 
+Each deploy creates a new immutable project:
+
 ```bash
-npx cf-deploy deploy --create-project
+npx cf-deploy deploy
 ```
 
 ## What's Next?

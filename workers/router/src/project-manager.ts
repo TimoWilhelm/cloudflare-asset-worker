@@ -1,8 +1,10 @@
+import { z } from 'zod';
+
+import { createProjectRequestSchema } from './validation';
+import { deleteAllKeys } from '../../shared/kv';
+
 import type { ProjectMetadata } from './types';
 import type AssetApi from '../../asset-service/src/worker';
-import { listAllKeys } from '../../shared/kv';
-import { createProjectRequestSchema } from './validation';
-import { z } from 'zod';
 
 // Pagination constants
 const DEFAULT_PAGE_SIZE = 100;
@@ -21,11 +23,11 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 	// Validate payload using Zod
 	const bodyValidation = createProjectRequestSchema.safeParse(bodyJson);
 	if (!bodyValidation.success) {
-		return new Response(
-			JSON.stringify({
+		return Response.json(
+			{
 				success: false,
 				error: z.prettifyError(bodyValidation.error),
-			}),
+			},
 			{ status: 400, headers: { 'Content-Type': 'application/json' } },
 		);
 	}
@@ -47,11 +49,11 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 	// PENDING projects auto-expire after 1 hour if deployment never completes
 	await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project), { expirationTtl: 3600 });
 
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			success: true,
 			project,
-		}),
+		},
 		{
 			status: 201,
 			headers: { 'Content-Type': 'application/json' },
@@ -64,6 +66,99 @@ export interface ListProjectsOptions {
 	cursor?: string;
 }
 
+export interface ListProjectsResult {
+	projects: ProjectMetadata[];
+	pagination: {
+		nextCursor: string | undefined;
+		hasMore: boolean;
+		limit: number;
+	};
+}
+
+/**
+ * Core listing logic that returns data directly.
+ * Uses the 'project-metadata/' prefix to list only metadata keys,
+ * avoiding pollution from module keys that share the 'project/' prefix.
+ *
+ * @param projectsKv - The KV namespace for storing project metadata
+ * @param options - Pagination options including limit and optional cursor
+ * @returns Object with projects array and pagination metadata
+ */
+export async function listProjectsData(projectsKv: KVNamespace, options: ListProjectsOptions = {}): Promise<ListProjectsResult> {
+	const limit = Math.min(Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
+
+	// Decode composite cursor: "kvCursor:skip" or just "skip" when KV listing
+	// completed but there are still metadata keys to paginate through.
+	let kvCursor: string | undefined;
+	let skip = 0;
+	if (options.cursor) {
+		const separatorIndex = options.cursor.indexOf(':');
+		if (separatorIndex === -1) {
+			skip = Number.parseInt(options.cursor, 10) || 0;
+		} else {
+			kvCursor = options.cursor.slice(0, separatorIndex) || undefined;
+			skip = Number.parseInt(options.cursor.slice(separatorIndex + 1), 10) || 0;
+		}
+	}
+
+	// Collect metadata keys across multiple KV list pages.
+	// The 'project/' prefix also matches module keys (project/{id}/module/...),
+	// so a single KV list page may contain few or no metadata keys.
+	// We always consume full KV pages and collect all metadata keys we find.
+	// This avoids the complexity of mid-page cursors which can cause duplicates.
+	const needed = skip + limit + 1;
+	const metadataKeys: { name: string }[] = [];
+	let innerCursor = kvCursor;
+	let listComplete = false;
+
+	while (metadataKeys.length < needed && !listComplete) {
+		const result = await projectsKv.list({
+			prefix: 'project/',
+			limit: 1000,
+			cursor: innerCursor,
+		});
+
+		for (const key of result.keys) {
+			if (key.name.endsWith('/metadata')) {
+				metadataKeys.push(key);
+			}
+		}
+
+		if (result.list_complete) {
+			listComplete = true;
+		} else {
+			innerCursor = result.cursor;
+		}
+	}
+
+	// Skip already-returned metadata keys from previous pages
+	const remaining = metadataKeys.slice(skip);
+	const hasMore = remaining.length > limit || !listComplete;
+	const truncatedKeys = remaining.slice(0, limit);
+
+	// Build next cursor: encode KV cursor + new skip offset
+	let nextCursor: string | undefined;
+	if (hasMore) {
+		const newSkip = skip + limit;
+		nextCursor = listComplete ? `${newSkip}` : `${innerCursor ?? ''}:${newSkip}`;
+	}
+
+	const projects = await Promise.all(
+		truncatedKeys.map(async (key: { name: string }) => {
+			return await projectsKv.get<ProjectMetadata>(key.name, { type: 'json' });
+		}),
+	);
+
+	return {
+		projects: projects.filter((p: ProjectMetadata | null): p is ProjectMetadata => p !== null),
+		pagination: {
+			nextCursor,
+			hasMore,
+			limit,
+		},
+	};
+}
+
 /**
  * Lists all projects with pagination support.
  *
@@ -72,35 +167,13 @@ export interface ListProjectsOptions {
  * @returns JSON response with projects array and pagination metadata
  */
 export async function listProjects(projectsKv: KVNamespace, options: ListProjectsOptions = {}): Promise<Response> {
-	const limit = Math.min(Math.max(1, options.limit ?? DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
-	const cursor = options.cursor || undefined;
+	const data = await listProjectsData(projectsKv, options);
 
-	const result = await projectsKv.list({
-		prefix: 'project/',
-		limit,
-		cursor,
-	});
-	const { keys, list_complete } = result;
-	const nextCursor = list_complete ? null : result.cursor;
-
-	// Only fetch metadata keys to avoid wasting reads on module/session keys
-	const metadataKeys = keys.filter((key: { name: string }) => key.name.endsWith('/metadata'));
-	const projects = await Promise.all(
-		metadataKeys.map(async (key: { name: string }) => {
-			return await projectsKv.get<ProjectMetadata>(key.name, { type: 'json' });
-		}),
-	);
-
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			success: true,
-			projects: projects.filter((p: ProjectMetadata | null) => p !== null),
-			pagination: {
-				nextCursor,
-				hasMore: !list_complete,
-				limit,
-			},
-		}),
+			...data,
+		},
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
@@ -122,11 +195,11 @@ export async function getProjectInfo(projectId: string, projectsKv: KVNamespace)
 		return new Response('Project not found', { status: 404 });
 	}
 
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			success: true,
 			project,
-		}),
+		},
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
@@ -162,31 +235,24 @@ export async function deleteProject(
 	let deletedServerCodeModules = 0;
 	if (project.hasServerCode) {
 		const serverCodePrefix = getServerCodePrefix(projectId);
-
-		// Delete all server code modules and manifest using pagination
-		for await (const key of listAllKeys(serverCodeKv, { prefix: serverCodePrefix })) {
-			await serverCodeKv.delete(key.name);
-			deletedServerCodeModules++;
-		}
+		deletedServerCodeModules = await deleteAllKeys(serverCodeKv, { prefix: serverCodePrefix });
 	}
 
 	// Delete any remaining upload sessions for this project
-	for await (const key of listAllKeys(projectsKv, { prefix: `upload-session/${projectId}/` })) {
-		await projectsKv.delete(key.name);
-	}
+	await deleteAllKeys(projectsKv, { prefix: `upload-session/${projectId}/` });
 
 	// Delete project metadata
 	await projectsKv.delete(`project/${projectId}/metadata`);
 
-	return new Response(
-		JSON.stringify({
+	return Response.json(
+		{
 			success: true,
 			message: 'Project deleted',
 			deletedAssets: assetDeletion.deletedAssets,
 			deletedManifest: assetDeletion.deletedManifest,
 			deletedServerCode: project.hasServerCode,
 			deletedServerCodeModules,
-		}),
+		},
 		{
 			status: 200,
 			headers: { 'Content-Type': 'application/json' },
@@ -202,7 +268,7 @@ export async function deleteProject(
  * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
-	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json', cacheTtl: 300 });
+	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json' });
 }
 
 /**

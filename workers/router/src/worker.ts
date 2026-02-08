@@ -1,25 +1,47 @@
 import { WorkerEntrypoint } from 'cloudflare:workers';
-import type AssetApi from '../../asset-service/src/worker';
-import type { AssetConfigInput } from '../../asset-service/src/configuration';
 import { Hono } from 'hono';
-import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
-import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
+
+import { Analytics } from './analytics';
 import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
-import { runServerCode, getServerCodeManifest } from './server-code-runner';
-import { Analytics } from './analytics';
-import { runWatchdog } from './watchdog';
 import { rewriteHtmlPaths, rewriteJsResponse } from './html-rewriter';
+import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
+import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
+import { runServerCode, getServerCodeManifest } from './server-code-runner';
+import { RouterEnvironment } from './types';
+import { runWatchdog } from './watchdog';
 
-export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
+import type { AssetConfigInput } from '../../asset-service/src/configuration';
+
+/**
+ * Constant-time string comparison to prevent timing attacks on auth tokens.
+ * Hashes both inputs first so the comparison is always over fixed-length
+ * buffers, avoiding length leakage from an early return.
+ */
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+	const encoder = new TextEncoder();
+	const [hashA, hashB] = await Promise.all([
+		crypto.subtle.digest('SHA-256', encoder.encode(a)),
+		crypto.subtle.digest('SHA-256', encoder.encode(b)),
+	]);
+	const bufA = new Uint8Array(hashA);
+	const bufB = new Uint8Array(hashB);
+	let result = 0;
+	for (let index = 0; index < bufA.byteLength; index++) {
+		result |= bufA[index]! ^ bufB[index]!;
+	}
+	return result === 0;
+}
+
+export class AssetBinding extends WorkerEntrypoint<RouterEnvironment, { projectId: string; config?: AssetConfigInput }> {
 	override async fetch(request: Request): Promise<Response> {
-		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+		const assets = this.env.ASSET_WORKER;
 		return await assets.serveAsset(request, this.ctx.props.projectId, this.ctx.props.config);
 	}
 }
 
-export default class AssetManager extends WorkerEntrypoint<Env> {
-	override async scheduled(event: ScheduledEvent): Promise<void> {
+export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
+	override async scheduled(_event: ScheduledEvent): Promise<void> {
 		this.ctx.waitUntil(runWatchdog(this.env));
 	}
 
@@ -29,7 +51,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		const url = new URL(request.url);
 
 		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
-		const coloRegion = request.cf?.colo as string;
+		const coloRegion = request.cf?.colo || 'UNKNOWN';
 
 		analytics.setData({
 			hostname: url.hostname,
@@ -83,7 +105,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 				// Support both raw token and "Bearer <token>" formats
 				const providedToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
-				if (!providedToken || providedToken !== apiToken) {
+				if (!providedToken || !(await timingSafeEqual(providedToken, apiToken))) {
 					return c.json(
 						{
 							success: false,
@@ -101,7 +123,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 
 			app.get('/__api/projects', async (c) => {
-				const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!, 10) : undefined;
+				const limit = c.req.query('limit') ? Number.parseInt(c.req.query('limit')!, 10) : undefined;
 				const cursor = c.req.query('cursor') || undefined;
 				return listProjects(this.env.KV_PROJECTS, { limit, cursor });
 			});
@@ -113,41 +135,41 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 			app.delete('/__api/projects/:projectId', async (c) => {
 				const projectId = c.req.param('projectId');
-				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+				const assets = this.env.ASSET_WORKER;
 				return deleteProject(projectId, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets);
 			});
 
 			app.post('/__api/projects/:projectId/assets-upload-session', async (c) => {
 				const projectId = c.req.param('projectId');
-				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+				const assets = this.env.ASSET_WORKER;
 				return createAssetUploadSession(projectId, c.req.raw, this.env.KV_PROJECTS, assets, this.env.JWT_SECRET);
 			});
 
 			app.post('/__api/projects/:projectId/assets/upload', async (c) => {
 				const projectId = c.req.param('projectId');
-				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+				const assets = this.env.ASSET_WORKER;
 				return uploadAssets(projectId, c.req.raw, this.env.KV_PROJECTS, assets, this.env.JWT_SECRET);
 			});
 
 			app.post('/__api/projects/:projectId/deploy', async (c) => {
 				const projectId = c.req.param('projectId');
-				const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+				const assets = this.env.ASSET_WORKER;
 				return deployProject(projectId, c.req.raw, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets, this.env.JWT_SECRET);
 			});
 
-			app.onError((err, c) => {
+			app.onError((error, c) => {
 				return c.json(
 					{
 						success: false,
-						error: err instanceof Error ? err.message : 'Unknown error',
+						error: error instanceof Error ? error.message : 'Unknown error',
 					},
 					500,
 				);
 			});
 
+			analytics.setData({ requestType: 'api' });
 			const response = await app.fetch(request, this.env);
 			analytics.setData({
-				requestType: 'api',
 				status: response.status,
 				requestTime: performance.now() - startTime,
 			});
@@ -162,7 +184,10 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				if (!cookieString) return undefined;
 				const cookies = cookieString.split(';');
 				for (const cookie of cookies) {
-					const [key, value] = cookie.split('=').map((c) => c.trim());
+					const equalsIndex = cookie.indexOf('=');
+					if (equalsIndex === -1) continue;
+					const key = cookie.slice(0, equalsIndex).trim();
+					const value = cookie.slice(equalsIndex + 1).trim();
 					if (key === name) return value;
 				}
 				return undefined;
@@ -170,12 +195,12 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 
 			// Allow access to login page without auth
 			if (url.pathname === '/admin/login.html') {
-				// @ts-ignore - ASSETS binding added in wrangler.jsonc
+				// ASSETS binding added in wrangler.jsonc
 				return this.env.ASSETS.fetch(request);
 			}
 
 			const token = getCookie('admin_token');
-			if (token && token === this.env.API_TOKEN) {
+			if (token && this.env.API_TOKEN && (await timingSafeEqual(token, this.env.API_TOKEN))) {
 				let assetRequest = request;
 				// Default to index.html if asking for /admin or /admin/
 				if (url.pathname === '/admin' || url.pathname === '/admin/') {
@@ -183,7 +208,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 					newUrl.pathname = '/admin/index.html';
 					assetRequest = new Request(newUrl, request);
 				}
-				// @ts-ignore - ASSETS binding added in wrangler.jsonc
+				// ASSETS binding added in wrangler.jsonc
 				return this.env.ASSETS.fetch(assetRequest);
 			}
 
@@ -262,16 +287,21 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		};
 
 		// Prefetch server code manifest in parallel with asset lookup when project has server code
-		const manifestPromise = project.hasServerCode ? getServerCodeManifest(projectId) : null;
+		const manifestPromise = project.hasServerCode ? getServerCodeManifest(projectId) : undefined;
 
 		// Helper to run server code with common parameters
 		const executeServerCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
 				const prefetchedManifest = manifestPromise ? await manifestPromise : undefined;
-				let response = await runServerCode(projectId, rewrittenRequest, {
-					ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
-				}, prefetchedManifest);
+				let response = await runServerCode(
+					projectId,
+					rewrittenRequest,
+					{
+						ASSETS: this.ctx.exports.AssetBinding({ props: { projectId, config: project.config } }),
+					},
+					prefetchedManifest,
+				);
 				// Apply path rewriting for path-based routing
 				// JS rewriting handles dynamic import() paths in JS responses
 				// HTML rewriting handles attributes + inline scripts in HTML responses
@@ -283,8 +313,8 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 				});
 				analytics.write();
 				return response;
-			} catch (err) {
-				const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				const response = new Response(`SSR Error: ${errorMessage}`, { status: 500 });
 				analytics.setData({
 					error: errorMessage,
@@ -310,7 +340,7 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 		}
 
 		// Try to serve static assets first (default behavior)
-		const assets = this.env.ASSET_WORKER as Service<AssetApi>;
+		const assets = this.env.ASSET_WORKER;
 
 		try {
 			// Clone the request because canFetch (RPC) might consume/read the body,
@@ -356,8 +386,8 @@ export default class AssetManager extends WorkerEntrypoint<Env> {
 			});
 			analytics.write();
 			return response;
-		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			const response = new Response(`Error: ${errorMessage}`, { status: 500 });
 			analytics.setData({
 				requestType: 'error',

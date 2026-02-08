@@ -1,6 +1,7 @@
-import fs from 'fs/promises';
-import path from 'path';
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 import { glob } from 'glob';
 import mime from 'mime-types';
 
@@ -10,19 +11,19 @@ import mime from 'mime-types';
  * @returns {Promise<Object>} Parsed configuration
  */
 export async function loadConfig(configPath) {
-	const configContent = await fs.readFile(configPath, 'utf-8');
+	const configContent = await fs.readFile(configPath, 'utf8');
 	const config = JSON.parse(configContent);
 
 	// Replace environment variable placeholders in env section (optional substitution)
 	// This allows ${VAR} syntax in the env section to reference local environment variables
 	if (config.env) {
-		const envStr = JSON.stringify(config.env);
-		const replacedStr = envStr.replace(/\$\{([^}]+)\}/g, (match, envVar) => {
-			const value = process.env[envVar];
+		const environmentString = JSON.stringify(config.env);
+		const replacedString = environmentString.replaceAll(/\$\{([^}]+)\}/g, (match, environmentVariable) => {
+			const value = process.env[environmentVariable];
 			// Keep original if not found (don't throw error)
-			return value !== undefined ? value : match;
+			return value === undefined ? match : value;
 		});
-		config.env = JSON.parse(replacedStr);
+		config.env = JSON.parse(replacedString);
 	}
 
 	return config;
@@ -37,18 +38,18 @@ export async function loadConfig(configPath) {
  */
 export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
 	const assets = [];
-	const absoluteDir = path.resolve(directory);
+	const absoluteDirectory = path.resolve(directory);
 
 	// Ensure directory exists
 	try {
-		await fs.access(absoluteDir);
-	} catch (error) {
-		throw new Error(`Assets directory not found: ${absoluteDir}`);
+		await fs.access(absoluteDirectory);
+	} catch {
+		throw new Error(`Assets directory not found: ${absoluteDirectory}`);
 	}
 
 	// Scan files using glob patterns
 	const files = await glob(patterns, {
-		cwd: absoluteDir,
+		cwd: absoluteDirectory,
 		ignore,
 		nodir: true,
 		dot: false,
@@ -57,7 +58,7 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
 	const MAX_ASSET_SIZE = 25 * 1024 * 1024; // 25 MiB
 
 	for (const file of files) {
-		const filePath = path.join(absoluteDir, file);
+		const filePath = path.join(absoluteDirectory, file);
 		const content = await fs.readFile(filePath);
 
 		// Validate individual asset file size
@@ -69,7 +70,7 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
 			);
 		}
 
-		const pathname = '/' + file.replace(/\\/g, '/'); // Normalize path separators
+		const pathname = '/' + file.replaceAll('\\', '/'); // Normalize path separators
 		const contentType = mime.lookup(file) || 'application/octet-stream';
 
 		assets.push({
@@ -89,18 +90,18 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
  * @returns {Promise<Object>} Server code configuration
  */
 export async function loadServerCode(directory, entrypoint, compatibilityDate = '2025-11-09') {
-	const absoluteDir = path.resolve(directory);
+	const absoluteDirectory = path.resolve(directory);
 
 	// Ensure directory exists
 	try {
-		await fs.access(absoluteDir);
-	} catch (error) {
-		throw new Error(`Server code directory not found: ${absoluteDir}`);
+		await fs.access(absoluteDirectory);
+	} catch {
+		throw new Error(`Server code directory not found: ${absoluteDirectory}`);
 	}
 
 	// Scan all JavaScript/TypeScript/Python files and other module types
 	const files = await glob(['**/*.js', '**/*.cjs', '**/*.mjs', '**/*.py', '**/*.json', '**/*.txt', '**/*.html', '**/*.bin', '**/*.wasm'], {
-		cwd: absoluteDir,
+		cwd: absoluteDirectory,
 		nodir: true,
 		dot: false,
 	});
@@ -110,41 +111,48 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	let totalSize = 0;
 
 	for (const file of files) {
-		const filePath = path.join(absoluteDir, file);
+		const filePath = path.join(absoluteDirectory, file);
 		const content = await fs.readFile(filePath);
-		const moduleName = file.replace(/\\/g, '/'); // Normalize path separators
+		const moduleName = file.replaceAll('\\', '/'); // Normalize path separators
 
 		// Track total server code size
 		totalSize += content.length;
 
 		// Determine module type from extension
-		const ext = path.extname(file).toLowerCase();
-		let moduleType = null;
+		const extension = path.extname(file).toLowerCase();
+		let moduleType;
 
-		switch (ext) {
+		switch (extension) {
 			case '.js':
-			case '.mjs':
+			case '.mjs': {
 				moduleType = 'js';
 				break;
-			case '.cjs':
+			}
+			case '.cjs': {
 				moduleType = 'cjs';
 				break;
-			case '.py':
+			}
+			case '.py': {
 				moduleType = 'py';
 				break;
-			case '.json':
+			}
+			case '.json': {
 				moduleType = 'json';
 				break;
+			}
 			case '.txt':
-			case '.html':
+			case '.html': {
 				moduleType = 'text';
 				break;
-			case '.bin':
+			}
+			case '.bin': {
 				moduleType = 'data';
 				break;
-			case '.wasm':
+			}
+			case '.wasm': {
 				moduleType = 'wasm';
 				break;
+			}
 		}
 
 		if (moduleType) {
@@ -166,7 +174,7 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 
 	// Verify entrypoint exists
 	if (!modules[entrypoint]) {
-		throw new Error(`Entrypoint module not found: ${entrypoint} in ${absoluteDir}`);
+		throw new Error(`Entrypoint module not found: ${entrypoint} in ${absoluteDirectory}`);
 	}
 
 	return {
@@ -182,7 +190,7 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
  * @returns {string} Hex-encoded hash
  */
 export function calculateHash(content) {
-	const buffer = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf-8');
+	const buffer = Buffer.isBuffer(content) ? content : Buffer.from(content, 'utf8');
 	return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
@@ -212,7 +220,7 @@ export function createManifest(assets) {
 export function formatSize(bytes) {
 	if (bytes === 0) return '0 B';
 	const k = 1024;
-	const sizes = ['B', 'KB', 'MB', 'GB'];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+	const sizes = ['B', 'KiB', 'MiB', 'GiB'];
+	const index = Math.floor(Math.log(bytes) / Math.log(k));
+	return Math.round((bytes / Math.pow(k, index)) * 100) / 100 + ' ' + sizes[index];
 }

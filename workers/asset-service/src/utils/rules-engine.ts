@@ -6,8 +6,8 @@ import type { AssetConfig } from '../configuration';
 
 // As the answer says, there's no downside to escaping these extra characters, so better safe than sorry
 const ESCAPE_REGEX_CHARACTERS = /[-/\\^$*+?.()|[\]{}]/g;
-const escapeRegex = (str: string) => {
-	return str.replace(ESCAPE_REGEX_CHARACTERS, '\\$&');
+const escapeRegex = (string_: string) => {
+	return string_.replaceAll(ESCAPE_REGEX_CHARACTERS, String.raw`\$&`);
 };
 
 // Placeholder names must begin with a colon then a letter, be alphanumeric and optionally contain underscores.
@@ -26,11 +26,11 @@ export type Removals = string[];
  * @param replacements - Map of placeholder names to replacement values
  * @returns The string with all placeholders replaced
  */
-export const replacer = (str: string, replacements: Replacements) => {
+export const replacer = (string_: string, replacements: Replacements) => {
 	for (const [replacement, value] of Object.entries(replacements)) {
-		str = str.replaceAll(`:${replacement}`, value);
+		string_ = string_.replaceAll(`:${replacement}`, value);
 	}
-	return str;
+	return string_;
 };
 
 /**
@@ -41,12 +41,15 @@ export const replacer = (str: string, replacements: Replacements) => {
  */
 export const generateGlobOnlyRuleRegExp = (rule: string) => {
 	// Escape all regex characters other than globs (the "*" character) since that's all that's supported.
-	rule = rule.split('*').map(escapeRegex).join('.*');
+	rule = rule
+		.split('*')
+		.map((s) => escapeRegex(s))
+		.join('.*');
 
 	// Wrap in line terminators to be safe.
 	rule = '^' + rule + '$';
 
-	return RegExp(rule);
+	return new RegExp(rule);
 };
 
 /**
@@ -58,7 +61,10 @@ export const generateGlobOnlyRuleRegExp = (rule: string) => {
  */
 export const generateRuleRegExp = (rule: string) => {
 	// Create :splat capturer then escape.
-	rule = rule.split('*').map(escapeRegex).join('(?<splat>.*)');
+	rule = rule
+		.split('*')
+		.map((s) => escapeRegex(s))
+		.join('(?<splat>.*)');
 
 	// Create :placeholder capturers (already escaped).
 	// For placeholders in the host, we separate at forward slashes and periods.
@@ -80,7 +86,7 @@ export const generateRuleRegExp = (rule: string) => {
 	// Wrap in line terminators to be safe.
 	rule = '^' + rule + '$';
 
-	return RegExp(rule);
+	return new RegExp(rule);
 };
 
 /**
@@ -92,14 +98,14 @@ export const generateRuleRegExp = (rule: string) => {
  */
 export const generateRulesMatcher = <T>(
 	rules?: Record<string, T>,
-	replacerFn: (match: T, replacements: Replacements) => T = (match) => match,
+	replacerFunction: (match: T, replacements: Replacements) => T = (match) => match,
 ) => {
 	if (!rules) {
 		return () => [];
 	}
 
-	const compiledRules = Object.entries(rules)
-		.map(([rule, match]) => {
+	const compiledRules: [{ crossHost: boolean; regExp: RegExp }, T][] = Object.entries(rules)
+		.map(([rule, match]): [{ crossHost: boolean; regExp: RegExp }, T] | undefined => {
 			const crossHost = rule.startsWith('https://');
 
 			try {
@@ -107,15 +113,16 @@ export const generateRulesMatcher = <T>(
 				return [{ crossHost, regExp }, match];
 			} catch {
 				console.warn(`Failed to compile rule ${rule}`);
+				return undefined;
 			}
 		})
-		.filter((value) => value !== undefined) as [{ crossHost: boolean; regExp: RegExp }, T][];
+		.filter((value): value is [{ crossHost: boolean; regExp: RegExp }, T] => value !== undefined);
 
 	return ({ request }: { request: Request }) => {
 		const { pathname, hostname } = new URL(request.url);
 
 		return compiledRules
-			.map(([{ crossHost, regExp }, match]) => {
+			.map(([{ crossHost, regExp }, match]): T | undefined => {
 				// This, rather confusingly, means that although we enforce `https://` protocols in
 				// the rules of `headers`/`redirects`, we don't actually respect that at all at runtime.
 				// When processing a request against an absolute URL rule, we rewrite the protocol to `https://`.
@@ -129,11 +136,9 @@ export const generateRulesMatcher = <T>(
 				// this might be a good time for this change.
 				const test = crossHost ? `https://${hostname}${pathname}` : pathname;
 				const result = regExp.exec(test);
-				if (result) {
-					return replacerFn(match, result.groups || {});
-				}
+				return result ? replacerFunction(match, result.groups || {}) : undefined;
 			})
-			.filter((value) => value !== undefined) as T[];
+			.filter((value): value is T => value !== undefined);
 	};
 };
 
@@ -150,11 +155,7 @@ export const staticRedirectsMatcher = (configuration: Required<AssetConfig>, hos
 	const withoutHostMatch = configuration.redirects.static[pathname];
 
 	if (withHostMatch && withoutHostMatch) {
-		if (withHostMatch.lineNumber < withoutHostMatch.lineNumber) {
-			return withHostMatch;
-		} else {
-			return withoutHostMatch;
-		}
+		return withHostMatch.lineNumber < withoutHostMatch.lineNumber ? withHostMatch : withoutHostMatch;
 	}
 
 	return withHostMatch || withoutHostMatch;
@@ -170,19 +171,8 @@ export const generateRedirectsMatcher = (configuration: Required<AssetConfig>) =
 	generateRulesMatcher(configuration.redirects.dynamic, ({ status, to }, replacements) => {
 		const target = replacer(to, replacements).trim();
 		const protoPattern = /^(\w+:\/\/)/;
-		if (protoPattern.test(target)) {
-			// External redirects are not modified.
-			return {
-				status,
-				to: target,
-			};
-		} else {
-			// Relative redirects are modified to remove multiple slashes.
-			return {
-				status,
-				to: target.replace(/\/+/g, '/'),
-			};
-		}
+		// External redirects are not modified. Relative redirects are modified to remove multiple slashes.
+		return protoPattern.test(target) ? { status, to: target } : { status, to: target.replaceAll(/\/+/g, '/') };
 	});
 
 /**

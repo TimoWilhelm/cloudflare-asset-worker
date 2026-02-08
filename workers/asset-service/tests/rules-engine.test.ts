@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+
 import { generateRulesMatcher, generateStaticRoutingRuleMatcher, replacer } from '../src/utils/rules-engine';
 
 describe('rules engine', () => {
@@ -35,7 +36,7 @@ describe('rules engine', () => {
 		});
 		expect(
 			matcher({
-				request: new Request('https://example.com/$~. \\!+-/[bo|{o}]...()'),
+				request: new Request(String.raw`https://example.com/$~. \!+-/[bo|{o}]...()`),
 			}),
 		).toEqual([1]);
 	});

@@ -1,12 +1,13 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
+
+import { Analytics } from './analytics';
 import { AssetsManifest, hashPath } from './assets-manifest';
 import { normalizeConfiguration, type AssetConfigInput } from './configuration';
+import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
 import { canFetch as handleCanFetch, handleRequest } from './handler';
 import { getAssetWithMetadataFromKV } from './utils/kv';
-import { batchGetKv, listAllKeys } from '../../shared/kv';
-import { WorkerEntrypoint } from 'cloudflare:workers';
-import { ENTRY_SIZE, HEADER_SIZE, PATH_HASH_SIZE } from './constants';
-import { Analytics } from './analytics';
 import { InternalServerErrorResponse } from './utils/responses';
+import { batchExistsKv, deleteAllKeys } from '../../shared/kv';
 
 export interface ManifestEntry {
 	pathname: string;
@@ -16,8 +17,14 @@ export interface ManifestEntry {
 // Cache hit threshold in milliseconds
 const KV_CACHE_HIT_THRESHOLD_MS = 100;
 
-export default class AssetApi extends WorkerEntrypoint<Env> {
-	public override async fetch(request: Request): Promise<Response> {
+export interface AssetEnvironment {
+	KV_ASSETS: KVNamespace;
+	ANALYTICS: AnalyticsEngineDataset;
+	VERSION: WorkerVersionMetadata;
+}
+
+export default class AssetApi extends WorkerEntrypoint<AssetEnvironment> {
+	public override async fetch(_request: Request): Promise<Response> {
 		return new Response('Not Found', { status: 404 });
 	}
 
@@ -51,7 +58,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const analytics = new Analytics();
 
 		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
-		const coloRegion = request.cf?.colo as string;
+		const coloRegion = String(request.cf?.colo ?? '');
 
 		const url = new URL(request.url);
 
@@ -70,8 +77,8 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			const response = await handleRequest(
 				request,
 				config,
-				(pathname: string, req: Request) => this.exists(pathname, req, projectId),
-				(eTag: string, req?: Request) => this.getByETag(eTag, projectId, req),
+				(pathname: string, request_: Request) => this.exists(pathname, request_, projectId),
+				(eTag: string, request_?: Request) => this.getByETag(eTag, projectId, request_),
 				analytics,
 			);
 
@@ -80,16 +87,16 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			});
 
 			return response;
-		} catch (err) {
+		} catch (error) {
 			try {
-				if (err instanceof Error) {
-					analytics.setData({ error: err.message });
+				if (error instanceof Error) {
+					analytics.setData({ error: error.message });
 				}
 
-				return new InternalServerErrorResponse(err);
-			} catch (e) {
-				console.error('Error handling error', e);
-				return new InternalServerErrorResponse(e);
+				return new InternalServerErrorResponse(error);
+			} catch (error) {
+				console.error('Error handling error', error);
+				return new InternalServerErrorResponse(error);
 			}
 		} finally {
 			analytics.setData({
@@ -110,13 +117,13 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	async canFetch(request: Request, projectId: string, projectConfig?: AssetConfigInput): Promise<boolean> {
 		try {
 			const config = normalizeConfiguration(projectConfig);
-			return await handleCanFetch(request, config, (pathname: string, req: Request) => this.exists(pathname, req, projectId));
-		} catch (e) {
-			console.error('Error in canFetch RPC method:', e);
-			if (e instanceof Error) {
-				throw new Error(`Asset Service canFetch failed: ${e.message}`);
+			return await handleCanFetch(request, config, (pathname: string, request_: Request) => this.exists(pathname, request_, projectId));
+		} catch (error) {
+			console.error('Error in canFetch RPC method:', error);
+			if (error instanceof Error) {
+				throw new Error(`Asset Service canFetch failed: ${error.message}`);
 			}
-			throw new Error(`Asset Service canFetch failed with unknown error: ${String(e)}`);
+			throw new Error(`Asset Service canFetch failed with unknown error: ${String(error)}`);
 		}
 	}
 
@@ -171,16 +178,19 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		pathname: string,
 		request: Request,
 		projectId: string,
-	): Promise<{
-		readableStream: ReadableStream;
-		contentType: string | undefined;
-		cacheStatus: 'HIT' | 'MISS';
-		fetchTimeMs: number;
-	} | null> {
+	): Promise<
+		| {
+				readableStream: ReadableStream;
+				contentType: string | undefined;
+				cacheStatus: 'HIT' | 'MISS';
+				fetchTimeMs: number;
+		  }
+		| undefined
+	> {
 		const eTag = await this.exists(pathname, request, projectId);
 
 		if (!eTag) {
-			return null;
+			return;
 		}
 
 		return this.getByETag(eTag, projectId, request);
@@ -194,7 +204,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @param projectId - The project ID for namespaced asset storage
 	 * @returns The eTag (content hash) if the asset exists, null otherwise
 	 */
-	async exists(pathname: string, request: Request, projectId: string): Promise<string | null> {
+	async exists(pathname: string, request: Request, projectId: string): Promise<string | undefined> {
 		const manifest = await this.getAssetsManifest(projectId);
 		const eTag = await manifest.get(pathname);
 		return eTag;
@@ -239,7 +249,7 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 			}
 
 			// Check for invalid characters in pathname
-			if (/[\s<>{}|\\^`\[\]]/.test(entry.pathname)) {
+			if (/[\s<>{}|\\^`[\]]/.test(entry.pathname)) {
 				throw new Error(`Invalid pathname "${entry.pathname}": contains invalid URL characters`);
 			}
 		}
@@ -251,10 +261,10 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		}));
 
 		const allKeys = namespacedEntries.map(({ namespacedKey }) => namespacedKey);
-		const results = await batchGetKv(this.env.KV_ASSETS, allKeys, { type: 'text' });
+		const existingKeys = await batchExistsKv(this.env.KV_ASSETS, allKeys);
 		const existenceChecks = namespacedEntries.map(({ entry, namespacedKey }) => ({
 			entry,
-			exists: results.get(namespacedKey) != null,
+			exists: existingKeys.has(namespacedKey),
 		}));
 
 		// Filter to only entries that need uploading
@@ -277,15 +287,19 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		const hashedEntries = await Promise.all(
 			entries.map(async (entry) => {
 				const pathHash = await hashPath(entry.pathname);
-				const contentHashBytes = new Uint8Array(entry.contentHash.match(/.{2}/g)!.map((byte) => parseInt(byte, 16)));
+				const hexPairs = entry.contentHash.match(/.{2}/g);
+				if (!hexPairs) {
+					throw new Error(`Invalid content hash format for ${entry.pathname}`);
+				}
+				const contentHashBytes = new Uint8Array(hexPairs.map((byte) => Number.parseInt(byte, 16)));
 				return { pathHash, contentHashBytes };
 			}),
 		);
 
 		// Sort entries by path hash
 		hashedEntries.sort((a, b) => {
-			for (let i = 0; i < PATH_HASH_SIZE; i++) {
-				const diff = a.pathHash[i]! - b.pathHash[i]!;
+			for (let index = 0; index < PATH_HASH_SIZE; index++) {
+				const diff = a.pathHash[index]! - b.pathHash[index]!;
 				if (diff !== 0) return diff;
 			}
 			return 0;
@@ -301,13 +315,13 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 		headerView.setUint32(4, entries.length, false); // entry count, big-endian
 
 		// Write entries (path hash + content hash)
-		hashedEntries.forEach((entry, index) => {
+		for (const [index, entry] of hashedEntries.entries()) {
 			const offset = HEADER_SIZE + index * ENTRY_SIZE;
 			manifest.set(entry.pathHash, offset);
 			manifest.set(entry.contentHashBytes, offset + PATH_HASH_SIZE);
-		});
+		}
 
-		return manifest.buffer as ArrayBuffer;
+		return manifest.buffer.slice(manifest.byteOffset, manifest.byteOffset + manifest.byteLength);
 	}
 
 	/**
@@ -318,17 +332,19 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @returns Array of objects with hash and exists boolean for each input
 	 */
 	async checkAssetsExist(eTags: string[], projectId: string): Promise<Array<{ hash: string; exists: boolean }>> {
-		const namespacedMap = new Map<string, string>();
-		for (const hash of eTags) {
-			namespacedMap.set(this.getNamespacedKey(projectId, hash), hash);
-		}
+		const namespacedKeys = eTags.map((hash) => ({
+			hash,
+			key: this.getNamespacedKey(projectId, hash),
+		}));
 
-		const allKeys = Array.from(namespacedMap.keys());
-		const batchResults = await batchGetKv(this.env.KV_ASSETS, allKeys, { type: 'text' });
+		const existingKeys = await batchExistsKv(
+			this.env.KV_ASSETS,
+			namespacedKeys.map(({ key }) => key),
+		);
 
-		return allKeys.map((key) => ({
-			hash: namespacedMap.get(key)!,
-			exists: batchResults.get(key) != null,
+		return namespacedKeys.map(({ hash, key }) => ({
+			hash,
+			exists: existingKeys.has(key),
 		}));
 	}
 
@@ -339,23 +355,18 @@ export default class AssetApi extends WorkerEntrypoint<Env> {
 	 * @returns Object with counts of deleted assets and manifest status
 	 */
 	async deleteProjectAssets(projectId: string): Promise<{ deletedAssets: number; deletedManifest: boolean }> {
-		let deletedAssets = 0;
 		let deletedManifest = false;
-
-		// List all keys with the project prefix in KV_ASSETS
+		const manifestKey = `project/${projectId}/manifest`;
 		const assetPrefix = `project/${projectId}/`;
 
-		const manifestKey = `project/${projectId}/manifest`;
-
-		// Delete all assets using listAllKeys for pagination
-		for await (const key of listAllKeys(this.env.KV_ASSETS, { prefix: assetPrefix })) {
-			await this.env.KV_ASSETS.delete(key.name);
+		const totalDeleted = await deleteAllKeys(this.env.KV_ASSETS, { prefix: assetPrefix }, (key) => {
 			if (key.name === manifestKey) {
 				deletedManifest = true;
-			} else {
-				deletedAssets++;
 			}
-		}
+		});
+
+		// Subtract 1 for the manifest key if it was found
+		const deletedAssets = deletedManifest ? totalDeleted - 1 : totalDeleted;
 
 		return { deletedAssets, deletedManifest };
 	}

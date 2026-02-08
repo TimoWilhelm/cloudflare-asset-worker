@@ -1,36 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { ProjectMetadata, RouterEnvironment } from './types';
 import { runWatchdog } from './watchdog';
-import { ProjectMetadata } from './types';
+import { createMock } from '../../shared/test-utilities';
 
 // Mock KV
 const createMockKV = () => {
 	const store = new Map<string, string>();
-	return {
-		get: vi.fn(async (key, options) => {
+	return createMock<KVNamespace>({
+		get: vi.fn(async (key: string, options?: { type?: string }) => {
 			const value = store.get(key);
-			if (!value) return null;
+			if (!value) return;
 			if (options && options.type === 'json') {
 				return JSON.parse(value);
 			}
 			return value;
 		}),
-		put: vi.fn(async (key, value) => store.set(key, value)),
-		delete: vi.fn(async (key) => store.delete(key)),
-		list: vi.fn(async (opts?: { prefix?: string }) => ({
-			keys: Array.from(store.keys())
-				.filter((k) => !opts?.prefix || k.startsWith(opts.prefix))
-				.map((name) => ({ name })),
+		put: vi.fn(async (key: string, value: string) => store.set(key, value)),
+		delete: vi.fn(async (key: string) => store.delete(key)),
+		list: vi.fn(async (options?: { prefix?: string }) => ({
+			keys: [...store.keys()].filter((k) => !options?.prefix || k.startsWith(options.prefix)).map((name) => ({ name })),
 			list_complete: true,
-			cursor: null,
+			cursor: undefined,
 		})),
-	} as unknown as KVNamespace;
+	});
 };
 
 describe('Watchdog Cleanup', () => {
-	let mockProjectsKV: any;
-	let mockServerCodeKV: any;
-	let mockAssetWorker: any;
-	let env: any;
+	let mockProjectsKV: KVNamespace;
+	let mockServerCodeKV: KVNamespace;
+	let mockAssetWorker: { deleteProjectAssets: ReturnType<typeof vi.fn> };
+	let environment: RouterEnvironment;
 
 	beforeEach(() => {
 		mockProjectsKV = createMockKV();
@@ -39,11 +39,11 @@ describe('Watchdog Cleanup', () => {
 			deleteProjectAssets: vi.fn().mockResolvedValue({ deletedAssets: 0, deletedManifest: true }),
 		};
 
-		env = {
+		environment = createMock<RouterEnvironment>({
 			KV_PROJECTS: mockProjectsKV,
 			KV_SERVER_CODE: mockServerCodeKV,
 			ASSET_WORKER: mockAssetWorker,
-		};
+		});
 	});
 
 	it('should keep READY projects', async () => {
@@ -58,7 +58,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/ready-project/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).not.toHaveBeenCalled();
 	});
@@ -76,7 +76,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/error-project/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/error-project/metadata');
 		expect(mockAssetWorker.deleteProjectAssets).toHaveBeenCalledWith('error-project');
@@ -95,7 +95,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/fresh-error/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).not.toHaveBeenCalled();
 	});
@@ -113,7 +113,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/stale-pending/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/stale-pending/metadata');
 	});
@@ -131,7 +131,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/fresh-pending/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).not.toHaveBeenCalled();
 	});
@@ -148,7 +148,7 @@ describe('Watchdog Cleanup', () => {
 		};
 		await mockProjectsKV.put('project/legacy-project/metadata', JSON.stringify(project));
 
-		await runWatchdog(env);
+		await runWatchdog(environment);
 
 		expect(mockProjectsKV.delete).toHaveBeenCalledWith('project/legacy-project/metadata');
 	});

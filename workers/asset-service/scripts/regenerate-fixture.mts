@@ -1,5 +1,5 @@
-import { writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 const HEADER_SIZE = 16;
 const ENTRY_SIZE = 48;
@@ -16,11 +16,11 @@ async function SHA_256(value: string, length: number) {
 }
 
 function hexToBytes(hex: string) {
-	if (!hex.match(/^([0-9a-f]{2})+$/gi)) {
+	if (!/^([0-9a-f]{2})+$/gi.test(hex)) {
 		throw new TypeError(`Invalid byte string:  ${hex}`);
 	}
 
-	return new Uint8Array(hex.match(/[0-9a-f]{2}/gi)?.map((b) => parseInt(b, 16)) ?? []);
+	return new Uint8Array(hex.match(/[0-9a-f]{2}/gi)?.map((b) => Number.parseInt(b, 16)) ?? []);
 }
 
 function compare(a: Uint8Array, b: Uint8Array) {
@@ -31,13 +31,13 @@ function compare(a: Uint8Array, b: Uint8Array) {
 		return 1;
 	}
 
-	for (let i = 0; i < a.length; i++) {
-		const v = a[i] as number;
-		const bVal = b[i] as number;
-		if (v < bVal) {
+	for (const [index, element] of a.entries()) {
+		const v = element as number;
+		const bValue = b[index] as number;
+		if (v < bValue) {
 			return -1;
 		}
-		if (v > bVal) {
+		if (v > bValue) {
 			return 1;
 		}
 	}
@@ -57,10 +57,10 @@ const encode = async (assetEntries: { path: string; contentHash: string }[]) => 
 
 	const assetManifestBytes = new Uint8Array(HEADER_SIZE + entries.length * ENTRY_SIZE);
 
-	for (let i = 0; i < entries.length; i++) {
-		const { pathHashBytes, contentHash } = entries[i] as { path: string; contentHash: string; pathHashBytes: Uint8Array };
+	for (const [index, entry] of entries.entries()) {
+		const { pathHashBytes, contentHash } = entry as { path: string; contentHash: string; pathHashBytes: Uint8Array };
 		const contentHashBytes = hexToBytes(contentHash);
-		const entryOffset = HEADER_SIZE + i * ENTRY_SIZE;
+		const entryOffset = HEADER_SIZE + index * ENTRY_SIZE;
 
 		assetManifestBytes.set(pathHashBytes, entryOffset + PATH_HASH_OFFSET);
 		assetManifestBytes.set(contentHashBytes, entryOffset + CONTENT_HASH_OFFSET);
@@ -86,9 +86,9 @@ async function main() {
 		},
 	]);
 
-	const outputPath = resolve(process.cwd(), 'fixtures', 'AssetManifest.bin');
+	const outputPath = path.resolve(process.cwd(), 'tests/fixtures', 'AssetManifest.bin');
 	writeFileSync(outputPath, new Uint8Array(fixture));
 	console.log(`Fixture regenerated at ${outputPath}`);
 }
 
-main().catch(console.error);
+await main();

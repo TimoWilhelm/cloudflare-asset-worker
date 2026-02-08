@@ -6,11 +6,7 @@
 	"properties": {
 		"projectName": {
 			"type": "string",
-			"description": "Name of the project"
-		},
-		"projectId": {
-			"type": "string",
-			"description": "Existing project ID (if omitted, a new project will be created)"
+			"description": "Name of the project (a new immutable project is created for each deployment)"
 		},
 		"assets": {
 			"type": "object",

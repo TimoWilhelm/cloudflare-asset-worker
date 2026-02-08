@@ -94,10 +94,10 @@ tanstack-start/
 
 ## Routes
 
-| Route | Description |
-| ----- | ----------- |
-| `/` | Home page with server-loaded data |
-| `/about` | About page explaining the deployment |
+| Route       | Description                                |
+| ----------- | ------------------------------------------ |
+| `/`         | Home page with server-loaded data          |
+| `/about`    | About page explaining the deployment       |
 | `/api-demo` | Interactive API demo with server functions |
 
 ## Server Functions
@@ -105,13 +105,12 @@ tanstack-start/
 TanStack Start uses `createServerFn` for server-side code:
 
 ```typescript
-const getServerData = createServerFn({ method: 'GET' })
-  .handler(async () => {
-    return {
-      message: 'Hello from the server!',
-      timestamp: new Date().toISOString(),
-    }
-  })
+const getServerData = createServerFn({ method: 'GET' }).handler(async () => {
+  return {
+    message: 'Hello from the server!',
+    timestamp: new Date().toISOString(),
+  };
+});
 ```
 
 These functions run on Cloudflare Workers and can access bindings, environment variables, and Workers APIs.

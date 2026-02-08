@@ -1,4 +1,4 @@
-import { createManifest } from './utils.js';
+import { createManifest } from './utilities.js';
 
 /**
  * API Client for Cloudflare Multi-Project Platform
@@ -212,15 +212,17 @@ export class ApiClient {
 			console.log(`  Uploading ${buckets.length} bucket(s) with ${totalFiles} new files...`);
 
 			// Upload each bucket
-			for (let i = 0; i < buckets.length; i++) {
-				const bucket = buckets[i];
-				console.log(`  Uploading bucket ${i + 1}/${buckets.length} (${bucket.length} files)...`);
+			for (let index = 0; index < buckets.length; index++) {
+				const bucket = buckets[index];
+				console.log(`  Uploading bucket ${index + 1}/${buckets.length} (${bucket.length} files)...`);
 
 				// Create payload with base64 encoded files
 				const payload = {};
 				for (const hash of bucket) {
 					// Find the asset with this hash
-					const [pathname] = Object.entries(manifest).find(([_, data]) => data.hash === hash);
+					const manifestEntry = Object.entries(manifest).find(([_, data]) => data.hash === hash);
+					if (!manifestEntry) continue;
+					const [pathname] = manifestEntry;
 					const asset = deployment.assets.find((a) => a.pathname === pathname);
 					if (asset) {
 						payload[hash] = asset.content;
@@ -279,7 +281,7 @@ export class ApiClient {
 	 */
 	getSubdomainRoutingDomain() {
 		if (!this.supportsSubdomainRouting()) {
-			return null;
+			return;
 		}
 
 		try {
@@ -290,7 +292,7 @@ export class ApiClient {
 
 			return `${protocol}://<projectId>.${hostname}${port}/`;
 		} catch {
-			return null;
+			return;
 		}
 	}
 

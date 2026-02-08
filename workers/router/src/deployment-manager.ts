@@ -1,14 +1,14 @@
-import type { DeploymentPayload, ProjectMetadata, ServerCodeManifest, ModuleType } from './types';
-import type AssetApi from '../../asset-service/src/worker';
-import type { ManifestEntry } from '../../asset-service/src/worker';
-import type { AssetConfigInput } from '../../asset-service/src/configuration';
 import * as base64 from '@stablelib/base64';
-import { computeContentHash, inferModuleType } from './content-utils';
+import { z } from 'zod';
+
+import { computeContentHash, inferModuleType } from './content-utilities';
 import { verifyJWT } from './jwt';
 import { getProject, getServerCodeKey } from './project-manager';
-import { batchGetKv } from '../../shared/kv';
 import { deploymentPayloadSchema } from './validation';
-import { z } from 'zod';
+import AssetWorker, { ManifestEntry } from '../../asset-service/src/worker';
+import { batchExistsKv } from '../../shared/kv';
+
+import type { ServerCodeManifest, ModuleType, CompletionJwtPayload } from './types';
 
 /**
  * Deploys a full-stack project with assets and optional server code.
@@ -27,13 +27,19 @@ export async function deployProject(
 	request: Request,
 	projectsKv: KVNamespace,
 	serverCodeKv: KVNamespace,
-	assetWorker: Service<AssetApi>,
+	assetWorker: Service<AssetWorker>,
 	jwtSecret: string,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
 
 	if (!project) {
 		return new Response('Project not found', { status: 404 });
+	}
+
+	if (project.status === 'READY') {
+		return new Response('Project already deployed. Projects are immutable after deployment — create a new project instead.', {
+			status: 409,
+		});
 	}
 
 	const payloadJson = await request.json();
@@ -47,18 +53,13 @@ export async function deployProject(
 	const payload = payloadValidation.data;
 
 	try {
-		// Update project name if provided
-		if (payload.projectName) {
-			project.name = payload.projectName;
-		}
-
-		let manifestEntries: ManifestEntry[] = [];
+		const manifestEntries: ManifestEntry[] = [];
 		let newEntries: ManifestEntry[] = [];
 
 		// Handle assets deployment with completion JWT
 		if (payload.completionJwt) {
 			// Verify completion JWT
-			const jwtPayload = await verifyJWT(payload.completionJwt, jwtSecret);
+			const jwtPayload = await verifyJWT<CompletionJwtPayload>(payload.completionJwt, jwtSecret);
 			if (!jwtPayload || jwtPayload.phase !== 'complete' || jwtPayload.projectId !== projectId) {
 				return new Response('Invalid or expired completion JWT', { status: 401 });
 			}
@@ -81,7 +82,7 @@ export async function deployProject(
 			await projectsKv.delete(sessionKey);
 
 			// Load manifest from JWT
-			const manifest = jwtPayload.manifest as Record<string, { hash: string; size: number }>;
+			const manifest = jwtPayload.manifest;
 
 			// Convert manifest to ManifestEntry format
 			for (const [pathname, data] of Object.entries(manifest)) {
@@ -101,40 +102,37 @@ export async function deployProject(
 		if (payload.serverCode) {
 			// Compute content hash for each module and store them separately
 			const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
-			const moduleEntries: { path: string; hash: string; base64Content: string; type: ModuleType }[] = [];
+			const moduleEntries: { path: string; hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
 
 			for (const [modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
 				// Handle both formats: string (base64) or { content: base64, type: ModuleType }
 				const base64Content = typeof moduleData === 'string' ? moduleData : moduleData.content;
-				let moduleType: ModuleType;
+				// Infer type from file extension
+				const moduleType: ModuleType = typeof moduleData === 'object' && moduleData.type ? moduleData.type : inferModuleType(modulePath);
 
-				if (typeof moduleData === 'object' && moduleData.type) {
-					// Explicit type provided
-					moduleType = moduleData.type;
-				} else {
-					// Infer type from file extension
-					moduleType = inferModuleType(modulePath);
-				}
-
-				// Compute hash from base64 content (content-addressed storage)
-				const contentHash = await computeContentHash(base64.decode(base64Content));
+				// Decode once and reuse for both hashing and uploading
+				const decodedContent = new Uint8Array(base64.decode(base64Content)).buffer;
+				const contentHash = await computeContentHash(decodedContent);
 				moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
 				totalServerCodeModules++;
 
-				moduleEntries.push({ path: modulePath, hash: contentHash, base64Content, type: moduleType });
+				moduleEntries.push({ path: modulePath, hash: contentHash, content: decodedContent, type: moduleType });
 			}
 
 			// Batch-check which modules already exist in KV (chunked into batches of 100)
 			const moduleKeys = moduleEntries.map(({ hash }) => getServerCodeKey(projectId, hash));
-			const existingModules = await batchGetKv(serverCodeKv, moduleKeys, { type: 'text' });
+			const existingModules = await batchExistsKv(serverCodeKv, moduleKeys);
 
 			// Only upload modules that don't already exist
 			const modulesToUpload: { hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
 			for (const entry of moduleEntries) {
 				const moduleKey = getServerCodeKey(projectId, entry.hash);
-				if (existingModules.get(moduleKey) == null) {
-					// Decode and store as raw binary for optimal storage and read performance
-					modulesToUpload.push({ hash: entry.hash, content: base64.decode(entry.base64Content).buffer as ArrayBuffer, type: entry.type });
+				if (!existingModules.has(moduleKey)) {
+					modulesToUpload.push({
+						hash: entry.hash,
+						content: entry.content,
+						type: entry.type,
+					});
 				}
 			}
 
@@ -153,28 +151,11 @@ export async function deployProject(
 				entrypoint: payload.serverCode.entrypoint,
 				modules: moduleManifest,
 				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
-				env: { ...(payload.env ?? {}) },
+				env: { ...payload.env },
 			};
 
 			const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
 			await serverCodeKv.put(manifestKey, JSON.stringify(manifest));
-			project.hasServerCode = true;
-		}
-
-		// Update project metadata
-		project.updatedAt = new Date().toISOString();
-		if (payload.completionJwt) {
-			project.assetsCount = manifestEntries.length;
-		}
-
-		// Store config if provided (Zod validates this matches AssetConfigInput structure)
-		if (payload.config) {
-			project.config = payload.config as AssetConfigInput;
-		}
-
-		// Store run_worker_first setting
-		if (payload.run_worker_first !== undefined) {
-			project.run_worker_first = payload.run_worker_first;
 		}
 
 		// Re-check project still exists before finalizing (prevents resurrecting a deleted project)
@@ -183,23 +164,41 @@ export async function deployProject(
 			return new Response('Project was deleted during deployment', { status: 404 });
 		}
 
+		// Apply deployment changes to the freshly-fetched project to avoid overwriting concurrent updates
+		if (payload.projectName) {
+			currentProject.name = payload.projectName;
+		}
+		currentProject.updatedAt = new Date().toISOString();
+		if (payload.completionJwt) {
+			currentProject.assetsCount = manifestEntries.length;
+		}
+		if (payload.config) {
+			currentProject.config = payload.config;
+		}
+		if (payload.run_worker_first !== undefined) {
+			currentProject.run_worker_first = payload.run_worker_first;
+		}
+		if (payload.serverCode) {
+			currentProject.hasServerCode = true;
+		}
+
 		// Mark status as READY
-		project.status = 'READY';
+		currentProject.status = 'READY';
 
-		await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
+		await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(currentProject));
 
-		return new Response(
-			JSON.stringify({
+		return Response.json(
+			{
 				success: true,
 				message: 'Project deployed successfully',
-				project,
+				project: currentProject,
 				deployedAssets: manifestEntries.length,
 				newAssets: newEntries.length,
 				skippedAssets: manifestEntries.length - newEntries.length,
 				deployedServerCodeModules: totalServerCodeModules,
 				newServerCodeModules,
 				skippedServerCodeModules: totalServerCodeModules - newServerCodeModules,
-			}),
+			},
 			{
 				status: 200,
 				headers: { 'Content-Type': 'application/json' },
@@ -209,19 +208,19 @@ export async function deployProject(
 		// Mark status as ERROR and persist (only if project still exists to avoid resurrection)
 		const stillExists = await getProject(projectId, projectsKv);
 		if (stillExists) {
-			project.status = 'ERROR';
-			project.updatedAt = new Date().toISOString();
-			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
+			stillExists.status = 'ERROR';
+			stillExists.updatedAt = new Date().toISOString();
+			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(stillExists));
 		}
 
 		// Re-throw to be handled by the caller or return error response
 		// Since this is the handler, we should probably return a response
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		return new Response(
-			JSON.stringify({
+		return Response.json(
+			{
 				success: false,
 				error: `Deployment failed: ${errorMessage}`,
-			}),
+			},
 			{
 				status: 500,
 				headers: { 'Content-Type': 'application/json' },
