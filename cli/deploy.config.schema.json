@@ -160,7 +160,7 @@
 		},
 		"env": {
 			"type": "object",
-			"description": "Environment variables for server code",
+			"description": "Environment variables for server-side code",
 			"additionalProperties": {
 				"type": "string"
 			}

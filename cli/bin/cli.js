@@ -133,10 +133,10 @@ program
 				});
 			}
 
-			// Load server code if configured
+			// Load server-side code if configured
 			if (config.server) {
 				log.log('');
-				log.log(`⚙️  Loading server code from: ${config.server.modulesDirectory}`);
+				log.log(`⚙️  Loading server-side code from: ${config.server.modulesDirectory}`);
 				await log.indent(async (log) => {
 					const serverDirectory = path.resolve(configDirectory, config.server.modulesDirectory);
 					deployment.server = await loadServerCode(serverDirectory, config.server.entrypoint, config.server.compatibilityDate);

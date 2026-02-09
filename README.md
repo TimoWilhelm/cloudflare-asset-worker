@@ -35,7 +35,7 @@ npm run dev  # Development
 See **[examples/](./examples/)** for deployment scripts demonstrating:
 
 - Static site deployment
-- Full-stack apps with server code
+- Full-stack apps with server-side code
 - Three-phase upload automation
 
 ## URL Schemes

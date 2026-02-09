@@ -6,7 +6,7 @@ A command-line tool for automated deployment of applications to the Cloudflare M
 
 - **Configuration-based deployment** - Define your deployment in a simple JSON config file
 - **Automatic asset scanning** - Recursively scans directories with glob pattern support
-- **Server code deployment** - Deploy JavaScript/Python modules with automatic discovery
+- **Server-side code deployment** - Deploy JavaScript/Python modules with automatic discovery
 - **Three-phase upload flow** - Efficient content-addressed uploads with deduplication
 - **Environment variable support** - Use ${ENV_VAR} syntax in config files
 - **Immutable deployments** - Each deploy creates a new project (no redeploys)
@@ -200,11 +200,11 @@ Configuration for server-side code:
 }
 ```
 
-- **`entrypoint`** (string) - Main entry point module (required if using server code)
-- **`modulesDirectory`** (string) - Directory containing server modules (required if using server code)
+- **`entrypoint`** (string) - Main entry point module (required if using server-side code)
+- **`modulesDirectory`** (string) - Directory containing server modules (required if using server-side code)
 - **`compatibilityDate`** (string) - Cloudflare Workers compatibility date (default: `"2025-11-09"`)
 
-> **Note:** Total server code size (all modules combined) is limited to 10 MB. Exceeding this limit will cause deployment to fail.
+> **Note:** Total server-side code size (all modules combined) is limited to 10 MB. Exceeding this limit will cause deployment to fail.
 
 #### `config`
 
@@ -276,7 +276,7 @@ Asset serving configuration:
 - Static redirects: Maximum 2,000 rules per deployment
 - Dynamic redirects: Maximum 100 rules per deployment
 - Environment variables: Maximum 64 variables per deployment, 5 KB per variable
-- Server code: Maximum 10 MB total (all modules combined)
+- Server-side code: Maximum 10 MB total (all modules combined)
 
 Exceeding these limits will cause deployment to fail.
 
@@ -338,7 +338,7 @@ Exceeding these limits will cause deployment to fail.
 
 #### `env`
 
-(object) - Environment variables for server code (max 64 variables, 5 KB per variable):
+(object) - Environment variables for server-side code (max 64 variables, 5 KB per variable):
 
 ```json
 {
@@ -437,7 +437,7 @@ my-app/
 }
 ```
 
-## Server Code Requirements
+## Server-Side Code Requirements
 
 Server-side code must export a default object with a `fetch` handler:
 

@@ -208,11 +208,11 @@ export async function getProjectInfo(projectId: string, projectsKv: KVNamespace)
 }
 
 /**
- * Deletes a project and all associated resources including assets and server code.
+ * Deletes a project and all associated resources including assets and server-side code.
  *
  * @param projectId - The unique identifier of the project to delete
  * @param projectsKv - The KV namespace for storing project metadata
- * @param serverCodeKv - The KV namespace for storing server code modules
+ * @param serverCodeKv - The KV namespace for storing server-side code modules
  * @param assetWorker - The asset service worker for deleting project assets
  * @returns JSON response with deletion statistics or 404 if project not found
  */
@@ -231,7 +231,7 @@ export async function deleteProject(
 	// Delete assets and manifest via AssetApi RPC
 	const assetDeletion = await assetWorker.deleteProjectAssets(projectId);
 
-	// Delete server code if exists (modules + manifest)
+	// Delete server-side code if exists (modules + manifest)
 	let deletedServerModules = 0;
 	if (project.hasServer) {
 		const serverCodePrefix = getServerCodePrefix(projectId);
@@ -272,17 +272,17 @@ export async function getProject(projectId: string, projectsKv: KVNamespace): Pr
 }
 
 /**
- * Generates the KV key prefix for a project's server code.
+ * Generates the KV key prefix for a project's server-side code.
  *
  * @param projectId - The unique identifier of the project
- * @returns The prefix string used for server code KV keys
+ * @returns The prefix string used for server-side code KV keys
  */
 export function getServerCodePrefix(projectId: string): string {
 	return `project/${projectId}/module/`;
 }
 
 /**
- * Generates a namespaced KV key for server code storage.
+ * Generates a namespaced KV key for server-side code storage.
  *
  * @param projectId - The unique identifier of the project
  * @param key - The key to namespace (e.g., content hash or 'MANIFEST')

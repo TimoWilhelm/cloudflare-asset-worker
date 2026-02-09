@@ -99,7 +99,7 @@ Key settings in `deploy.config.json`:
 }
 ```
 
-- **No assets** - Server code only
+- **No assets** - Server-side code only
 - **Worker-first** - All requests go to worker
 - **Modular** - Handlers in separate files
 

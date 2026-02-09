@@ -7,7 +7,7 @@ The router worker is the main router for the Cloudflare Multi-Project Deployment
 ### Components
 
 - **`AssetManager`** - Main WorkerEntrypoint handling routing and project management
-- **`AssetBinding`** - Entrypoint binding that provides `env.ASSETS` to server code
+- **`AssetBinding`** - Entrypoint binding that provides `env.ASSETS` to server-side code
 - **WorkerLoader** - Cloudflare's DynamicDispatch for loading and executing user code
 - **Management API** - HTTP API for project operations
 
@@ -157,7 +157,7 @@ DELETE /__api/projects/{projectId}
 Authorization: your-api-token
 ```
 
-Deletes all project data: metadata, assets, manifest, and server code.
+Deletes all project data: metadata, assets, manifest, and server-side code.
 
 ## Request Routing
 
@@ -170,12 +170,12 @@ Deletes all project data: metadata, assets, manifest, and server code.
 
    **Assets-first mode** (default, `run_worker_first: false`):
    - Check if asset exists → Serve asset
-   - If no asset → Run server code if available
+   - If no asset → Run server-side code if available
    - Otherwise → 404
 
    **Worker-first mode** (`run_worker_first: true` or pattern match):
-   - Run server code first
-   - Server code can call `env.ASSETS.fetch()` to get assets
+   - Run server-side code first
+   - Server-side code can call `env.ASSETS.fetch()` to get assets
    - Full control over request handling
 
 ### Worker-First Configuration
@@ -190,7 +190,7 @@ run_worker_first: ['/api/*', '/admin/**', '/*.json'];
 
 The router uses [minimatch](https://github.com/isaacs/minimatch) for glob pattern matching.
 
-## Server Code
+## Server-Side Code
 
 ### Basic Example
 
@@ -328,7 +328,7 @@ Configure in `wrangler.jsonc`:
 
 - API endpoints require `Authorization` header matching `API_TOKEN`
 - Project isolation via KV namespacing with required `projectId` parameter
-- Server code runs in isolated worker contexts
+- Server-side code runs in isolated worker contexts
 - Content-based asset addressing prevents cache poisoning
 - JWTs for upload sessions expire after 1 hour
 

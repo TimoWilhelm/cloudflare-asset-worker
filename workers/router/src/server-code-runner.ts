@@ -7,10 +7,10 @@ import { batchGetKv } from '../../shared/kv';
 import type { ServerCodeManifest } from './types';
 
 /**
- * Fetches the server code manifest for a project from KV.
+ * Fetches the server-side code manifest for a project from KV.
  *
  * @param projectId - The unique identifier of the project
- * @returns The server code manifest or null if not found
+ * @returns The server-side code manifest or null if not found
  */
 export async function getServerCodeManifest(projectId: string): Promise<ServerCodeManifest | undefined> {
 	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
@@ -19,14 +19,14 @@ export async function getServerCodeManifest(projectId: string): Promise<ServerCo
 }
 
 /**
- * Executes server code for a project using dynamic worker loading.
+ * Executes server-side code for a project using dynamic worker loading.
  *
  * @param projectId - The unique identifier of the project
- * @param request - The HTTP request to pass to the server code
+ * @param request - The HTTP request to pass to the server-side code
  * @param bindings - Environment bindings to inject (e.g., ASSETS binding)
  * @param prefetchedManifest - Optional pre-fetched manifest to avoid redundant KV read
  * @returns The response from the dynamically loaded worker
- * @throws Error if the server code manifest or modules are not found
+ * @throws Error if the server-side code manifest or modules are not found
  */
 export async function runServerCode(
 	projectId: string,
@@ -38,7 +38,7 @@ export async function runServerCode(
 	const manifest = prefetchedManifest === undefined ? await getServerCodeManifest(projectId) : prefetchedManifest;
 
 	if (!manifest) {
-		return new Response('Server code not found', { status: 404 });
+		return new Response('Server-side code not found', { status: 404 });
 	}
 
 	const { entrypoint, modules: moduleManifest, compatibilityDate, env: manifestEnvironment = {} } = manifest;

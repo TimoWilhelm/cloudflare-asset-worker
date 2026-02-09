@@ -46,7 +46,7 @@ export function guessContentType(pathname: string): string | undefined {
 }
 
 /**
- * Infers the module type from a file extension for server code deployment.
+ * Infers the module type from a file extension for server-side code deployment.
  *
  * @param modulePath - The module file path to analyze
  * @returns The inferred module type (defaults to 'js' for unknown extensions)

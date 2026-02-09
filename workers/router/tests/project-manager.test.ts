@@ -339,8 +339,8 @@ describe('project-manager', () => {
 			expect(response.status).toBe(404);
 		});
 
-		it('deletes server code when project has it', async () => {
-			// Create a project with server code flag
+		it('deletes server-side code when project has it', async () => {
+			// Create a project with server-side code flag
 			const projectId = crypto.randomUUID();
 			const project = {
 				id: projectId,
@@ -352,7 +352,7 @@ describe('project-manager', () => {
 			};
 			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
 
-			// Add some server code modules using the real key format
+			// Add some server-side code modules using the real key format
 			await serverCodeKv.put(getServerCodeKey(projectId, 'hash1'), 'content1');
 			await serverCodeKv.put(getServerCodeKey(projectId, 'hash2'), 'content2');
 			await serverCodeKv.put(getServerCodeKey(projectId, 'MANIFEST'), 'manifest-content');
@@ -376,7 +376,7 @@ describe('project-manager', () => {
 			expect(data.deletedServer).toBe(true);
 			expect(data.deletedServerModules).toBe(3);
 
-			// Verify server code is deleted
+			// Verify server-side code is deleted
 			const module1 = await serverCodeKv.get(getServerCodeKey(projectId, 'hash1'));
 			expect(module1).toBeNull();
 		});

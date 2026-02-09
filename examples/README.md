@@ -259,9 +259,9 @@ Configure in `deploy.config.json`:
 
 The `${VARIABLE}` syntax references local environment variables.
 
-## Server Code Requirements
+## Server-Side Code Requirements
 
-Server code must export a default object with a `fetch` handler:
+Server-side code must export a default object with a `fetch` handler:
 
 ```javascript
 export default {

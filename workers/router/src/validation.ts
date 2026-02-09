@@ -53,10 +53,10 @@ export const MAX_PATHNAME_LENGTH = 1024;
 /** Maximum files per upload request */
 export const MAX_FILES_PER_REQUEST = 50;
 
-/** Maximum total size for all server code modules (10 MB) */
+/** Maximum total size for all server-side code modules (10 MB) */
 export const MAX_TOTAL_SERVER_CODE_SIZE = 10 * 1000 * 1000;
 
-/** Maximum length of a server code module path */
+/** Maximum length of a server-side code module path */
 export const MAX_MODULE_PATH_LENGTH = 512;
 
 /** Maximum number of environment variables */
@@ -188,12 +188,12 @@ export const environmentVariablesSchema = z
 	.optional();
 
 /**
- * Schema for server code size validation.
- * Used to validate total decoded server code size.
+ * Schema for server-side code size validation.
+ * Used to validate total decoded server-side code size.
  */
 export const serverCodeSizeSchema = z
 	.number()
-	.max(MAX_TOTAL_SERVER_CODE_SIZE, `Server code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`); // Decimal (MB)
+	.max(MAX_TOTAL_SERVER_CODE_SIZE, `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`); // Decimal (MB)
 
 /**
  * Schema for project name validation.
@@ -218,7 +218,7 @@ export const modulePathSchema = z
 const moduleTypeSchema = z.enum(['js', 'cjs', 'py', 'text', 'data', 'json', 'wasm']);
 
 /**
- * Schema for a server code module (either base64 string or object with content and type).
+ * Schema for a server-side code module (either base64 string or object with content and type).
  */
 const serverCodeModuleSchema = z.union([
 	z.string(), // Base64 content
@@ -320,7 +320,7 @@ export const assetConfigSchema = z
 
 /**
  * Schema for the entire deployment payload.
- * Validates project name, environment variables, server code modules, and configuration.
+ * Validates project name, environment variables, server-side code modules, and configuration.
  */
 export const deploymentPayloadSchema = z.object({
 	projectName: projectNameSchema,
@@ -329,7 +329,7 @@ export const deploymentPayloadSchema = z.object({
 		.object({
 			entrypoint: z.string().min(1, 'Entrypoint cannot be empty'),
 			modules: z.record(modulePathSchema, serverCodeModuleSchema).superRefine((modules, context) => {
-				// Validate total server code size
+				// Validate total server-side code size
 				let totalSize = 0;
 				for (const [_path, moduleData] of Object.entries(modules)) {
 					try {
@@ -346,7 +346,7 @@ export const deploymentPayloadSchema = z.object({
 				if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
 					context.addIssue({
 						code: 'custom',
-						message: `Server code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`,
+						message: `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`,
 					});
 				}
 			}),

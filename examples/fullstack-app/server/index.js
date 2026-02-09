@@ -11,7 +11,7 @@ export default {
 		if (url.pathname === '/api/hello') {
 			return new Response(
 				JSON.stringify({
-					message: 'Hello from server code!',
+					message: 'Hello from server-side code!',
 					appName: env.APP_NAME || 'Fullstack App',
 					environment: env.ENVIRONMENT || 'development',
 					apiUrl: env.API_URL || 'not configured',

@@ -174,7 +174,7 @@ export class ApiClient {
 	 * @returns {Promise<Object>} Deployment result
 	 */
 	async deployApplication(projectId, deployment) {
-		// If no assets, just deploy server code/config
+		// If no assets, just deploy server-side code/config
 		if (!deployment.assets || deployment.assets.length === 0) {
 			const response = await fetch(`${this.routerUrl}/__api/projects/${projectId}/deploy`, {
 				method: 'POST',

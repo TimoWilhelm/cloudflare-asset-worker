@@ -57,7 +57,7 @@ npx cf-deploy deploy
 
 ## What's Next?
 
-- **Add server code**: Configure `server` in your config to deploy backend logic
+- **Add server-side code**: Configure `server` in your config to deploy backend logic
 - **Multiple environments**: Create separate config files for dev/staging/production
 - **Advanced routing**: Use `run_worker_first` to control request handling
 - **Environment variables**: Add `env` section for runtime configuration
