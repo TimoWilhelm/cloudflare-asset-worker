@@ -179,7 +179,7 @@ export async function deployProject(
 			currentProject.run_worker_first = payload.run_worker_first;
 		}
 		if (payload.server) {
-			currentProject.hasServer = true;
+			currentProject.hasServerSideCode = true;
 		}
 
 		// Mark status as READY

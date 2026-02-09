@@ -11,7 +11,7 @@ export interface ProjectMetadata {
 	status: 'PENDING' | 'READY' | 'ERROR';
 	createdAt: string;
 	updatedAt: string;
-	hasServer: boolean;
+	hasServerSideCode: boolean;
 	assetsCount: number;
 	config?: AssetConfigInput;
 	run_worker_first?: boolean | string[];

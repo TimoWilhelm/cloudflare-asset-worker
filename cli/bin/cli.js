@@ -235,7 +235,7 @@ program
 			const subdomainTemplate = client.getSubdomainRoutingDomain();
 			for (const project of projects) {
 				console.log(`  • ${project.name} (${project.id})`);
-				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServer ? 'Yes' : 'No'}`);
+				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServerSideCode ? 'Yes' : 'No'}`);
 				if (subdomainTemplate) {
 					console.log(`    Subdomain:  ${subdomainTemplate.replace('<projectId>', project.id)}`);
 					console.log(`    Path-based: ${client.getProjectUrl(project.id)}`);
