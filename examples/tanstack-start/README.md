@@ -124,7 +124,7 @@ These functions run on Cloudflare Workers and can access bindings, environment v
   "assets": {
     "directory": "./.output/client"
   },
-  "serverCode": {
+  "server": {
     "entrypoint": "index.js",
     "modulesDirectory": "./.output/server"
   },

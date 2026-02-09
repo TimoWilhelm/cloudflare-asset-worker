@@ -42,7 +42,7 @@ export async function createProject(request: Request, projectsKv: KVNamespace): 
 		status: 'PENDING',
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
-		hasServerCode: false,
+		hasServer: false,
 		assetsCount: 0,
 	};
 
@@ -232,10 +232,10 @@ export async function deleteProject(
 	const assetDeletion = await assetWorker.deleteProjectAssets(projectId);
 
 	// Delete server code if exists (modules + manifest)
-	let deletedServerCodeModules = 0;
-	if (project.hasServerCode) {
+	let deletedServerModules = 0;
+	if (project.hasServer) {
 		const serverCodePrefix = getServerCodePrefix(projectId);
-		deletedServerCodeModules = await deleteAllKeys(serverCodeKv, { prefix: serverCodePrefix });
+		deletedServerModules = await deleteAllKeys(serverCodeKv, { prefix: serverCodePrefix });
 	}
 
 	// Delete any remaining upload sessions for this project
@@ -250,8 +250,8 @@ export async function deleteProject(
 			message: 'Project deleted',
 			deletedAssets: assetDeletion.deletedAssets,
 			deletedManifest: assetDeletion.deletedManifest,
-			deletedServerCode: project.hasServerCode,
-			deletedServerCodeModules,
+			deletedServer: project.hasServer,
+			deletedServerModules,
 		},
 		{
 			status: 200,

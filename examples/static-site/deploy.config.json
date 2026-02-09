@@ -1,5 +1,5 @@
 {
-	"$schema": "../../node_modules/@cloudflare-asset-worker/cli/deploy.config.schema.json",
+	"$schema": "../../cli/deploy.config.schema.json",
 	"projectName": "Static Site Example",
 	"assets": {
 		"directory": "./public",

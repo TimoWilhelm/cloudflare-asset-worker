@@ -213,7 +213,7 @@ Each example includes a `deploy.config.json` file:
     "directory": "./public",
     "patterns": ["**/*"]
   },
-  "serverCode": {
+  "server": {
     "entrypoint": "index.js",
     "modulesDirectory": "./server"
   },
@@ -425,7 +425,7 @@ Check that the `assets.directory` path exists relative to `deploy.config.json`.
 
 ### "Entrypoint module not found"
 
-Ensure the `serverCode.entrypoint` file exists in `serverCode.modulesDirectory`.
+Ensure the `server.entrypoint` file exists in `server.modulesDirectory`.
 
 ### Deployment Fails
 

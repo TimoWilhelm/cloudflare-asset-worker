@@ -751,7 +751,7 @@
 							statusBadge = `<span class="badge" style="background: #ecfdf5; color: #047857; border-color: #a7f3d0;">Ready</span>`;
 						}
 
-						const isSSR = p.hasServerCode;
+						const isSSR = p.hasServer;
 						const isWorkerFirst = p.run_worker_first === true || (Array.isArray(p.run_worker_first) && p.run_worker_first.length > 0);
 
 						// Render Links

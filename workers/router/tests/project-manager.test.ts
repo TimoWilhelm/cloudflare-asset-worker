@@ -21,7 +21,7 @@ interface ProjectResponse {
 		name: string;
 		createdAt: string;
 		updatedAt: string;
-		hasServerCode: boolean;
+		hasServer: boolean;
 		assetsCount: number;
 	};
 }
@@ -73,7 +73,7 @@ describe('project-manager', () => {
 			expect(data.project.name).toMatch(/^Project /);
 			expect(data.project.createdAt).toBeDefined();
 			expect(data.project.updatedAt).toBeDefined();
-			expect(data.project.hasServerCode).toBe(false);
+			expect(data.project.hasServer).toBe(false);
 			expect(data.project.assetsCount).toBe(0);
 		});
 
@@ -347,7 +347,7 @@ describe('project-manager', () => {
 				name: 'Test Project',
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
-				hasServerCode: true,
+				hasServer: true,
 				assetsCount: 0,
 			};
 			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
@@ -366,15 +366,15 @@ describe('project-manager', () => {
 			const data = await response.json<{
 				success: boolean;
 				message?: string;
-				deletedServerCode?: boolean;
-				deletedServerCodeModules?: number;
+				deletedServer?: boolean;
+				deletedServerModules?: number;
 				deletedAssets?: number;
 				deletedManifest?: boolean;
 			}>();
 
 			expect(data.success).toBe(true);
-			expect(data.deletedServerCode).toBe(true);
-			expect(data.deletedServerCodeModules).toBe(3);
+			expect(data.deletedServer).toBe(true);
+			expect(data.deletedServerModules).toBe(3);
 
 			// Verify server code is deleted
 			const module1 = await serverCodeKv.get(getServerCodeKey(projectId, 'hash1'));

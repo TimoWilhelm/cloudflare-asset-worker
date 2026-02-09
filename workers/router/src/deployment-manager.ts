@@ -97,14 +97,14 @@ export async function deployProject(
 		}
 
 		// Deploy server code if provided
-		let totalServerCodeModules = 0;
-		let newServerCodeModules = 0;
-		if (payload.serverCode) {
+		let totalServerModules = 0;
+		let newServerModules = 0;
+		if (payload.server) {
 			// Compute content hash for each module and store them separately
 			const moduleManifest: Record<string, { hash: string; type: ModuleType }> = {};
 			const moduleEntries: { path: string; hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
 
-			for (const [modulePath, moduleData] of Object.entries(payload.serverCode.modules)) {
+			for (const [modulePath, moduleData] of Object.entries(payload.server.modules)) {
 				// Handle both formats: string (base64) or { content: base64, type: ModuleType }
 				const base64Content = typeof moduleData === 'string' ? moduleData : moduleData.content;
 				// Infer type from file extension
@@ -114,7 +114,7 @@ export async function deployProject(
 				const decodedContent = new Uint8Array(base64.decode(base64Content)).buffer;
 				const contentHash = await computeContentHash(decodedContent);
 				moduleManifest[modulePath] = { hash: contentHash, type: moduleType };
-				totalServerCodeModules++;
+				totalServerModules++;
 
 				moduleEntries.push({ path: modulePath, hash: contentHash, content: decodedContent, type: moduleType });
 			}
@@ -136,7 +136,7 @@ export async function deployProject(
 				}
 			}
 
-			newServerCodeModules = modulesToUpload.length;
+			newServerModules = modulesToUpload.length;
 
 			// Upload new modules (stored as raw binary)
 			await Promise.all(
@@ -148,9 +148,9 @@ export async function deployProject(
 
 			// Store the manifest
 			const manifest: ServerCodeManifest = {
-				entrypoint: payload.serverCode.entrypoint,
+				entrypoint: payload.server.entrypoint,
 				modules: moduleManifest,
-				compatibilityDate: payload.serverCode.compatibilityDate || '2025-11-09',
+				compatibilityDate: payload.server.compatibilityDate || '2025-11-09',
 				env: { ...payload.env },
 			};
 
@@ -178,8 +178,8 @@ export async function deployProject(
 		if (payload.run_worker_first !== undefined) {
 			currentProject.run_worker_first = payload.run_worker_first;
 		}
-		if (payload.serverCode) {
-			currentProject.hasServerCode = true;
+		if (payload.server) {
+			currentProject.hasServer = true;
 		}
 
 		// Mark status as READY
@@ -195,9 +195,9 @@ export async function deployProject(
 				deployedAssets: manifestEntries.length,
 				newAssets: newEntries.length,
 				skippedAssets: manifestEntries.length - newEntries.length,
-				deployedServerCodeModules: totalServerCodeModules,
-				newServerCodeModules,
-				skippedServerCodeModules: totalServerCodeModules - newServerCodeModules,
+				deployedServerModules: totalServerModules,
+				newServerModules,
+				skippedServerModules: totalServerModules - newServerModules,
 			},
 			{
 				status: 200,

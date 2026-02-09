@@ -35,7 +35,7 @@
 				}
 			}
 		},
-		"serverCode": {
+		"server": {
 			"type": "object",
 			"description": "Server-side code configuration",
 			"required": ["entrypoint", "modulesDirectory"],

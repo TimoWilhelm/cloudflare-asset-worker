@@ -53,7 +53,7 @@ describe('Watchdog Cleanup', () => {
 			status: 'READY',
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/ready-project/metadata', JSON.stringify(project));
@@ -71,7 +71,7 @@ describe('Watchdog Cleanup', () => {
 			status: 'ERROR',
 			createdAt: staleDate,
 			updatedAt: staleDate,
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/error-project/metadata', JSON.stringify(project));
@@ -90,7 +90,7 @@ describe('Watchdog Cleanup', () => {
 			status: 'ERROR',
 			createdAt: freshDate,
 			updatedAt: freshDate,
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/fresh-error/metadata', JSON.stringify(project));
@@ -108,7 +108,7 @@ describe('Watchdog Cleanup', () => {
 			status: 'PENDING',
 			createdAt: staleDate,
 			updatedAt: staleDate,
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/stale-pending/metadata', JSON.stringify(project));
@@ -126,7 +126,7 @@ describe('Watchdog Cleanup', () => {
 			status: 'PENDING',
 			createdAt: freshDate,
 			updatedAt: freshDate,
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/fresh-pending/metadata', JSON.stringify(project));
@@ -143,7 +143,7 @@ describe('Watchdog Cleanup', () => {
 			// status missing
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
-			hasServerCode: false,
+			hasServer: false,
 			assetsCount: 0,
 		};
 		await mockProjectsKV.put('project/legacy-project/metadata', JSON.stringify(project));

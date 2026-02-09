@@ -265,7 +265,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 		}
 
 		// Prefetch server code manifest in parallel with asset lookup when project has server code
-		const manifestPromise = project.hasServerCode ? getServerCodeManifest(projectId) : undefined;
+		const manifestPromise = project.hasServer ? getServerCodeManifest(projectId) : undefined;
 
 		// Helper to run server code with common parameters
 		const executeServerCode = async () => {
@@ -307,7 +307,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 		const rewrittenUrl = new URL(rewrittenRequest.url);
 		const runWorkerFirst = shouldRunWorkerFirst(project.run_worker_first, rewrittenUrl.pathname);
 
-		if (runWorkerFirst && project.hasServerCode) {
+		if (runWorkerFirst && project.hasServer) {
 			// Run server code first, let it handle everything including static files
 			const response = await executeServerCode();
 			// Add header to indicate asset lookup was skipped due to run_worker_first
@@ -342,7 +342,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 			}
 
 			// If no asset found and project has server code, run dynamic worker
-			if (project.hasServerCode) {
+			if (project.hasServer) {
 				const response = await executeServerCode();
 				// Add header to indicate asset lookup was attempted but missed
 				const newResponse = new Response(response.body, response);

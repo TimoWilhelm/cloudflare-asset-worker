@@ -47,7 +47,7 @@ Edit `deploy.config.json`:
     "patterns": ["**/*"],
     "ignore": ["**/*.map"]
   },
-  "serverCode": {
+  "server": {
     "entrypoint": "index.js",
     "modulesDirectory": "./server",
     "compatibilityDate": "2025-11-09"
@@ -188,7 +188,7 @@ Configuration for static assets:
 
 > **Note:** Maximum 20,000 asset files per deployment, with each file limited to 25 MiB. Exceeding these limits will cause deployment to fail.
 
-#### `serverCode`
+#### `server`
 
 Configuration for server-side code:
 
@@ -399,7 +399,7 @@ my-app/
   "assets": {
     "directory": "./dist"
   },
-  "serverCode": {
+  "server": {
     "entrypoint": "index.js",
     "modulesDirectory": "./server"
   },
@@ -537,7 +537,7 @@ Check that the `assets.directory` path is correct and relative to the config fil
 
 ### "Entrypoint module not found"
 
-Ensure the `serverCode.entrypoint` file exists in the `serverCode.modulesDirectory`.
+Ensure the `server.entrypoint` file exists in the `server.modulesDirectory`.
 
 ### "Failed to create upload session"
 

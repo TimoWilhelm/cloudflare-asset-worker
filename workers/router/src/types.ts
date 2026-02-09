@@ -11,7 +11,7 @@ export interface ProjectMetadata {
 	status: 'PENDING' | 'READY' | 'ERROR';
 	createdAt: string;
 	updatedAt: string;
-	hasServerCode: boolean;
+	hasServer: boolean;
 	assetsCount: number;
 	config?: AssetConfigInput;
 	run_worker_first?: boolean | string[];
@@ -44,7 +44,7 @@ export interface AssetManifestRequest {
 export interface DeploymentPayload {
 	projectName?: string;
 	completionJwt?: string;
-	serverCode?: {
+	server?: {
 		entrypoint: string;
 		// Modules are base64-encoded with optional type specification
 		// Can be: string (base64) or { content: string, type: ModuleType }

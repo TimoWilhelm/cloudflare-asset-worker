@@ -1,12 +1,12 @@
 {
-	"$schema": "../../node_modules/@cloudflare-asset-worker/cli/deploy.config.schema.json",
+	"$schema": "../../cli/deploy.config.schema.json",
 	"projectName": "TanStack Start App",
 	"assets": {
 		"directory": "./dist/client",
 		"patterns": ["**/*"],
 		"ignore": ["**/*.map"]
 	},
-	"serverCode": {
+	"server": {
 		"entrypoint": "index.js",
 		"modulesDirectory": "./dist/server",
 		"compatibilityDate": "2025-09-24"

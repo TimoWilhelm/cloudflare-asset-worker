@@ -101,7 +101,7 @@ Authorization: your-api-token
 
 {
   "completionJwt": "completion-jwt-token",
-  "serverCode": { ... },
+  "server": { ... },
   "config": { ... }
 }
 ```
@@ -130,7 +130,7 @@ Response:
     "name": "My Project",
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z",
-    "hasServerCode": false,
+    "hasServer": false,
     "assetsCount": 0
   }
 }

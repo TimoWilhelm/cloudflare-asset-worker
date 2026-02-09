@@ -1,11 +1,11 @@
 {
-	"$schema": "../../node_modules/@cloudflare-asset-worker/cli/deploy.config.schema.json",
+	"$schema": "../../cli/deploy.config.schema.json",
 	"projectName": "Fullstack App Example",
 	"assets": {
 		"directory": "./public",
 		"patterns": ["**/*"]
 	},
-	"serverCode": {
+	"server": {
 		"entrypoint": "index.js",
 		"modulesDirectory": "./server",
 		"compatibilityDate": "2025-11-09"

@@ -134,22 +134,22 @@ program
 			}
 
 			// Load server code if configured
-			if (config.serverCode) {
+			if (config.server) {
 				log.log('');
-				log.log(`⚙️  Loading server code from: ${config.serverCode.modulesDirectory}`);
+				log.log(`⚙️  Loading server code from: ${config.server.modulesDirectory}`);
 				await log.indent(async (log) => {
-					const serverDirectory = path.resolve(configDirectory, config.serverCode.modulesDirectory);
-					deployment.serverCode = await loadServerCode(serverDirectory, config.serverCode.entrypoint, config.serverCode.compatibilityDate);
-					log.log(`✓ Loaded ${Object.keys(deployment.serverCode.modules).length} modules`);
-					log.log(`📌 Entrypoint: ${deployment.serverCode.entrypoint}`);
+					const serverDirectory = path.resolve(configDirectory, config.server.modulesDirectory);
+					deployment.server = await loadServerCode(serverDirectory, config.server.entrypoint, config.server.compatibilityDate);
+					log.log(`✓ Loaded ${Object.keys(deployment.server.modules).length} modules`);
+					log.log(`📌 Entrypoint: ${deployment.server.entrypoint}`);
 
 					// List each module with its type
 					log.log('');
 					log.log(`📦 Modules:`);
 					await log.indent(async (log) => {
-						for (const [moduleName, moduleInfo] of Object.entries(deployment.serverCode.modules)) {
+						for (const [moduleName, moduleInfo] of Object.entries(deployment.server.modules)) {
 							const typeLabel = moduleInfo.type || 'unknown';
-							const isEntry = moduleName === deployment.serverCode.entrypoint ? ' (entrypoint)' : '';
+							const isEntry = moduleName === deployment.server.entrypoint ? ' (entrypoint)' : '';
 							log.log(`• ${moduleName} [${typeLabel}]${isEntry}`);
 						}
 					});
@@ -161,8 +161,8 @@ program
 				console.log('\n🔍 Dry run - would deploy:\n');
 				console.log(`Project: ${config.projectName} (${projectId})`);
 				console.log(`Assets: ${deployment.assets.length} files`);
-				if (deployment.serverCode) {
-					console.log(`Server modules: ${Object.keys(deployment.serverCode.modules).length}`);
+				if (deployment.server) {
+					console.log(`Server modules: ${Object.keys(deployment.server.modules).length}`);
 				}
 				if (deployment.env) {
 					console.log(`Environment variables: ${Object.keys(deployment.env).length}`);
@@ -186,8 +186,8 @@ program
 					log.log(`- New assets: ${result.newAssets}`);
 					log.log(`- Cached assets: ${result.skippedAssets}`);
 				}
-				if (result.deployedServerCodeModules) {
-					log.log(`- Server modules: ${result.deployedServerCodeModules}`);
+				if (result.deployedServerModules) {
+					log.log(`- Server modules: ${result.deployedServerModules}`);
 				}
 			});
 
@@ -235,7 +235,7 @@ program
 			const subdomainTemplate = client.getSubdomainRoutingDomain();
 			for (const project of projects) {
 				console.log(`  • ${project.name} (${project.id})`);
-				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServerCode ? 'Yes' : 'No'}`);
+				console.log(`    Assets: ${project.assetsCount || 0}, Server: ${project.hasServer ? 'Yes' : 'No'}`);
 				if (subdomainTemplate) {
 					console.log(`    Subdomain:  ${subdomainTemplate.replace('<projectId>', project.id)}`);
 					console.log(`    Path-based: ${client.getProjectUrl(project.id)}`);
@@ -279,7 +279,7 @@ program
 					patterns: ['**/*'],
 					ignore: ['**/*.map', '**/.DS_Store'],
 				},
-				serverCode: {
+				server: {
 					entrypoint: 'index.js',
 					modulesDirectory: './server',
 					compatibilityDate: '2025-11-09',

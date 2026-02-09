@@ -325,7 +325,7 @@ export const assetConfigSchema = z
 export const deploymentPayloadSchema = z.object({
 	projectName: projectNameSchema,
 	completionJwt: z.string().optional(),
-	serverCode: z
+	server: z
 		.object({
 			entrypoint: z.string().min(1, 'Entrypoint cannot be empty'),
 			modules: z.record(modulePathSchema, serverCodeModuleSchema).superRefine((modules, context) => {

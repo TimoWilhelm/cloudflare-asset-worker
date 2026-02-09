@@ -147,7 +147,7 @@ export class ApiClient {
 			body: JSON.stringify({
 				completionJwt,
 				projectName: deployment.projectName,
-				serverCode: deployment.serverCode,
+				server: deployment.server,
 				config: deployment.config,
 				run_worker_first: deployment.run_worker_first,
 				env: deployment.env,

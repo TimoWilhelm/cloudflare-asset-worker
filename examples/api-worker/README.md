@@ -91,7 +91,7 @@ Key settings in `deploy.config.json`:
 
 ```json
 {
-  "serverCode": {
+  "server": {
     "entrypoint": "index.js",
     "modulesDirectory": "./src"
   },
