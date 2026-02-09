@@ -143,6 +143,11 @@ program
 					log.log(`✓ Loaded ${Object.keys(deployment.server.modules).length} modules`);
 					log.log(`📌 Entrypoint: ${deployment.server.entrypoint}`);
 
+					const totalServerSize = Object.values(deployment.server.modules).reduce((sum, moduleInfo) => {
+						return sum + Buffer.from(moduleInfo.content, 'base64').length;
+					}, 0);
+					log.log(`📊 Total size: ${formatSize(totalServerSize)}`);
+
 					// List each module with its type
 					log.log('');
 					log.log(`📦 Modules:`);
@@ -162,7 +167,10 @@ program
 				console.log(`Project: ${config.projectName} (${projectId})`);
 				console.log(`Assets: ${deployment.assets.length} files`);
 				if (deployment.server) {
-					console.log(`Server modules: ${Object.keys(deployment.server.modules).length}`);
+					const totalServerSize = Object.values(deployment.server.modules).reduce((sum, moduleInfo) => {
+						return sum + Buffer.from(moduleInfo.content, 'base64').length;
+					}, 0);
+					console.log(`Server modules: ${Object.keys(deployment.server.modules).length} (${formatSize(totalServerSize)})`);
 				}
 				if (deployment.env) {
 					console.log(`Environment variables: ${Object.keys(deployment.env).length}`);
