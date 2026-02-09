@@ -170,3 +170,6 @@ dist
 
 .dev.vars
 .wrangler/
+
+# Generated fixtures
+workers/asset-service/tests/fixtures/

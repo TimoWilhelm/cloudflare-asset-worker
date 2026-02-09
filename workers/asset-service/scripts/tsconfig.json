@@ -1,0 +1,9 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"types": ["node"],
+		"lib": ["esnext"],
+		"noEmit": true
+	},
+	"include": ["*.mts", "*.ts"]
+}

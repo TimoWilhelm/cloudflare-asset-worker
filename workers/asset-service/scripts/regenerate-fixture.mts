@@ -11,7 +11,7 @@ const encoder = new TextEncoder();
 
 async function SHA_256(value: string, length: number) {
 	const data = encoder.encode(value);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer as ArrayBuffer);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
 	return new Uint8Array(hashBuffer, 0, length);
 }
 
@@ -70,7 +70,7 @@ const encode = async (assetEntries: { path: string; contentHash: string }[]) => 
 };
 
 // Generate the fixture
-async function main() {
+export default async function main() {
 	const fixture = await encode([
 		{
 			path: '/path1',
@@ -91,4 +91,11 @@ async function main() {
 	console.log(`Fixture regenerated at ${outputPath}`);
 }
 
-await main();
+const isMain =
+	process.argv[1] &&
+	(process.argv[1] === path.resolve(process.cwd(), 'scripts', 'regenerate-fixture.mts') ||
+		process.argv[1].endsWith('regenerate-fixture.mts'));
+
+if (isMain) {
+	await main();
+}

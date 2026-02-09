@@ -19,7 +19,7 @@ export class AssetsManifest {
 export const hashPath = async (path: string) => {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(path);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
 	return new Uint8Array(hashBuffer, 0, PATH_HASH_SIZE);
 };
 

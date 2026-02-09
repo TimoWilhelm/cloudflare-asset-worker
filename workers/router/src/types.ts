@@ -62,3 +62,11 @@ export interface CompletionJwtPayload {
 	phase: 'complete';
 	manifest: Record<string, { hash: string; size: number }>;
 }
+
+export interface UploadJwtPayload {
+	sessionId: string;
+	projectId: string;
+	phase: 'upload';
+}
+
+export type JwtPayload = CompletionJwtPayload | UploadJwtPayload;

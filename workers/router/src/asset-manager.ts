@@ -7,7 +7,7 @@ import { getProject } from './project-manager';
 import { assetManifestRequestSchema, uploadPayloadSchema } from './validation';
 import AssetWorker from '../../asset-service/src/worker';
 
-import type { UploadSession } from './types';
+import type { UploadSession, JwtPayload } from './types';
 
 /**
  * Creates an asset upload session for a project.
@@ -147,7 +147,7 @@ export async function uploadAssets(
 	}
 
 	const jwt = authHeader.slice(7);
-	const jwtPayload = await verifyJWT(jwt, jwtSecret);
+	const jwtPayload = await verifyJWT<JwtPayload>(jwt, jwtSecret);
 
 	if (!jwtPayload || jwtPayload.phase !== 'upload' || jwtPayload.projectId !== projectId) {
 		return new Response('Invalid or expired JWT', { status: 401 });
