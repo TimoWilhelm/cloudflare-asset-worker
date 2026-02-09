@@ -4,7 +4,7 @@ import { Hono } from 'hono';
 import { Analytics } from './analytics';
 import { createAssetUploadSession, uploadAssets } from './asset-manager';
 import { deployProject } from './deployment-manager';
-import { rewriteHtmlPaths, rewriteJsResponse } from './html-rewriter';
+import { rewritePathBasedResponse } from './html-rewriter';
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
 import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
 import { runServerCode, getServerCodeManifest } from './server-code-runner';
@@ -51,7 +51,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 		const url = new URL(request.url);
 
 		const userAgent = request.headers.get('user-agent') ?? 'UA UNKNOWN';
-		const coloRegion = request.cf?.colo || 'UNKNOWN';
+		const coloRegion = String(request.cf?.colo || 'UNKNOWN');
 
 		analytics.setData({
 			hostname: url.hostname,
@@ -84,8 +84,8 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 					}
 				}
 
-				// Skip API_TOKEN check for JWT-authenticated endpoints
-				if (path.endsWith('/assets/upload')) {
+				// Skip API_TOKEN check for JWT-authenticated endpoint
+				if (/^\/__api\/projects\/[^/]+\/assets\/upload$/.test(path)) {
 					await next();
 					return;
 				}
@@ -264,28 +264,6 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 			rewrittenRequest = rewriteRequestUrl(request, projectId);
 		}
 
-		// Helper to apply path rewriting for path-based routing
-		const maybeRewritePaths = (response: Response): Response => {
-			const contentType = response.headers.get('content-type');
-			if (isPathBased && contentType && contentType.includes('text/html')) {
-				const rewritten = rewriteHtmlPaths(response, projectId);
-				rewritten.headers.set('X-Asset-Html-Rewritten', 'true');
-				return rewritten;
-			}
-			return response;
-		};
-
-		// Helper to apply JS rewriting for path-based routing
-		const maybeRewriteJs = async (response: Response): Promise<Response> => {
-			const contentType = response.headers.get('content-type');
-			if (isPathBased && contentType && (contentType.includes('text/javascript') || contentType.includes('application/javascript'))) {
-				const rewritten = await rewriteJsResponse(response, projectId);
-				rewritten.headers.set('X-Asset-Js-Rewritten', 'true');
-				return rewritten;
-			}
-			return response;
-		};
-
 		// Prefetch server code manifest in parallel with asset lookup when project has server code
 		const manifestPromise = project.hasServerCode ? getServerCodeManifest(projectId) : undefined;
 
@@ -294,7 +272,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 			try {
 				analytics.setData({ requestType: 'ssr' });
 				const prefetchedManifest = manifestPromise ? await manifestPromise : undefined;
-				let response = await runServerCode(
+				const response = await runServerCode(
 					projectId,
 					rewrittenRequest,
 					{
@@ -305,14 +283,13 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 				// Apply path rewriting for path-based routing
 				// JS rewriting handles dynamic import() paths in JS responses
 				// HTML rewriting handles attributes + inline scripts in HTML responses
-				response = await maybeRewriteJs(response);
-				response = maybeRewritePaths(response);
+				const rewritten = isPathBased ? await rewritePathBasedResponse(response, projectId) : response;
 				analytics.setData({
-					status: response.status,
+					status: rewritten.status,
 					requestTime: performance.now() - startTime,
 				});
 				analytics.write();
-				return response;
+				return rewritten;
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				const response = new Response(`SSR Error: ${errorMessage}`, { status: 500 });
@@ -349,13 +326,8 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 
 			if (canServeAsset) {
 				analytics.setData({ requestType: 'asset' });
-				let response = await assets.serveAsset(rewrittenRequest, projectId, project.config);
-
-				// Rewrite JS assets to fix internal absolute paths (e.g. imports of CSS or other chunks)
-				response = await maybeRewriteJs(response);
-
-				// Rewrite HTML paths for path-based routing (for HTML assets like index.html)
-				response = maybeRewritePaths(response);
+				const assetResponse = await assets.serveAsset(rewrittenRequest, projectId, project.config);
+				const response = isPathBased ? await rewritePathBasedResponse(assetResponse, projectId) : assetResponse;
 
 				// Add header to indicate asset was found
 				const finalResponse = new Response(response.body, response);

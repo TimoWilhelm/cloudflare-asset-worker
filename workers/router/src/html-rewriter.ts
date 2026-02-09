@@ -155,7 +155,7 @@ class HeadInjectionHandler implements HTMLRewriterElementContentHandlers {
 /**
  * Rewrites an HTML response to fix paths for path-based routing.
  */
-export function rewriteHtmlPaths(response: Response, projectId: string): Response {
+function rewriteHtmlPaths(response: Response, projectId: string): Response {
 	let rewriter = new HTMLRewriter();
 
 	for (const [selector, attributes] of Object.entries(PATH_ATTRIBUTES)) {
@@ -170,7 +170,7 @@ export function rewriteHtmlPaths(response: Response, projectId: string): Respons
 /**
  * Rewrites a JavaScript response to prefix asset paths for path-based routing.
  */
-export async function rewriteJsResponse(response: Response, projectId: string): Promise<Response> {
+async function rewriteJsResponse(response: Response, projectId: string): Promise<Response> {
 	const body = await response.text();
 	const prefix = `/__project/${projectId}`;
 	const rewritten = rewriteAssetPaths(body, prefix);
@@ -180,4 +180,26 @@ export async function rewriteJsResponse(response: Response, projectId: string): 
 		statusText: response.statusText,
 		headers: response.headers,
 	});
+}
+
+/**
+ * Rewrites a response for path-based routing, applying JS or HTML rewriting
+ * based on the content type. Always returns a new Response.
+ */
+export async function rewritePathBasedResponse(response: Response, projectId: string): Promise<Response> {
+	const contentType = response.headers.get('content-type');
+
+	if (contentType && (contentType.includes('text/javascript') || contentType.includes('application/javascript'))) {
+		const rewritten = await rewriteJsResponse(response, projectId);
+		rewritten.headers.set('X-Asset-Js-Rewritten', 'true');
+		return rewritten;
+	}
+
+	if (contentType && contentType.includes('text/html')) {
+		const rewritten = rewriteHtmlPaths(response, projectId);
+		rewritten.headers.set('X-Asset-Html-Rewritten', 'true');
+		return rewritten;
+	}
+
+	return response;
 }
