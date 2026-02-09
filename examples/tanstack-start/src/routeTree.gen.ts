@@ -8,95 +8,97 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root';
-import { Route as ApiDemoRouteImport } from './routes/api-demo';
-import { Route as AboutRouteImport } from './routes/about';
-import { Route as IndexRouteImport } from './routes/index';
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as ApiDemoRouteImport } from './routes/api-demo'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as IndexRouteImport } from './routes/index'
 
 const ApiDemoRoute = ApiDemoRouteImport.update({
-	id: '/api-demo',
-	path: '/api-demo',
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/api-demo',
+  path: '/api-demo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
-	id: '/about',
-	path: '/about',
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
-	id: '/',
-	path: '/',
-	getParentRoute: () => rootRouteImport,
-} as any);
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
-	'/': typeof IndexRoute;
-	'/about': typeof AboutRoute;
-	'/api-demo': typeof ApiDemoRoute;
+  '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/api-demo': typeof ApiDemoRoute
 }
 export interface FileRoutesByTo {
-	'/': typeof IndexRoute;
-	'/about': typeof AboutRoute;
-	'/api-demo': typeof ApiDemoRoute;
+  '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/api-demo': typeof ApiDemoRoute
 }
 export interface FileRoutesById {
-	__root__: typeof rootRouteImport;
-	'/': typeof IndexRoute;
-	'/about': typeof AboutRoute;
-	'/api-demo': typeof ApiDemoRoute;
+  __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/api-demo': typeof ApiDemoRoute
 }
 export interface FileRouteTypes {
-	fileRoutesByFullPath: FileRoutesByFullPath;
-	fullPaths: '/' | '/about' | '/api-demo';
-	fileRoutesByTo: FileRoutesByTo;
-	to: '/' | '/about' | '/api-demo';
-	id: '__root__' | '/' | '/about' | '/api-demo';
-	fileRoutesById: FileRoutesById;
+  fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths: '/' | '/about' | '/api-demo'
+  fileRoutesByTo: FileRoutesByTo
+  to: '/' | '/about' | '/api-demo'
+  id: '__root__' | '/' | '/about' | '/api-demo'
+  fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-	IndexRoute: typeof IndexRoute;
-	AboutRoute: typeof AboutRoute;
-	ApiDemoRoute: typeof ApiDemoRoute;
+  IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  ApiDemoRoute: typeof ApiDemoRoute
 }
 
 declare module '@tanstack/react-router' {
-	interface FileRoutesByPath {
-		'/api-demo': {
-			id: '/api-demo';
-			path: '/api-demo';
-			fullPath: '/api-demo';
-			preLoaderRoute: typeof ApiDemoRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		'/about': {
-			id: '/about';
-			path: '/about';
-			fullPath: '/about';
-			preLoaderRoute: typeof AboutRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-		'/': {
-			id: '/';
-			path: '/';
-			fullPath: '/';
-			preLoaderRoute: typeof IndexRouteImport;
-			parentRoute: typeof rootRouteImport;
-		};
-	}
+  interface FileRoutesByPath {
+    '/api-demo': {
+      id: '/api-demo'
+      path: '/api-demo'
+      fullPath: '/api-demo'
+      preLoaderRoute: typeof ApiDemoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+  }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-	IndexRoute: IndexRoute,
-	AboutRoute: AboutRoute,
-	ApiDemoRoute: ApiDemoRoute,
-};
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>();
+  IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  ApiDemoRoute: ApiDemoRoute,
+}
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
-import type { getRouter } from './router.tsx';
-import type { createStart } from '@tanstack/react-start';
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
-	interface Register {
-		ssr: true;
-		router: Awaited<ReturnType<typeof getRouter>>;
-	}
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
 }
