@@ -28,7 +28,7 @@ export async function runWatchdog(environment: RouterEnvironment): Promise<void>
  */
 async function cleanupStaleDeployments(environment: RouterEnvironment): Promise<void> {
 	const projectsKv = environment.KV_PROJECTS;
-	const serverCodeKv = environment.KV_SERVER_CODE;
+	const serverSideCodeKv = environment.KV_SERVER_SIDE_CODE;
 	const assetWorker = environment.ASSET_WORKER;
 
 	let cursor: string | undefined = undefined;
@@ -81,7 +81,7 @@ async function cleanupStaleDeployments(environment: RouterEnvironment): Promise<
 			if (shouldDelete) {
 				try {
 					console.log(`🗑️ Deleting project ${project.id} (${project.name}): ${reason}`);
-					await deleteProject(project.id, projectsKv, serverCodeKv, assetWorker);
+					await deleteProject(project.id, projectsKv, serverSideCodeKv, assetWorker);
 					deletedCount++;
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);

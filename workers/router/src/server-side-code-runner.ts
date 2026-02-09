@@ -1,10 +1,10 @@
 import { env } from 'cloudflare:workers';
 
 import { computeContentHash } from './content-utilities';
-import { getServerCodeKey } from './project-manager';
+import { getServerSideCodeKey } from './project-manager';
 import { batchGetKv } from '../../shared/kv';
 
-import type { ServerCodeManifest } from './types';
+import type { ServerSideCodeManifest } from './types';
 
 /**
  * Fetches the server-side code manifest for a project from KV.
@@ -12,9 +12,9 @@ import type { ServerCodeManifest } from './types';
  * @param projectId - The unique identifier of the project
  * @returns The server-side code manifest or null if not found
  */
-export async function getServerCodeManifest(projectId: string): Promise<ServerCodeManifest | undefined> {
-	const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
-	const manifest = await env.KV_SERVER_CODE.get<ServerCodeManifest>(manifestKey, { type: 'json', cacheTtl: 300 });
+export async function getServerSideCodeManifest(projectId: string): Promise<ServerSideCodeManifest | undefined> {
+	const manifestKey = getServerSideCodeKey(projectId, 'MANIFEST');
+	const manifest = await env.KV_SERVER_SIDE_CODE.get<ServerSideCodeManifest>(manifestKey, { type: 'json', cacheTtl: 300 });
 	return manifest || undefined;
 }
 
@@ -28,14 +28,14 @@ export async function getServerCodeManifest(projectId: string): Promise<ServerCo
  * @returns The response from the dynamically loaded worker
  * @throws Error if the server-side code manifest or modules are not found
  */
-export async function runServerCode(
+export async function runServerSideCode(
 	projectId: string,
 	request: Request,
 	bindings: Record<string, unknown>,
-	prefetchedManifest?: ServerCodeManifest | undefined,
+	prefetchedManifest?: ServerSideCodeManifest | undefined,
 ): Promise<Response> {
 	// Use pre-fetched manifest if available, otherwise load from KV
-	const manifest = prefetchedManifest === undefined ? await getServerCodeManifest(projectId) : prefetchedManifest;
+	const manifest = prefetchedManifest === undefined ? await getServerSideCodeManifest(projectId) : prefetchedManifest;
 
 	if (!manifest) {
 		return new Response('Server-side code not found', { status: 404 });
@@ -60,11 +60,11 @@ export async function runServerCode(
 		const textPromise = (async (): Promise<Record<string, WorkerLoaderModule | string>> => {
 			if (textEntries.length === 0) return {};
 			const result: Record<string, WorkerLoaderModule | string> = {};
-			const textKeys = textEntries.map(([, { hash }]) => getServerCodeKey(projectId, hash));
-			const textResults = await batchGetKv(env.KV_SERVER_CODE, textKeys, { type: 'text', cacheTtl: 86_400 });
+			const textKeys = textEntries.map(([, { hash }]) => getServerSideCodeKey(projectId, hash));
+			const textResults = await batchGetKv(env.KV_SERVER_SIDE_CODE, textKeys, { type: 'text', cacheTtl: 86_400 });
 
 			for (const [modulePath, { hash: contentHash, type }] of textEntries) {
-				const moduleKey = getServerCodeKey(projectId, contentHash);
+				const moduleKey = getServerSideCodeKey(projectId, contentHash);
 				const textValue = textResults.get(moduleKey) ?? undefined;
 
 				if (textValue === undefined) {
@@ -106,8 +106,8 @@ export async function runServerCode(
 			if (binaryEntries.length === 0) return {};
 			const entries = await Promise.all(
 				binaryEntries.map(async ([modulePath, { hash: contentHash, type }]): Promise<[string, WorkerLoaderModule]> => {
-					const moduleKey = getServerCodeKey(projectId, contentHash);
-					const rawBuffer = await env.KV_SERVER_CODE.get(moduleKey, { type: 'arrayBuffer', cacheTtl: 86_400 });
+					const moduleKey = getServerSideCodeKey(projectId, contentHash);
+					const rawBuffer = await env.KV_SERVER_SIDE_CODE.get(moduleKey, { type: 'arrayBuffer', cacheTtl: 86_400 });
 
 					if (!rawBuffer) {
 						throw new Error(`Module ${modulePath} with hash ${contentHash} not found in KV`);

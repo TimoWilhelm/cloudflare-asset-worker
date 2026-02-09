@@ -4,7 +4,7 @@
 		"lib": ["es2021"],
 		"module": "preserve",
 		"moduleResolution": "bundler",
-		"types": ["./worker-configuration.d.ts"],
+		"types": ["./worker-configuration.d.ts", "vitest/globals", "@cloudflare/vitest-pool-workers"],
 		"noEmit": true,
 		"isolatedModules": true,
 		"allowSyntheticDefaultImports": true,
@@ -14,5 +14,5 @@
 		"strict": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*"]
+	"include": ["src/**/*", "tests/**/*", "vitest.config.mts", "worker-configuration.d.ts"]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeConfiguration, MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from '../src/configuration';
+import { normalizeConfiguration, MAX_STATIC_REDIRECTS, MAX_DYNAMIC_REDIRECTS } from './configuration';
 
 describe('Configuration Validation', () => {
 	describe('redirect limits', () => {

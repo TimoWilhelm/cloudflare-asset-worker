@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { generateRulesMatcher, generateStaticRoutingRuleMatcher, replacer } from '../src/utils/rules-engine';
+import { generateRulesMatcher, generateStaticRoutingRuleMatcher, replacer } from './rules-engine';
 
 describe('rules engine', () => {
 	test('it should match simple pathname hosts', () => {

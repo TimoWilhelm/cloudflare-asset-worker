@@ -7,7 +7,7 @@ import { Command } from 'commander';
 
 import { ApiClient } from '../lib/api-client.js';
 import { createLogger } from '../lib/logger.js';
-import { loadConfig, scanAssets, loadServerCode, formatSize } from '../lib/utilities.js';
+import { loadConfig, scanAssets, loadServerSideCode, formatSize } from '../lib/utilities.js';
 
 const program = new Command();
 
@@ -139,7 +139,7 @@ program
 				log.log(`⚙️  Loading server-side code from: ${config.server.modulesDirectory}`);
 				await log.indent(async (log) => {
 					const serverDirectory = path.resolve(configDirectory, config.server.modulesDirectory);
-					deployment.server = await loadServerCode(serverDirectory, config.server.entrypoint, config.server.compatibilityDate);
+					deployment.server = await loadServerSideCode(serverDirectory, config.server.entrypoint, config.server.compatibilityDate);
 					log.log(`✓ Loaded ${Object.keys(deployment.server.modules).length} modules`);
 					log.log(`📌 Entrypoint: ${deployment.server.entrypoint}`);
 

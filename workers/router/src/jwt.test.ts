@@ -1,4 +1,4 @@
-import { generateJWT, verifyJWT } from '../src/jwt';
+import { generateJWT, verifyJWT } from './jwt';
 
 interface JwtPayload {
 	[key: string]: unknown;

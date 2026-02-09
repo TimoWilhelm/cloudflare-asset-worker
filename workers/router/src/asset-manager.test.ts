@@ -1,11 +1,11 @@
 import * as base64 from '@stablelib/base64';
 import { env } from 'cloudflare:test';
 
+import { createAssetUploadSession, uploadAssets } from './asset-manager';
+import { computeContentHash } from './content-utilities';
+import { generateJWT, verifyJWT } from './jwt';
+import { createProject } from './project-manager';
 import { createMock } from '../../shared/test-utilities';
-import { createAssetUploadSession, uploadAssets } from '../src/asset-manager';
-import { computeContentHash } from '../src/content-utilities';
-import { generateJWT, verifyJWT } from '../src/jwt';
-import { createProject } from '../src/project-manager';
 
 import type AssetApi from '../../asset-service/src/worker';
 

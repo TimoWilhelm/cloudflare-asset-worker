@@ -21,7 +21,7 @@ export default defineConfig(
 			globals: globals.worker,
 			parserOptions: {
 				projectService: {
-					allowDefaultProject: ['workers/shared/*.ts', 'workers/asset-service/*.ts'],
+					allowDefaultProject: ['workers/shared/*.ts'],
 				},
 				tsconfigRootDir: import.meta.dirname,
 			},

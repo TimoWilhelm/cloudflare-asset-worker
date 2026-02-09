@@ -2,9 +2,9 @@
 
 import { vi } from 'vitest';
 
-import { Analytics } from '../src/analytics';
-import { normalizeConfiguration } from '../src/configuration';
-import { canFetch, handleRequest } from '../src/handler';
+import { Analytics } from './analytics';
+import { normalizeConfiguration } from './configuration';
+import { canFetch, handleRequest } from './handler';
 
 describe('[Asset Worker] `handleRequest`', () => {
 	it('attaches ETag headers to responses', async () => {

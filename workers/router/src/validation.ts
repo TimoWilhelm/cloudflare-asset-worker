@@ -54,7 +54,7 @@ export const MAX_PATHNAME_LENGTH = 1024;
 export const MAX_FILES_PER_REQUEST = 50;
 
 /** Maximum total size for all server-side code modules (10 MB) */
-export const MAX_TOTAL_SERVER_CODE_SIZE = 10 * 1000 * 1000;
+export const MAX_TOTAL_SERVER_SIDE_CODE_SIZE = 10 * 1000 * 1000;
 
 /** Maximum length of a server-side code module path */
 export const MAX_MODULE_PATH_LENGTH = 512;
@@ -191,9 +191,9 @@ export const environmentVariablesSchema = z
  * Schema for server-side code size validation.
  * Used to validate total decoded server-side code size.
  */
-export const serverCodeSizeSchema = z
+export const serverSideCodeSizeSchema = z
 	.number()
-	.max(MAX_TOTAL_SERVER_CODE_SIZE, `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`); // Decimal (MB)
+	.max(MAX_TOTAL_SERVER_SIDE_CODE_SIZE, `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_SIDE_CODE_SIZE, 2, false)}.`); // Decimal (MB)
 
 /**
  * Schema for project name validation.
@@ -220,7 +220,7 @@ const moduleTypeSchema = z.enum(['js', 'cjs', 'py', 'text', 'data', 'json', 'was
 /**
  * Schema for a server-side code module (either base64 string or object with content and type).
  */
-const serverCodeModuleSchema = z.union([
+const serverSideCodeModuleSchema = z.union([
 	z.string(), // Base64 content
 	z.object({
 		content: z.string(), // Base64 content
@@ -328,7 +328,7 @@ export const deploymentPayloadSchema = z.object({
 	server: z
 		.object({
 			entrypoint: z.string().min(1, 'Entrypoint cannot be empty'),
-			modules: z.record(modulePathSchema, serverCodeModuleSchema).superRefine((modules, context) => {
+			modules: z.record(modulePathSchema, serverSideCodeModuleSchema).superRefine((modules, context) => {
 				// Validate total server-side code size
 				let totalSize = 0;
 				for (const [_path, moduleData] of Object.entries(modules)) {
@@ -343,10 +343,10 @@ export const deploymentPayloadSchema = z.object({
 					}
 				}
 
-				if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
+				if (totalSize > MAX_TOTAL_SERVER_SIDE_CODE_SIZE) {
 					context.addIssue({
 						code: 'custom',
-						message: `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_CODE_SIZE, 2, false)}.`,
+						message: `Server-side code cannot exceed ${formatBytes(MAX_TOTAL_SERVER_SIDE_CODE_SIZE, 2, false)}.`,
 					});
 				}
 			}),

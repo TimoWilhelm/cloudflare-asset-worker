@@ -1,4 +1,4 @@
-import { computeContentHash, guessContentType, inferModuleType, createBuckets } from '../src/content-utilities';
+import { computeContentHash, guessContentType, inferModuleType, createBuckets } from './content-utilities';
 
 describe('content-utilities', () => {
 	describe('computeContentHash', () => {

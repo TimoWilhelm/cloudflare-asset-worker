@@ -1,5 +1,5 @@
-import { createMock } from '../../shared/test-utilities';
-import { getAssetWithMetadataFromKV } from '../src/utils/kv';
+import { getAssetWithMetadataFromKV } from './kv';
+import { createMock } from '../../../shared/test-utilities';
 
 import type { MockInstance } from 'vitest';
 

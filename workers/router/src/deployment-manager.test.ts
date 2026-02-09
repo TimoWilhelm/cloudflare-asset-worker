@@ -1,8 +1,8 @@
 import { env } from 'cloudflare:test';
 
+import { deployProject } from './deployment-manager';
+import { createProject } from './project-manager';
 import { createMock } from '../../shared/test-utilities';
-import { deployProject } from '../src/deployment-manager';
-import { createProject } from '../src/project-manager';
 
 import type AssetWorker from '../../asset-service/src/worker';
 
@@ -17,12 +17,12 @@ interface DeployResponse {
 
 describe('deployment-manager', () => {
 	let projectsKv: KVNamespace;
-	let serverCodeKv: KVNamespace;
+	let serverSideCodeKv: KVNamespace;
 	const jwtSecret = 'test-secret-key';
 
 	beforeEach(async () => {
 		projectsKv = env.KV_PROJECTS;
-		serverCodeKv = env.KV_SERVER_CODE;
+		serverSideCodeKv = env.KV_SERVER_SIDE_CODE;
 
 		// Clear KV namespaces before each test
 		const projectKeys = await projectsKv.list();
@@ -30,9 +30,9 @@ describe('deployment-manager', () => {
 			await projectsKv.delete(key.name);
 		}
 
-		const serverKeys = await serverCodeKv.list();
+		const serverKeys = await serverSideCodeKv.list();
 		for (const key of serverKeys.keys) {
-			await serverCodeKv.delete(key.name);
+			await serverSideCodeKv.delete(key.name);
 		}
 	});
 
@@ -67,7 +67,7 @@ describe('deployment-manager', () => {
 				}),
 			});
 
-			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
+			const response = await deployProject(projectId, deployRequest, projectsKv, serverSideCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
 			const data = await response.json<DeployResponse>();
@@ -100,7 +100,7 @@ describe('deployment-manager', () => {
 				}),
 			});
 
-			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
+			const response = await deployProject(projectId, deployRequest, projectsKv, serverSideCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(400);
 			const errorText = await response.text();
@@ -128,7 +128,7 @@ describe('deployment-manager', () => {
 				}),
 			});
 
-			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
+			const response = await deployProject(projectId, deployRequest, projectsKv, serverSideCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
 			const data = await response.json<DeployResponse>();
@@ -159,7 +159,7 @@ describe('deployment-manager', () => {
 				}),
 			});
 
-			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
+			const response = await deployProject(projectId, deployRequest, projectsKv, serverSideCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(200);
 			const data = await response.json<DeployResponse>();
@@ -190,7 +190,7 @@ describe('deployment-manager', () => {
 				}),
 			});
 
-			const response = await deployProject(projectId, deployRequest, projectsKv, serverCodeKv, mockAssetWorker, jwtSecret);
+			const response = await deployProject(projectId, deployRequest, projectsKv, serverSideCodeKv, mockAssetWorker, jwtSecret);
 
 			expect(response.status).toBe(400);
 			const errorText = await response.text();

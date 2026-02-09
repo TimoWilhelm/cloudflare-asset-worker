@@ -1,4 +1,4 @@
-import { matchesGlobPatterns, shouldRunWorkerFirst, extractProjectId, rewriteRequestUrl } from '../src/routing';
+import { matchesGlobPatterns, shouldRunWorkerFirst, extractProjectId, rewriteRequestUrl } from './routing';
 
 describe('routing utilities', () => {
 	describe('matchesGlobPatterns', () => {

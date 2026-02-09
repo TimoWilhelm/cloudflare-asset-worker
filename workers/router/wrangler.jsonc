@@ -23,7 +23,7 @@
 			"binding": "KV_PROJECTS"
 		},
 		{
-			"binding": "KV_SERVER_CODE"
+			"binding": "KV_SERVER_SIDE_CODE"
 		}
 	],
 	"services": [

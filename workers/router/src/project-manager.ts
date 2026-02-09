@@ -212,14 +212,14 @@ export async function getProjectInfo(projectId: string, projectsKv: KVNamespace)
  *
  * @param projectId - The unique identifier of the project to delete
  * @param projectsKv - The KV namespace for storing project metadata
- * @param serverCodeKv - The KV namespace for storing server-side code modules
+ * @param serverSideCodeKv - The KV namespace for storing server-side code modules
  * @param assetWorker - The asset service worker for deleting project assets
  * @returns JSON response with deletion statistics or 404 if project not found
  */
 export async function deleteProject(
 	projectId: string,
 	projectsKv: KVNamespace,
-	serverCodeKv: KVNamespace,
+	serverSideCodeKv: KVNamespace,
 	assetWorker: Service<AssetApi>,
 ): Promise<Response> {
 	const project = await getProject(projectId, projectsKv);
@@ -234,8 +234,8 @@ export async function deleteProject(
 	// Delete server-side code if exists (modules + manifest)
 	let deletedServerModules = 0;
 	if (project.hasServer) {
-		const serverCodePrefix = getServerCodePrefix(projectId);
-		deletedServerModules = await deleteAllKeys(serverCodeKv, { prefix: serverCodePrefix });
+		const serverSideCodePrefix = getServerSideCodePrefix(projectId);
+		deletedServerModules = await deleteAllKeys(serverSideCodeKv, { prefix: serverSideCodePrefix });
 	}
 
 	// Delete any remaining upload sessions for this project
@@ -277,7 +277,7 @@ export async function getProject(projectId: string, projectsKv: KVNamespace): Pr
  * @param projectId - The unique identifier of the project
  * @returns The prefix string used for server-side code KV keys
  */
-export function getServerCodePrefix(projectId: string): string {
+export function getServerSideCodePrefix(projectId: string): string {
 	return `project/${projectId}/module/`;
 }
 
@@ -288,6 +288,6 @@ export function getServerCodePrefix(projectId: string): string {
  * @param key - The key to namespace (e.g., content hash or 'MANIFEST')
  * @returns The full namespaced key for KV storage
  */
-export function getServerCodeKey(projectId: string, key: string): string {
+export function getServerSideCodeKey(projectId: string, key: string): string {
 	return `project/${projectId}/module/${key}`;
 }

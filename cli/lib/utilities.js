@@ -89,7 +89,7 @@ export async function scanAssets(directory, patterns = ['**/*'], ignore = []) {
  * @param {string} entrypoint - Main entry point file
  * @returns {Promise<Object>} Server-side code configuration
  */
-export async function loadServerCode(directory, entrypoint, compatibilityDate = '2025-11-09') {
+export async function loadServerSideCode(directory, entrypoint, compatibilityDate = '2025-11-09') {
 	const absoluteDirectory = path.resolve(directory);
 
 	// Ensure directory exists
@@ -107,7 +107,7 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	});
 
 	const modules = {};
-	const MAX_TOTAL_SERVER_CODE_SIZE = 10 * 1000 * 1000; // 10 MB
+	const MAX_TOTAL_SERVER_SIDE_CODE_SIZE = 10 * 1000 * 1000; // 10 MB
 	let totalSize = 0;
 
 	for (const file of files) {
@@ -164,11 +164,11 @@ export async function loadServerCode(directory, entrypoint, compatibilityDate = 
 	}
 
 	// Validate total server-side code size
-	if (totalSize > MAX_TOTAL_SERVER_CODE_SIZE) {
+	if (totalSize > MAX_TOTAL_SERVER_SIDE_CODE_SIZE) {
 		throw new Error(
 			`Total server-side code size is too large: ${totalSize} bytes (${(totalSize / 1000 / 1000).toFixed(
 				2,
-			)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_CODE_SIZE} bytes (10 MB).`,
+			)} MB). Maximum allowed is ${MAX_TOTAL_SERVER_SIDE_CODE_SIZE} bytes (10 MB).`,
 		);
 	}
 

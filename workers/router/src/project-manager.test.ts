@@ -1,16 +1,16 @@
 import { env } from 'cloudflare:test';
 
-import { createMock } from '../../shared/test-utilities';
 import {
 	createProject,
 	listProjects,
 	getProjectInfo,
 	deleteProject,
 	getProject,
-	getServerCodePrefix,
-	getServerCodeKey,
-} from '../src/project-manager';
-import { ProjectMetadata } from '../src/types';
+	getServerSideCodePrefix,
+	getServerSideCodeKey,
+} from './project-manager';
+import { ProjectMetadata } from './types';
+import { createMock } from '../../shared/test-utilities';
 
 import type AssetApi from '../../asset-service/src/worker';
 
@@ -38,11 +38,11 @@ interface ListProjectsResponse {
 
 describe('project-manager', () => {
 	let projectsKv: KVNamespace;
-	let serverCodeKv: KVNamespace;
+	let serverSideCodeKv: KVNamespace;
 
 	beforeEach(async () => {
 		projectsKv = env.KV_PROJECTS;
-		serverCodeKv = env.KV_SERVER_CODE;
+		serverSideCodeKv = env.KV_SERVER_SIDE_CODE;
 
 		// Clear KV namespaces before each test
 		const projectKeys = await projectsKv.list({ prefix: 'project/' });
@@ -50,9 +50,9 @@ describe('project-manager', () => {
 			await projectsKv.delete(key.name);
 		}
 
-		const serverCodeKeys = await serverCodeKv.list();
-		for (const key of serverCodeKeys.keys) {
-			await serverCodeKv.delete(key.name);
+		const serverSideCodeKeys = await serverSideCodeKv.list();
+		for (const key of serverSideCodeKeys.keys) {
+			await serverSideCodeKv.delete(key.name);
 		}
 	});
 
@@ -318,7 +318,7 @@ describe('project-manager', () => {
 			});
 
 			// Delete the project
-			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
+			const response = await deleteProject(projectId, projectsKv, serverSideCodeKv, mockAssetWorker);
 			expect(response.status).toBe(200);
 
 			const data = await response.json<{ success: boolean; message: string }>();
@@ -335,7 +335,7 @@ describe('project-manager', () => {
 				deleteProjectAssets: async () => ({ deletedAssets: 0, deletedManifest: false }),
 			});
 
-			const response = await deleteProject('non-existent-id', projectsKv, serverCodeKv, mockAssetWorker);
+			const response = await deleteProject('non-existent-id', projectsKv, serverSideCodeKv, mockAssetWorker);
 			expect(response.status).toBe(404);
 		});
 
@@ -353,16 +353,16 @@ describe('project-manager', () => {
 			await projectsKv.put(`project/${projectId}/metadata`, JSON.stringify(project));
 
 			// Add some server-side code modules using the real key format
-			await serverCodeKv.put(getServerCodeKey(projectId, 'hash1'), 'content1');
-			await serverCodeKv.put(getServerCodeKey(projectId, 'hash2'), 'content2');
-			await serverCodeKv.put(getServerCodeKey(projectId, 'MANIFEST'), 'manifest-content');
+			await serverSideCodeKv.put(getServerSideCodeKey(projectId, 'hash1'), 'content1');
+			await serverSideCodeKv.put(getServerSideCodeKey(projectId, 'hash2'), 'content2');
+			await serverSideCodeKv.put(getServerSideCodeKey(projectId, 'MANIFEST'), 'manifest-content');
 
 			const mockAssetWorker = createMock<Service<AssetApi>>({
 				deleteProjectAssets: async () => ({ deletedAssets: 5, deletedManifest: true }),
 			});
 
 			// Delete the project
-			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
+			const response = await deleteProject(projectId, projectsKv, serverSideCodeKv, mockAssetWorker);
 			const data = await response.json<{
 				success: boolean;
 				message?: string;
@@ -377,7 +377,7 @@ describe('project-manager', () => {
 			expect(data.deletedServerModules).toBe(3);
 
 			// Verify server-side code is deleted
-			const module1 = await serverCodeKv.get(getServerCodeKey(projectId, 'hash1'));
+			const module1 = await serverSideCodeKv.get(getServerSideCodeKey(projectId, 'hash1'));
 			expect(module1).toBeNull();
 		});
 
@@ -399,7 +399,7 @@ describe('project-manager', () => {
 				},
 			});
 
-			const response = await deleteProject(projectId, projectsKv, serverCodeKv, mockAssetWorker);
+			const response = await deleteProject(projectId, projectsKv, serverSideCodeKv, mockAssetWorker);
 			const data = await response.json<{
 				success: boolean;
 				message?: string;
@@ -414,21 +414,21 @@ describe('project-manager', () => {
 	});
 
 	describe('utility functions', () => {
-		describe('getServerCodePrefix', () => {
+		describe('getServerSideCodePrefix', () => {
 			it('returns correct prefix', () => {
-				expect(getServerCodePrefix('project-123')).toBe('project/project-123/module/');
-				expect(getServerCodePrefix('abc')).toBe('project/abc/module/');
+				expect(getServerSideCodePrefix('project-123')).toBe('project/project-123/module/');
+				expect(getServerSideCodePrefix('abc')).toBe('project/abc/module/');
 			});
 		});
 
-		describe('getServerCodeKey', () => {
+		describe('getServerSideCodeKey', () => {
 			it('returns namespaced key', () => {
-				expect(getServerCodeKey('project-123', 'module.js')).toBe('project/project-123/module/module.js');
-				expect(getServerCodeKey('abc', 'MANIFEST')).toBe('project/abc/module/MANIFEST');
+				expect(getServerSideCodeKey('project-123', 'module.js')).toBe('project/project-123/module/module.js');
+				expect(getServerSideCodeKey('abc', 'MANIFEST')).toBe('project/abc/module/MANIFEST');
 			});
 
 			it('handles complex keys', () => {
-				expect(getServerCodeKey('proj-1', 'path/to/module.js')).toBe('project/proj-1/module/path/to/module.js');
+				expect(getServerSideCodeKey('proj-1', 'path/to/module.js')).toBe('project/proj-1/module/path/to/module.js');
 			});
 		});
 	});

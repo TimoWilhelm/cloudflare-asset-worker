@@ -1,6 +1,6 @@
-import AssetManifestFixture from './fixtures/AssetManifest.bin';
-import { binarySearch, hashPath } from '../src/assets-manifest';
-import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from '../src/constants';
+import { binarySearch, hashPath } from './assets-manifest';
+import { CONTENT_HASH_OFFSET, ENTRY_SIZE, HEADER_SIZE, PATH_HASH_OFFSET, PATH_HASH_SIZE } from './constants';
+import AssetManifestFixture from '../tests/fixtures/AssetManifest.bin';
 
 const encoder = new TextEncoder();
 

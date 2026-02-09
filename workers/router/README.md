@@ -19,7 +19,7 @@ The router worker uses two KV namespaces:
    - Project metadata: `project:projectId`
    - Upload sessions: `session:sessionId` (temporary, 1 hour TTL)
 
-2. **`KV_SERVER_CODE`** - Dynamic worker code
+2. **`KV_SERVER_SIDE_CODE`** - Dynamic worker code
    - Manifest: `projectId:MANIFEST`
    - Modules: `projectId:contentHash` (content-addressed, deduplicated)
    - Stores base64-encoded module content
@@ -300,7 +300,7 @@ Configure in `wrangler.jsonc`:
       // id: "your-kv-namespace-id"
     },
     {
-      "binding": "KV_SERVER_CODE",
+      "binding": "KV_SERVER_SIDE_CODE",
       // id: "your-kv-namespace-id"
     },
   ],

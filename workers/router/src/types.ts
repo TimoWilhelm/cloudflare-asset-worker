@@ -19,7 +19,7 @@ export interface ProjectMetadata {
 
 export type ModuleType = 'js' | 'cjs' | 'py' | 'text' | 'data' | 'json' | 'wasm';
 
-export interface ServerCodeManifest {
+export interface ServerSideCodeManifest {
 	entrypoint: string;
 	// Map of module path to { hash, type }
 	modules: Record<string, { hash: string; type: ModuleType }>;

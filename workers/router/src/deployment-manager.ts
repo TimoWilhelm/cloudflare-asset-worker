@@ -3,12 +3,12 @@ import { z } from 'zod';
 
 import { computeContentHash, inferModuleType } from './content-utilities';
 import { verifyJWT } from './jwt';
-import { getProject, getServerCodeKey } from './project-manager';
+import { getProject, getServerSideCodeKey } from './project-manager';
 import { deploymentPayloadSchema } from './validation';
 import AssetWorker, { ManifestEntry } from '../../asset-service/src/worker';
 import { batchExistsKv } from '../../shared/kv';
 
-import type { ServerCodeManifest, ModuleType, CompletionJwtPayload } from './types';
+import type { ServerSideCodeManifest, ModuleType, CompletionJwtPayload } from './types';
 
 /**
  * Deploys a full-stack project with assets and optional server-side code.
@@ -17,7 +17,7 @@ import type { ServerCodeManifest, ModuleType, CompletionJwtPayload } from './typ
  * @param projectId - The unique identifier of the project to deploy
  * @param request - The HTTP request containing the deployment payload
  * @param projectsKv - The KV namespace for storing project metadata
- * @param serverCodeKv - The KV namespace for storing server-side code modules
+ * @param serverSideCodeKv - The KV namespace for storing server-side code modules
  * @param assetWorker - The asset service worker for uploading manifests
  * @param jwtSecret - The secret used for JWT verification
  * @returns JSON response with deployment statistics or error response
@@ -26,7 +26,7 @@ export async function deployProject(
 	projectId: string,
 	request: Request,
 	projectsKv: KVNamespace,
-	serverCodeKv: KVNamespace,
+	serverSideCodeKv: KVNamespace,
 	assetWorker: Service<AssetWorker>,
 	jwtSecret: string,
 ): Promise<Response> {
@@ -120,13 +120,13 @@ export async function deployProject(
 			}
 
 			// Batch-check which modules already exist in KV (chunked into batches of 100)
-			const moduleKeys = moduleEntries.map(({ hash }) => getServerCodeKey(projectId, hash));
-			const existingModules = await batchExistsKv(serverCodeKv, moduleKeys);
+			const moduleKeys = moduleEntries.map(({ hash }) => getServerSideCodeKey(projectId, hash));
+			const existingModules = await batchExistsKv(serverSideCodeKv, moduleKeys);
 
 			// Only upload modules that don't already exist
 			const modulesToUpload: { hash: string; content: ArrayBuffer; type: ModuleType }[] = [];
 			for (const entry of moduleEntries) {
-				const moduleKey = getServerCodeKey(projectId, entry.hash);
+				const moduleKey = getServerSideCodeKey(projectId, entry.hash);
 				if (!existingModules.has(moduleKey)) {
 					modulesToUpload.push({
 						hash: entry.hash,
@@ -141,21 +141,21 @@ export async function deployProject(
 			// Upload new modules (stored as raw binary)
 			await Promise.all(
 				modulesToUpload.map(async ({ hash, content }) => {
-					const moduleKey = getServerCodeKey(projectId, hash);
-					await serverCodeKv.put(moduleKey, content);
+					const moduleKey = getServerSideCodeKey(projectId, hash);
+					await serverSideCodeKv.put(moduleKey, content);
 				}),
 			);
 
 			// Store the manifest
-			const manifest: ServerCodeManifest = {
+			const manifest: ServerSideCodeManifest = {
 				entrypoint: payload.server.entrypoint,
 				modules: moduleManifest,
 				compatibilityDate: payload.server.compatibilityDate || '2025-11-09',
 				env: { ...payload.env },
 			};
 
-			const manifestKey = getServerCodeKey(projectId, 'MANIFEST');
-			await serverCodeKv.put(manifestKey, JSON.stringify(manifest));
+			const manifestKey = getServerSideCodeKey(projectId, 'MANIFEST');
+			await serverSideCodeKv.put(manifestKey, JSON.stringify(manifest));
 		}
 
 		// Re-check project still exists before finalizing (prevents resurrecting a deleted project)

@@ -28,20 +28,20 @@ const createMockKV = () => {
 
 describe('Watchdog Cleanup', () => {
 	let mockProjectsKV: KVNamespace;
-	let mockServerCodeKV: KVNamespace;
+	let mockServerSideCodeKV: KVNamespace;
 	let mockAssetWorker: { deleteProjectAssets: ReturnType<typeof vi.fn> };
 	let environment: RouterEnvironment;
 
 	beforeEach(() => {
 		mockProjectsKV = createMockKV();
-		mockServerCodeKV = createMockKV();
+		mockServerSideCodeKV = createMockKV();
 		mockAssetWorker = {
 			deleteProjectAssets: vi.fn().mockResolvedValue({ deletedAssets: 0, deletedManifest: true }),
 		};
 
 		environment = createMock<RouterEnvironment>({
 			KV_PROJECTS: mockProjectsKV,
-			KV_SERVER_CODE: mockServerCodeKV,
+			KV_SERVER_SIDE_CODE: mockServerSideCodeKV,
 			ASSET_WORKER: mockAssetWorker,
 		});
 	});

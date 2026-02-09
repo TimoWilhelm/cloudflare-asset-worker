@@ -7,7 +7,7 @@ import { deployProject } from './deployment-manager';
 import { rewritePathBasedResponse } from './html-rewriter';
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
 import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
-import { runServerCode, getServerCodeManifest } from './server-code-runner';
+import { runServerSideCode, getServerSideCodeManifest } from './server-side-code-runner';
 import { RouterEnvironment } from './types';
 import { runWatchdog } from './watchdog';
 
@@ -136,7 +136,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 			app.delete('/__api/projects/:projectId', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER;
-				return deleteProject(projectId, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets);
+				return deleteProject(projectId, this.env.KV_PROJECTS, this.env.KV_SERVER_SIDE_CODE, assets);
 			});
 
 			app.post('/__api/projects/:projectId/assets-upload-session', async (c) => {
@@ -154,7 +154,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 			app.post('/__api/projects/:projectId/deploy', async (c) => {
 				const projectId = c.req.param('projectId');
 				const assets = this.env.ASSET_WORKER;
-				return deployProject(projectId, c.req.raw, this.env.KV_PROJECTS, this.env.KV_SERVER_CODE, assets, this.env.JWT_SECRET);
+				return deployProject(projectId, c.req.raw, this.env.KV_PROJECTS, this.env.KV_SERVER_SIDE_CODE, assets, this.env.JWT_SECRET);
 			});
 
 			app.onError((error, c) => {
@@ -265,14 +265,14 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 		}
 
 		// Prefetch server-side code manifest in parallel with asset lookup when project has server-side code
-		const manifestPromise = project.hasServer ? getServerCodeManifest(projectId) : undefined;
+		const manifestPromise = project.hasServer ? getServerSideCodeManifest(projectId) : undefined;
 
 		// Helper to run server-side code with common parameters
-		const executeServerCode = async () => {
+		const executeServerSideCode = async () => {
 			try {
 				analytics.setData({ requestType: 'ssr' });
 				const prefetchedManifest = manifestPromise ? await manifestPromise : undefined;
-				const response = await runServerCode(
+				const response = await runServerSideCode(
 					projectId,
 					rewrittenRequest,
 					{
@@ -309,7 +309,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 
 		if (runWorkerFirst && project.hasServer) {
 			// Run server-side code first, let it handle everything including static files
-			const response = await executeServerCode();
+			const response = await executeServerSideCode();
 			// Add header to indicate asset lookup was skipped due to run_worker_first
 			const newResponse = new Response(response.body, response);
 			newResponse.headers.set('X-Asset-Lookup', 'SKIP');
@@ -321,7 +321,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 
 		try {
 			// Clone the request because canFetch (RPC) might consume/read the body,
-			// rendering rewrittenRequest unusable for executeServerCode later.
+			// rendering rewrittenRequest unusable for executeServerSideCode later.
 			const canServeAsset = await assets.canFetch(rewrittenRequest.clone(), projectId, project.config);
 
 			if (canServeAsset) {
@@ -343,7 +343,7 @@ export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
 
 			// If no asset found and project has server-side code, run dynamic worker
 			if (project.hasServer) {
-				const response = await executeServerCode();
+				const response = await executeServerSideCode();
 				// Add header to indicate asset lookup was attempted but missed
 				const newResponse = new Response(response.body, response);
 				newResponse.headers.set('X-Asset-Lookup', 'MISS');
