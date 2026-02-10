@@ -20,12 +20,9 @@ Backend-only REST API service with no static assets.
 ## Deploy
 
 ```bash
-# Set API token
-export CF_API_TOKEN=your-token
-
 # Deploy
 cd examples/api-worker
-npx cf-deploy deploy --create-project
+cf-deploy deploy --api-token your-token --create-project
 ```
 
 ## API Endpoints
@@ -131,7 +128,7 @@ Key settings in `deploy.config.json`:
 3. **Redeploy**:
 
    ```bash
-   npx cf-deploy deploy
+   cf-deploy deploy --api-token your-token
    ```
 
 ## Environment Variables

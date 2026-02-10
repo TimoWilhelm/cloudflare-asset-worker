@@ -272,16 +272,16 @@ export default {
 
 ```bash
 # Run tests
-npm test
+bun run test
 
 # Deploy to Cloudflare
-npm run deploy
+bun run deploy
 
 # Local development
-npm run dev
+bun run dev
 
 # Generate TypeScript types
-npm run cf-typegen
+bun run cf-typegen
 ```
 
 ### Environment Setup

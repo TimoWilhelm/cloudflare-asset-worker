@@ -9,19 +9,13 @@ Each example is a complete, ready-to-deploy project with actual source files and
 1. **Install dependencies** from workspace root:
 
    ```bash
-   npm install
+   bun install
    ```
 
-2. **Set your API token**:
+2. **Start the router worker**:
 
    ```bash
-   export CF_API_TOKEN=your-token
-   ```
-
-3. **Start the router worker**:
-
-   ```bash
-   npm run dev
+   bun run dev
    ```
 
 ## Available Examples
@@ -40,7 +34,7 @@ A simple static website with HTML and CSS.
 
 ```bash
 cd examples/static-site
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 **Project Structure:**
@@ -71,7 +65,7 @@ Complete application with both frontend assets and backend API.
 
 ```bash
 cd examples/fullstack-app
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 **Project Structure:**
@@ -108,7 +102,7 @@ Backend-only service with no static assets.
 
 ```bash
 cd examples/api-worker
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 **Project Structure:**
@@ -148,9 +142,9 @@ Full-stack React application using [TanStack Start](https://tanstack.com/start/l
 
 ```bash
 cd examples/tanstack-start
-npm install
-npm run build
-npm run deploy
+bun install
+bun run build
+bun run deploy -- --api-token your-token
 ```
 
 **Project Structure:**
@@ -184,8 +178,7 @@ tanstack-start/
 
 ```bash
 cd examples/<example-name>
-export CF_API_TOKEN=your-token
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 ### Dry Run (Preview)
@@ -193,13 +186,13 @@ npx cf-deploy deploy
 See what would be deployed without actually deploying:
 
 ```bash
-npx cf-deploy deploy --dry-run
+cf-deploy deploy --api-token your-token --dry-run
 ```
 
 ### List All Projects
 
 ```bash
-npx cf-deploy list
+cf-deploy list --api-token your-token
 ```
 
 ## Configuration File (`deploy.config.json`)
@@ -237,11 +230,7 @@ See the [CLI README](../cli/README.md) for full configuration reference.
 Set via environment or CLI flags:
 
 ```bash
-# Environment variable (recommended)
-export CF_API_TOKEN=your-token
-
-# Or via CLI flag
-npx cf-deploy deploy --api-token your-token
+cf-deploy deploy --api-token your-token
 ```
 
 ### Worker Environment Variables
@@ -379,15 +368,15 @@ Deploy to different environments:
 
 ```bash
 # Development (local)
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 
 # Staging
 export CF_ROUTER_URL=https://staging.example.com
-npx cf-deploy deploy -c staging.config.json
+cf-deploy deploy --api-token your-token -c staging.config.json
 
 # Production
 export CF_ROUTER_URL=https://prod.example.com
-npx cf-deploy deploy -c production.config.json
+cf-deploy deploy --api-token your-token -c production.config.json
 ```
 
 ### Ignore Files
@@ -416,7 +405,7 @@ Exclude files from deployment:
 ### "API token is required"
 
 ```bash
-export CF_API_TOKEN=your-token
+cf-deploy deploy --api-token your-token
 ```
 
 ### "Assets directory not found"
@@ -429,7 +418,7 @@ Ensure the `server.entrypoint` file exists in `server.modulesDirectory`.
 
 ### Deployment Fails
 
-1. Check router worker is running: `npm run dev`
+1. Check router worker is running: `bun run dev`
 2. Verify API token is correct
 3. Try with `--dry-run` to see what would be deployed
 

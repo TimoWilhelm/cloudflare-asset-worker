@@ -12,14 +12,14 @@ Get started with the `cf-deploy` CLI in 5 minutes.
 From the workspace root:
 
 ```bash
-npm install
+bun install
 ```
 
 ## Step 1: Initialize Configuration
 
 ```bash
 cd your-project
-npx cf-deploy init
+cf-deploy init
 ```
 
 This creates `deploy.config.json` in your current directory.
@@ -39,20 +39,14 @@ Edit `deploy.config.json`:
 
 ## Step 3: Set API Token
 
-```bash
-# Windows PowerShell
-$env:CF_API_TOKEN="your-token"
-
-# Linux/Mac
-export CF_API_TOKEN=your-token
-```
+Use `--api-token` when running commands.
 
 ## Step 4: Deploy
 
 Each deploy creates a new immutable project:
 
 ```bash
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 ## What's Next?

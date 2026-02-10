@@ -84,13 +84,13 @@ Assets are stored by their SHA-256 content hash, enabling:
 
 ```bash
 # Run tests
-npm test
+bun run test
 
 # Deploy to Cloudflare
-npm run deploy
+bun run deploy
 
 # Generate TypeScript types
-npm run cf-typegen
+bun run cf-typegen
 ```
 
 ### Configuration

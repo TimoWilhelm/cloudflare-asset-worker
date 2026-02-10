@@ -32,12 +32,9 @@ Complete application with frontend assets and backend API endpoints.
 ## Deploy
 
 ```bash
-# Set API token
-export CF_API_TOKEN=your-token
-
 # Deploy
 cd examples/fullstack-app
-npx cf-deploy deploy --create-project
+cf-deploy deploy --api-token your-token --create-project
 ```
 
 ## Try It Out
@@ -141,5 +138,5 @@ Modify `public/index.html` and `public/style.css`.
 **Redeploy:**
 
 ```bash
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```

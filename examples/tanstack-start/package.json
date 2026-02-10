@@ -7,7 +7,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"deploy": "npm run build && node scripts/deploy.js"
+		"deploy": "bun run build && cf-deploy deploy"
 	},
 	"dependencies": {
 		"@tanstack/react-router": "^1.157.18",

@@ -19,14 +19,11 @@ A simple static website demonstrating asset-only deployment.
 ## Deploy
 
 ```bash
-# Set API token
-export CF_API_TOKEN=your-token
-
 # Deploy (creates new project)
-npx cf-deploy deploy --create-project
+cf-deploy deploy --api-token your-token --create-project
 
 # Or use the project from config
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 ## Configuration
@@ -48,5 +45,5 @@ Visit your deployed site at the URL shown in the deployment output. You'll see:
 ## Next Steps
 
 - Modify HTML and CSS in `public/`
-- Redeploy to see changes: `npx cf-deploy deploy`
+- Redeploy to see changes: `cf-deploy deploy --api-token your-token`
 - Add more pages by creating new `.html` files

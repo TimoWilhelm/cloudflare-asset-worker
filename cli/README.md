@@ -18,10 +18,15 @@ A command-line tool for automated deployment of applications to the Cloudflare M
 From the workspace root:
 
 ```bash
-npm install
+bun install
 ```
 
-The CLI will be available as `cf-deploy` in your workspace.
+Link the local CLI binary so it’s available as `cf-deploy`:
+
+```bash
+cd cli
+bun link
+```
 
 ## Quick Start
 
@@ -30,7 +35,7 @@ The CLI will be available as `cf-deploy` in your workspace.
 Create a deployment configuration file:
 
 ```bash
-npx cf-deploy init
+cf-deploy init
 ```
 
 This creates a `deploy.config.json` file with example configuration.
@@ -72,25 +77,14 @@ Edit `deploy.config.json`:
 
 ### 3. Set API Token
 
-Set your API token as an environment variable:
-
-```bash
-# Windows (PowerShell)
-$env:CF_API_TOKEN="your-api-token"
-
-# Windows (CMD)
-set CF_API_TOKEN=your-api-token
-
-# Linux/Mac
-export CF_API_TOKEN=your-api-token
-```
+Use `--api-token` when running commands.
 
 ### 4. Deploy
 
 Deploy your application (a new immutable project is created each time):
 
 ```bash
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-api-token
 ```
 
 ## Commands
@@ -100,13 +94,13 @@ npx cf-deploy deploy
 Deploy an application based on the configuration file.
 
 ```bash
-npx cf-deploy deploy [options]
+cf-deploy deploy [options]
 ```
 
 **Options:**
 
 - `-c, --config <path>` - Path to configuration file (default: `deploy.config.json`)
-- `--api-token <token>` - API token for authentication (or use CF_API_TOKEN env var)
+- `--api-token <token>` - API token for authentication
 - `--router-url <url>` - Router URL (or use CF_ROUTER_URL env var, default: <http://127.0.0.1:8787>)
 - `--dry-run` - Show what would be deployed without actually deploying
 
@@ -116,13 +110,13 @@ Each deploy creates a new immutable project. To update an application, deploy ag
 
 ```bash
 # Deploy using default config
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-api-token
 
 # Deploy with custom config
-npx cf-deploy deploy -c production.config.json
+cf-deploy deploy --api-token your-api-token -c production.config.json
 
 # Dry run to preview deployment
-npx cf-deploy deploy --dry-run
+cf-deploy deploy --api-token your-api-token --dry-run
 ```
 
 ### `list`
@@ -130,18 +124,18 @@ npx cf-deploy deploy --dry-run
 List all projects.
 
 ```bash
-npx cf-deploy list [options]
+cf-deploy list [options]
 ```
 
 **Options:**
 
-- `--api-token <token>` - API token for authentication (or use CF_API_TOKEN env var)
+- `--api-token <token>` - API token for authentication
 - `--router-url <url>` - Router URL (or use CF_ROUTER_URL env var, default: <http://127.0.0.1:8787>)
 
 **Example:**
 
 ```bash
-npx cf-deploy list
+cf-deploy list --api-token your-api-token
 ```
 
 ### `init`
@@ -149,7 +143,7 @@ npx cf-deploy list
 Initialize a new deployment configuration file.
 
 ```bash
-npx cf-deploy init [options]
+cf-deploy init [options]
 ```
 
 **Options:**
@@ -159,7 +153,7 @@ npx cf-deploy init [options]
 **Example:**
 
 ```bash
-npx cf-deploy init -o staging.config.json
+cf-deploy init -o staging.config.json
 ```
 
 ## Configuration Reference
@@ -459,25 +453,12 @@ export default {
 
 ## Environment Variables
 
-### Authentication and Connection
+### Connection
 
-Set required environment variables for authentication:
-
-```bash
-# Required
-export CF_API_TOKEN=your-token
-
-# Optional (defaults to http://127.0.0.1:8787)
-export CF_ROUTER_URL=https://your-worker.example.com
-
-# Deploy
-npx cf-deploy deploy
-```
-
-Alternatively, use CLI flags:
+You can set the router URL via `CF_ROUTER_URL`, or pass it via `--router-url`.
 
 ```bash
-npx cf-deploy deploy --api-token your-token --router-url https://your-worker.example.com
+cf-deploy deploy --api-token your-token --router-url https://your-worker.example.com
 ```
 
 ### Worker Environment Variables
@@ -498,7 +479,7 @@ Set these before deploying:
 ```bash
 export DATABASE_URL=your-database-url
 export EXTERNAL_API_KEY=your-api-key
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 ```
 
 ## Multiple Environments
@@ -516,20 +497,20 @@ Each deploy creates a new immutable project. Old projects can be cleaned up via 
 
 ```bash
 # Development
-npx cf-deploy deploy
+cf-deploy deploy --api-token your-token
 
 # Staging
-npx cf-deploy deploy -c staging.config.json
+cf-deploy deploy --api-token your-token -c staging.config.json
 
 # Production
-npx cf-deploy deploy -c production.config.json
+cf-deploy deploy --api-token your-token -c production.config.json
 ```
 
 ## Troubleshooting
 
 ### "API token is required"
 
-Set the `CF_API_TOKEN` environment variable or use the `--api-token` flag.
+Provide `--api-token` when running commands.
 
 ### "Assets directory not found"
 
@@ -553,7 +534,7 @@ To work on the CLI itself:
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Test the CLI locally
 node bin/cli.js --help

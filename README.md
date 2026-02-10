@@ -26,9 +26,64 @@ Both workers use KV namespaces for storage with content-addressing for optimal d
 
 ```bash
 # Deploy both workers
-npm run dev  # Development
+bun run dev  # Development
 # or deploy to production using wrangler deploy
 ```
+
+### Dev Mode: Deploy the Fullstack Example (Step-by-Step)
+
+1. Create a dev vars file for the router worker:
+
+   Create `workers/router/.dev.vars`:
+
+   ```text
+   API_TOKEN=dev-token
+   JWT_SECRET=dev-jwt-secret
+   ```
+
+2. Install dependencies from the repository root:
+
+   ```bash
+   bun install
+   ```
+
+3. Start the platform locally (router + asset-service):
+
+   ```bash
+   bun run dev
+   ```
+
+   The router will be available at:
+
+   ```text
+   http://127.0.0.1:8787
+   ```
+
+4. Link the CLI binary (`cf-deploy`) so it’s available on your PATH:
+
+   ```bash
+   cd cli
+   bun link
+   ```
+
+5. Deploy the fullstack example to the local dev router (use flags for auth):
+
+   ```bash
+   cd examples/fullstack-app
+   cf-deploy deploy --api-token dev-token --router-url http://127.0.0.1:8787
+   ```
+
+6. Open the deployed app using path-based routing (dev mode):
+
+   The CLI prints a URL like:
+
+   ```text
+   http://127.0.0.1:8787/__project/<projectId>/
+   ```
+
+7. Verify it works:
+   - Click “Test API” to call `/api/hello`
+   - Click “Show Config” to call `/api/config`
 
 ### Use the Platform
 

@@ -17,7 +17,7 @@ function About() {
 				<h2>How It Works</h2>
 				<ol>
 					<li>
-						<strong>Build:</strong> Run <code>npm run build</code> to generate the TanStack Start output
+						<strong>Build:</strong> Run <code>bun run build</code> to generate the TanStack Start output
 					</li>
 					<li>
 						<strong>Assets:</strong> Static files are output to <code>.output/client/</code>
@@ -26,7 +26,7 @@ function About() {
 						<strong>Server:</strong> SSR worker is output to <code>.output/server/</code>
 					</li>
 					<li>
-						<strong>Deploy:</strong> Run <code>npm run deploy</code> to deploy via cf-deploy
+						<strong>Deploy:</strong> Run <code>bun run deploy</code> to deploy via cf-deploy
 					</li>
 				</ol>
 			</div>

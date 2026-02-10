@@ -32,13 +32,13 @@ A complete [TanStack Start](https://tanstack.com/start/latest) full-stack React 
 
 ```bash
 cd examples/tanstack-start
-npm install
+bun install
 ```
 
 ### 2. Development
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Open <http://localhost:3000> to see the app.
@@ -46,7 +46,7 @@ Open <http://localhost:3000> to see the app.
 ### 3. Build
 
 ```bash
-npm run build
+bun run build
 ```
 
 This generates:
@@ -57,15 +57,8 @@ This generates:
 ### 4. Deploy
 
 ```bash
-# Set API token
-export CF_API_TOKEN=your-token
-
 # Deploy (creates new project)
-npm run deploy -- --create-project
-
-# Or with PowerShell
-$env:CF_API_TOKEN="your-token"
-npm run deploy -- --create-project
+bun run deploy -- --api-token your-token --create-project
 ```
 
 ## Project Structure
