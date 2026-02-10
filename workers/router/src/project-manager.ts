@@ -268,7 +268,7 @@ export async function deleteProject(
  * @returns The project metadata or null if not found
  */
 export async function getProject(projectId: string, projectsKv: KVNamespace): Promise<ProjectMetadata | null> {
-	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json' });
+	return await projectsKv.get<ProjectMetadata>(`project/${projectId}/metadata`, { type: 'json', cacheTtl: 300 });
 }
 
 /**
