@@ -8,7 +8,6 @@ import { rewritePathBasedResponse } from './html-rewriter';
 import { getProject, createProject, listProjects, getProjectInfo, deleteProject } from './project-manager';
 import { extractProjectId, rewriteRequestUrl, shouldRunWorkerFirst } from './routing';
 import { runServerSideCode, getServerSideCodeManifest } from './server-side-code-runner';
-import { RouterEnvironment } from './types';
 import { runWatchdog } from './watchdog';
 
 import type { AssetConfigInput } from '../../asset-service/src/configuration';
@@ -33,14 +32,14 @@ async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 	return result === 0;
 }
 
-export class AssetBinding extends WorkerEntrypoint<RouterEnvironment, { projectId: string; config?: AssetConfigInput }> {
+export class AssetBinding extends WorkerEntrypoint<Env, { projectId: string; config?: AssetConfigInput }> {
 	override async fetch(request: Request): Promise<Response> {
 		const assets = this.env.ASSET_WORKER;
 		return await assets.serveAsset(request, this.ctx.props.projectId, this.ctx.props.config);
 	}
 }
 
-export default class AssetManager extends WorkerEntrypoint<RouterEnvironment> {
+export default class AssetManager extends WorkerEntrypoint<Env> {
 	override async scheduled(_event: ScheduledEvent): Promise<void> {
 		this.ctx.waitUntil(runWatchdog(this.env));
 	}

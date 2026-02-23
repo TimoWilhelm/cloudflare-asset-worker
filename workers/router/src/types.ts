@@ -1,9 +1,4 @@
 import { AssetConfigInput } from '../../asset-service/src/configuration';
-import AssetWorker from '../../asset-service/src/worker';
-
-export interface RouterEnvironment extends Env {
-	ASSET_WORKER: Service<AssetWorker>;
-}
 
 export interface ProjectMetadata {
 	id: string;

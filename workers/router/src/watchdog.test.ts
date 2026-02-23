@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { ProjectMetadata, RouterEnvironment } from './types';
+import { ProjectMetadata } from './types';
 import { runWatchdog } from './watchdog';
 import { createMock } from '../../shared/test-utilities';
 
@@ -30,7 +30,7 @@ describe('Watchdog Cleanup', () => {
 	let mockProjectsKV: KVNamespace;
 	let mockServerSideCodeKV: KVNamespace;
 	let mockAssetWorker: { deleteProjectAssets: ReturnType<typeof vi.fn> };
-	let environment: RouterEnvironment;
+	let environment: Env;
 
 	beforeEach(() => {
 		mockProjectsKV = createMockKV();
@@ -39,7 +39,7 @@ describe('Watchdog Cleanup', () => {
 			deleteProjectAssets: vi.fn().mockResolvedValue({ deletedAssets: 0, deletedManifest: true }),
 		};
 
-		environment = createMock<RouterEnvironment>({
+		environment = createMock<Env>({
 			KV_PROJECTS: mockProjectsKV,
 			KV_SERVER_SIDE_CODE: mockServerSideCodeKV,
 			ASSET_WORKER: mockAssetWorker,

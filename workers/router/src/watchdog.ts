@@ -1,12 +1,11 @@
 import { deleteProject, listProjectsData } from './project-manager';
-import { RouterEnvironment } from './types';
 
 /**
  * Runs all scheduled maintenance tasks.
  *
  * @param env - The worker environment bindings
  */
-export async function runWatchdog(environment: RouterEnvironment): Promise<void> {
+export async function runWatchdog(environment: Env): Promise<void> {
 	console.log('🐶 Watchdog started');
 	const startTime = performance.now();
 
@@ -26,7 +25,7 @@ export async function runWatchdog(environment: RouterEnvironment): Promise<void>
  *
  * @param env - The worker environment bindings
  */
-async function cleanupStaleDeployments(environment: RouterEnvironment): Promise<void> {
+async function cleanupStaleDeployments(environment: Env): Promise<void> {
 	const projectsKv = environment.KV_PROJECTS;
 	const serverSideCodeKv = environment.KV_SERVER_SIDE_CODE;
 	const assetWorker = environment.ASSET_WORKER;
