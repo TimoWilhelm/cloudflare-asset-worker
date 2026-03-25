@@ -4,6 +4,8 @@
 	"main": "src/worker.ts",
 	"compatibility_date": "2025-11-11",
 	"compatibility_flags": ["nodejs_compat", "enable_ctx_exports"],
+	"workers_dev": false,
+	"preview_urls": false,
 	"assets": {
 		"binding": "ASSETS",
 		"directory": "./public",
