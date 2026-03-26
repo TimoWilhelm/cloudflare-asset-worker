@@ -1,4 +1,5 @@
 import { CACHE_CONTROL_BROWSER } from '../constants';
+import { getMimeType } from './mime';
 import { generateRulesMatcher, replacer } from './rules-engine';
 
 import type { AssetConfig } from '../configuration';
@@ -15,7 +16,7 @@ import type { AssetIntentWithResolver } from '../handler';
  * @returns Headers object with ETag, Content-Type, Cache-Control, and X-Asset-Cache-Status
  */
 export function getAssetHeaders(
-	{ eTag, resolver }: AssetIntentWithResolver,
+	{ eTag, resolver, pathname: assetPathname }: AssetIntentWithResolver,
 	contentType: string | undefined,
 	cacheStatus: string,
 	request: Request,
@@ -25,9 +26,7 @@ export function getAssetHeaders(
 		ETag: `"${eTag}"`,
 	});
 
-	if (contentType !== undefined) {
-		headers.append('Content-Type', contentType);
-	}
+	headers.append('Content-Type', contentType ?? getMimeType(assetPathname));
 
 	if (isCacheable(request)) {
 		headers.append('Cache-Control', CACHE_CONTROL_BROWSER);
@@ -74,7 +73,7 @@ export function attachCustomHeaders(request: Request, response: Response, config
 	// This keeps track of every header that we've set from config headers
 	// because we want to combine user declared headers but overwrite
 	// existing and extra ones
-	const setMap = new Set();
+	const setMap = new Set<string>();
 	// Apply every matched rule in order
 	for (const { set = {}, unset = [] } of matches) {
 		for (const key of unset) {

@@ -1,4 +1,12 @@
-import { Analytics } from './analytics';
+/**
+ * Core asset request handler with HTML handling, redirects, and content negotiation.
+ *
+ * @remarks
+ * This module is **storage-agnostic**: it operates entirely through two callbacks
+ * (`exists` and `getByETag`) that can be backed by KV, Durable Object storage,
+ * an in-memory map, or any other storage layer.
+ */
+
 import { attachCustomHeaders, getAssetHeaders } from './utils/headers';
 import {
 	FoundResponse,
@@ -17,23 +25,97 @@ import { generateRedirectsMatcher, staticRedirectsMatcher } from './utils/rules-
 
 import type { AssetConfig } from './configuration';
 
-type Exists = (pathname: string, request: Request) => Promise<string | undefined>;
-type GetByETag = (
+/** Callback to check if an asset exists at the given pathname. Returns the content hash or `undefined`. */
+export type Exists = (pathname: string, request: Request) => Promise<string | undefined>;
+
+/** Callback to retrieve an asset by its content hash. */
+export type GetByETag = (
 	eTag: string,
 	request: Request,
 ) => Promise<{
 	readableStream: ReadableStream;
 	contentType: string | undefined;
 	cacheStatus: 'HIT' | 'MISS';
-	fetchTimeMs: number;
 }>;
 
 type AssetIntent = {
 	eTag: string;
 	status: typeof OkResponse.status | typeof NotFoundResponse.status;
+	/** The resolved file pathname that matched in the manifest (e.g. `/about.html`). */
+	pathname: string;
 };
 
+/** An asset intent paired with the resolver that produced it. */
 export type AssetIntentWithResolver = AssetIntent & { resolver: Resolver };
+
+type Resolver = 'html-handling' | 'not-found';
+type Intent =
+	| { asset: AssetIntent; redirect: undefined; resolver: Resolver }
+	| { asset: undefined; redirect: string; resolver: Resolver }
+	| undefined;
+
+/**
+ * Determines whether an asset can be served for the given request.
+ *
+ * @param request - The HTTP request to check
+ * @param configuration - The normalized asset configuration
+ * @param exists - Callback to check if a pathname exists in the manifest
+ * @returns `true` if an asset can be served
+ */
+export const canFetch = async (request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
+	const shouldKeepNotFoundHandling = configuration.has_static_routing || request.headers.get('Sec-Fetch-Mode') === 'navigate';
+	if (!shouldKeepNotFoundHandling) {
+		configuration = {
+			...configuration,
+			not_found_handling: 'none',
+			redirects: {
+				static: { ...configuration.redirects.static },
+				dynamic: { ...configuration.redirects.dynamic },
+			},
+			headers: { rules: { ...configuration.headers.rules } },
+		};
+	}
+	const result = await getResponseOrAssetIntent(request, configuration, exists);
+	return !(result instanceof NoIntentResponse);
+};
+
+/**
+ * Handles an incoming request and returns the appropriate response.
+ *
+ * @param request - The HTTP request to handle
+ * @param configuration - The normalized asset configuration
+ * @param exists - Callback to check if a pathname exists
+ * @param getByETag - Callback to retrieve an asset by content hash
+ * @returns The HTTP response (asset, redirect, or error)
+ */
+export const handleRequest = async (
+	request: Request,
+	configuration: Required<AssetConfig>,
+	exists: Exists,
+	getByETag: GetByETag,
+): Promise<Response> => {
+	const result = await getResponseOrAssetIntent(request, configuration, exists);
+	const response = result instanceof Response ? result : await resolveAssetIntentToResponse(result, request, configuration, getByETag);
+	return attachCustomHeaders(request, response, configuration);
+};
+
+/** Shorthand to build an asset intent for an OK response. */
+const okIntent = (eTag: string, pathname: string, resolver: Resolver): Intent => ({
+	asset: { eTag, status: OkResponse.status, pathname },
+	redirect: undefined,
+	resolver,
+});
+
+/** Shorthand to build an asset intent for a 404 response. */
+const notFoundIntent = (eTag: string, pathname: string, resolver: Resolver): Intent => ({
+	asset: { eTag, status: NotFoundResponse.status, pathname },
+	redirect: undefined,
+	resolver,
+});
+
+// ---------------------------------------------------------------------------
+// Internal
+// ---------------------------------------------------------------------------
 
 const getResponseOrAssetIntent = async (
 	request: Request,
@@ -44,18 +126,14 @@ const getResponseOrAssetIntent = async (
 	const { search } = url;
 
 	const redirectResult = handleRedirects(request, configuration, url.host, url.pathname, search);
-	if (redirectResult instanceof Response) {
-		return redirectResult;
-	}
+	if (redirectResult instanceof Response) return redirectResult;
 	const { proxied, pathname } = redirectResult;
 
 	const decodedPathname = decodePath(pathname);
-
 	const intent = await getIntent(decodedPathname, request, configuration, exists);
 
 	if (!intent) {
-		const response = proxied ? new NotFoundResponse() : new NoIntentResponse();
-		return response;
+		return proxied ? new NotFoundResponse() : new NoIntentResponse();
 	}
 
 	const method = request.method.toUpperCase();
@@ -66,11 +144,6 @@ const getResponseOrAssetIntent = async (
 	const decodedDestination = intent.redirect ?? decodedPathname;
 	const encodedDestination = encodePath(decodedDestination);
 
-	/**
-	 * The canonical path we serve an asset at is the decoded and re-encoded version.
-	 * Thus we need to redirect if that is different from the decoded version.
-	 * We combine this with other redirects (e.g. for html_handling) to avoid multiple redirects.
-	 */
 	if ((encodedDestination !== pathname && intent.asset) || intent.redirect) {
 		return new TemporaryRedirectResponse(encodedDestination + search);
 	}
@@ -87,17 +160,9 @@ const resolveAssetIntentToResponse = async (
 	request: Request,
 	configuration: Required<AssetConfig>,
 	getByETag: GetByETag,
-	analytics: Analytics,
-) => {
+): Promise<Response> => {
 	const method = request.method.toUpperCase();
-
 	const asset = await getByETag(assetIntent.eTag, request);
-
-	analytics.setData({
-		cacheStatus: asset.cacheStatus,
-		fetchTimeMs: asset.fetchTimeMs,
-	});
-
 	const headers = getAssetHeaders(assetIntent, asset.contentType, asset.cacheStatus, request, configuration);
 
 	const strongETag = `"${assetIntent.eTag}"`;
@@ -105,10 +170,16 @@ const resolveAssetIntentToResponse = async (
 	const ifNoneMatch = request.headers.get('If-None-Match') || '';
 	const eTags = new Set(ifNoneMatch.split(',').map((tag) => tag.trim()));
 	if (eTags.has(weakETag) || eTags.has(strongETag)) {
+		asset.readableStream.cancel().catch(() => {});
 		return new NotModifiedResponse(undefined, { headers });
 	}
 
-	const body = method === 'HEAD' ? undefined : asset.readableStream;
+	let body: ReadableStream | undefined;
+	if (method === 'HEAD') {
+		asset.readableStream.cancel().catch(() => {});
+	} else {
+		body = asset.readableStream;
+	}
 	switch (assetIntent.status) {
 		case NotFoundResponse.status: {
 			return new NotFoundResponse(body, { headers });
@@ -117,82 +188,10 @@ const resolveAssetIntentToResponse = async (
 			return new OkResponse(body, { headers });
 		}
 		default: {
-			return new InternalServerErrorResponse(new Error(`Unexpected asset intent status: ${assetIntent.status}`));
+			return new InternalServerErrorResponse(new Error(`Unexpected status: ${assetIntent.status}`));
 		}
 	}
 };
-
-/**
- * Determines if an asset can be served for the given request.
- *
- * @param request - The HTTP request to check
- * @param configuration - The normalized asset configuration
- * @param exists - Function to check if a pathname exists in the manifest
- * @returns True if an asset can be served, false otherwise
- */
-export const canFetch = async (request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<boolean> => {
-	// Always enable Sec-Fetch-Mode navigate header feature
-	const shouldKeepNotFoundHandling = configuration.has_static_routing || request.headers.get('Sec-Fetch-Mode') === 'navigate';
-	if (!shouldKeepNotFoundHandling) {
-		// Deep-copy nested objects to avoid mutating the caller's configuration
-		configuration = {
-			...configuration,
-			not_found_handling: 'none',
-			redirects: {
-				static: { ...configuration.redirects.static },
-				dynamic: { ...configuration.redirects.dynamic },
-			},
-			headers: {
-				rules: { ...configuration.headers.rules },
-			},
-		};
-	}
-
-	const responseOrAssetIntent = await getResponseOrAssetIntent(request, configuration, exists);
-
-	if (responseOrAssetIntent instanceof NoIntentResponse) {
-		return false;
-	}
-
-	return true;
-};
-
-/**
- * Handles an incoming request and returns the appropriate response.
- *
- * @param request - The HTTP request to handle
- * @param configuration - The normalized asset configuration
- * @param exists - Function to check if a pathname exists in the manifest
- * @param getByETag - Function to retrieve an asset by its content hash
- * @param analytics - Analytics instance for tracking request metrics
- * @returns The HTTP response (asset, redirect, or error)
- */
-export const handleRequest = async (
-	request: Request,
-	configuration: Required<AssetConfig>,
-	exists: Exists,
-	getByETag: GetByETag,
-	analytics: Analytics,
-) => {
-	const responseOrAssetIntent = await getResponseOrAssetIntent(request, configuration, exists);
-
-	const response =
-		responseOrAssetIntent instanceof Response
-			? responseOrAssetIntent
-			: await resolveAssetIntentToResponse(responseOrAssetIntent, request, configuration, getByETag, analytics);
-
-	return attachCustomHeaders(request, response, configuration);
-};
-
-type Resolver = 'html-handling' | 'not-found';
-type Intent =
-	| {
-			asset: AssetIntent;
-			redirect: undefined;
-			resolver: Resolver;
-	  }
-	| { asset: undefined; redirect: string; resolver: Resolver }
-	| undefined;
 
 /**
  * Resolves the intent for a given pathname based on HTML handling configuration.
@@ -200,9 +199,9 @@ type Intent =
  * @param pathname - The decoded URL pathname
  * @param request - The HTTP request
  * @param configuration - The normalized asset configuration
- * @param exists - Function to check if a pathname exists in the manifest
- * @param skipRedirects - Whether to skip redirect generation (used internally)
- * @returns The resolved intent (asset, redirect, or null if not found)
+ * @param exists - Callback to check if a pathname exists
+ * @param skipRedirects - Internal flag to prevent redirect loops
+ * @returns The resolved intent (asset to serve, redirect to issue, or `undefined`)
  */
 export const getIntent = async (
 	pathname: string,
@@ -227,6 +226,10 @@ export const getIntent = async (
 	}
 };
 
+// ---------------------------------------------------------------------------
+// HTML handling strategies
+// ---------------------------------------------------------------------------
+
 const htmlHandlingAutoTrailingSlash = async (
 	pathname: string,
 	request: Request,
@@ -237,46 +240,35 @@ const htmlHandlingAutoTrailingSlash = async (
 	let redirectResult: Intent;
 	let eTagResult: string | undefined;
 	const exactETag = await exists(pathname, request);
+
 	if (pathname.endsWith('/index')) {
 		if (exactETag) {
-			// there's a binary /index file
-			return {
-				asset: {
-					eTag: exactETag,
-					status: OkResponse.status,
-				},
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else {
-			if (
-				(redirectResult = await safeRedirect(
-					`${pathname}.html`,
-					request,
-					pathname.slice(0, -'index'.length),
-					configuration,
-					exists,
-					skipRedirects,
-					'html-handling',
-				))
-			) {
-				// /foo/index.html exists so redirect to /foo/
-				return redirectResult;
-			} else if (
-				(redirectResult = await safeRedirect(
-					`${pathname.slice(0, -'/index'.length)}.html`,
-					request,
-					pathname.slice(0, -'/index'.length),
-					configuration,
-					exists,
-					skipRedirects,
-					'html-handling',
-				))
-			) {
-				// /foo.html exists so redirect to /foo
-				return redirectResult;
-			}
+			return okIntent(exactETag, pathname, 'html-handling');
 		}
+		if (
+			(redirectResult = await safeRedirect(
+				`${pathname}.html`,
+				request,
+				pathname.slice(0, -'index'.length),
+				configuration,
+				exists,
+				skipRedirects,
+				'html-handling',
+			))
+		)
+			return redirectResult;
+		if (
+			(redirectResult = await safeRedirect(
+				`${pathname.slice(0, -'/index'.length)}.html`,
+				request,
+				pathname.slice(0, -'/index'.length),
+				configuration,
+				exists,
+				skipRedirects,
+				'html-handling',
+			))
+		)
+			return redirectResult;
 	} else if (pathname.endsWith('/index.html')) {
 		if (
 			(redirectResult = await safeRedirect(
@@ -288,10 +280,9 @@ const htmlHandlingAutoTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo/index.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		} else if (
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'/index.html'.length)}.html`,
 				request,
@@ -301,19 +292,13 @@ const htmlHandlingAutoTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo
+		)
 			return redirectResult;
-		}
 	} else if (pathname.endsWith('/')) {
 		if ((eTagResult = await exists(`${pathname}index.html`, request))) {
-			// /foo/index.html exists so serve at /foo/
-			return {
-				asset: { eTag: eTagResult, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else if (
+			return okIntent(eTagResult, `${pathname}index.html`, 'html-handling');
+		}
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'/'.length)}.html`,
 				request,
@@ -323,10 +308,8 @@ const htmlHandlingAutoTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo
+		)
 			return redirectResult;
-		}
 	} else if (pathname.endsWith('.html')) {
 		if (
 			(redirectResult = await safeRedirect(
@@ -338,10 +321,9 @@ const htmlHandlingAutoTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo
+		)
 			return redirectResult;
-		} else if (
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'.html'.length)}/index.html`,
 				request,
@@ -351,27 +333,17 @@ const htmlHandlingAutoTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// request for /foo.html but /foo/index.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		}
 	}
 
 	if (exactETag) {
-		// there's a binary /foo file
-		return {
-			asset: { eTag: exactETag, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
-	} else if ((eTagResult = await exists(`${pathname}.html`, request))) {
-		// foo.html exists so serve at /foo
-		return {
-			asset: { eTag: eTagResult, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
-	} else if (
+		return okIntent(exactETag, pathname, 'html-handling');
+	}
+	if ((eTagResult = await exists(`${pathname}.html`, request))) {
+		return okIntent(eTagResult, `${pathname}.html`, 'html-handling');
+	}
+	if (
 		(redirectResult = await safeRedirect(
 			`${pathname}/index.html`,
 			request,
@@ -381,10 +353,8 @@ const htmlHandlingAutoTrailingSlash = async (
 			skipRedirects,
 			'html-handling',
 		))
-	) {
-		// /foo/index.html exists so redirect to /foo/
+	)
 		return redirectResult;
-	}
 
 	return notFound(pathname, request, configuration, exists);
 };
@@ -399,43 +369,35 @@ const htmlHandlingForceTrailingSlash = async (
 	let redirectResult: Intent;
 	let eTagResult: string | undefined;
 	const exactETag = await exists(pathname, request);
+
 	if (pathname.endsWith('/index')) {
 		if (exactETag) {
-			// there's a binary /index file
-			return {
-				asset: { eTag: exactETag, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else {
-			if (
-				(redirectResult = await safeRedirect(
-					`${pathname}.html`,
-					request,
-					pathname.slice(0, -'index'.length),
-					configuration,
-					exists,
-					skipRedirects,
-					'html-handling',
-				))
-			) {
-				// /foo/index.html exists so redirect to /foo/
-				return redirectResult;
-			} else if (
-				(redirectResult = await safeRedirect(
-					`${pathname.slice(0, -'/index'.length)}.html`,
-					request,
-					pathname.slice(0, -'index'.length),
-					configuration,
-					exists,
-					skipRedirects,
-					'html-handling',
-				))
-			) {
-				// /foo.html exists so redirect to /foo/
-				return redirectResult;
-			}
+			return okIntent(exactETag, pathname, 'html-handling');
 		}
+		if (
+			(redirectResult = await safeRedirect(
+				`${pathname}.html`,
+				request,
+				pathname.slice(0, -'index'.length),
+				configuration,
+				exists,
+				skipRedirects,
+				'html-handling',
+			))
+		)
+			return redirectResult;
+		if (
+			(redirectResult = await safeRedirect(
+				`${pathname.slice(0, -'/index'.length)}.html`,
+				request,
+				pathname.slice(0, -'index'.length),
+				configuration,
+				exists,
+				skipRedirects,
+				'html-handling',
+			))
+		)
+			return redirectResult;
 	} else if (pathname.endsWith('/index.html')) {
 		if (
 			(redirectResult = await safeRedirect(
@@ -447,10 +409,9 @@ const htmlHandlingForceTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo/index.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		} else if (
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'/index.html'.length)}.html`,
 				request,
@@ -460,25 +421,14 @@ const htmlHandlingForceTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		}
 	} else if (pathname.endsWith('/')) {
 		if ((eTagResult = await exists(`${pathname}index.html`, request))) {
-			// /foo/index.html exists so serve at /foo/
-			return {
-				asset: { eTag: eTagResult, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else if ((eTagResult = await exists(`${pathname.slice(0, -'/'.length)}.html`, request))) {
-			// /foo.html exists so serve at /foo/
-			return {
-				asset: { eTag: eTagResult, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
+			return okIntent(eTagResult, `${pathname}index.html`, 'html-handling');
+		}
+		if ((eTagResult = await exists(`${pathname.slice(0, -'/'.length)}.html`, request))) {
+			return okIntent(eTagResult, `${pathname.slice(0, -'/'.length)}.html`, 'html-handling');
 		}
 	} else if (pathname.endsWith('.html')) {
 		if (
@@ -491,17 +441,12 @@ const htmlHandlingForceTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		} else if (exactETag) {
-			// there's both /foo.html and /foo/index.html so we serve /foo.html at /foo.html only
-			return {
-				asset: { eTag: exactETag, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else if (
+		if (exactETag) {
+			return okIntent(exactETag, pathname, 'html-handling');
+		}
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'.html'.length)}/index.html`,
 				request,
@@ -511,20 +456,14 @@ const htmlHandlingForceTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo/index.html exists so redirect to /foo/
+		)
 			return redirectResult;
-		}
 	}
 
 	if (exactETag) {
-		// there's a binary /foo file
-		return {
-			asset: { eTag: exactETag, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
-	} else if (
+		return okIntent(exactETag, pathname, 'html-handling');
+	}
+	if (
 		(redirectResult = await safeRedirect(
 			`${pathname}.html`,
 			request,
@@ -534,10 +473,9 @@ const htmlHandlingForceTrailingSlash = async (
 			skipRedirects,
 			'html-handling',
 		))
-	) {
-		// /foo.html exists so redirect to /foo/
+	)
 		return redirectResult;
-	} else if (
+	if (
 		(redirectResult = await safeRedirect(
 			`${pathname}/index.html`,
 			request,
@@ -547,10 +485,8 @@ const htmlHandlingForceTrailingSlash = async (
 			skipRedirects,
 			'html-handling',
 		))
-	) {
-		// /foo/index.html exists so redirect to /foo/
+	)
 		return redirectResult;
-	}
 
 	return notFound(pathname, request, configuration, exists);
 };
@@ -565,20 +501,16 @@ const htmlHandlingDropTrailingSlash = async (
 	let redirectResult: Intent;
 	let eTagResult: string | undefined;
 	const exactETag = await exists(pathname, request);
+
 	if (pathname.endsWith('/index')) {
 		if (exactETag) {
-			// there's a binary /index file
-			return {
-				asset: { eTag: exactETag, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
+			return okIntent(exactETag, pathname, 'html-handling');
+		}
+		if (pathname === '/index') {
+			if ((redirectResult = await safeRedirect('/index.html', request, '/', configuration, exists, skipRedirects, 'html-handling')))
+				return redirectResult;
 		} else {
-			if (pathname === '/index') {
-				if ((redirectResult = await safeRedirect('/index.html', request, '/', configuration, exists, skipRedirects, 'html-handling'))) {
-					return redirectResult;
-				}
-			} else if (
+			if (
 				(redirectResult = await safeRedirect(
 					`${pathname.slice(0, -'/index'.length)}.html`,
 					request,
@@ -588,10 +520,9 @@ const htmlHandlingDropTrailingSlash = async (
 					skipRedirects,
 					'html-handling',
 				))
-			) {
-				// /foo.html exists so redirect to /foo
+			)
 				return redirectResult;
-			} else if (
+			if (
 				(redirectResult = await safeRedirect(
 					`${pathname}.html`,
 					request,
@@ -601,87 +532,72 @@ const htmlHandlingDropTrailingSlash = async (
 					skipRedirects,
 					'html-handling',
 				))
-			) {
-				// /foo/index.html exists so redirect to /foo
+			)
 				return redirectResult;
-			}
 		}
 	} else if (pathname.endsWith('/index.html')) {
-		// special handling so you don't drop / if the path is just /
 		if (pathname === '/index.html') {
-			if ((redirectResult = await safeRedirect('/index.html', request, '/', configuration, exists, skipRedirects, 'html-handling'))) {
+			if ((redirectResult = await safeRedirect('/index.html', request, '/', configuration, exists, skipRedirects, 'html-handling')))
 				return redirectResult;
+		} else {
+			if (
+				(redirectResult = await safeRedirect(
+					pathname,
+					request,
+					pathname.slice(0, -'/index.html'.length),
+					configuration,
+					exists,
+					skipRedirects,
+					'html-handling',
+				))
+			)
+				return redirectResult;
+			if (exactETag) {
+				return okIntent(exactETag, pathname, 'html-handling');
 			}
-		} else if (
-			(redirectResult = await safeRedirect(
-				pathname,
-				request,
-				pathname.slice(0, -'/index.html'.length),
-				configuration,
-				exists,
-				skipRedirects,
-				'html-handling',
-			))
-		) {
-			// /foo/index.html exists so redirect to /foo
-			return redirectResult;
-		} else if (exactETag) {
-			// there's both /foo.html and /foo/index.html so we serve /foo/index.html at /foo/index.html only
-			return {
-				asset: { eTag: exactETag, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			};
-		} else if (
-			(redirectResult = await safeRedirect(
-				`${pathname.slice(0, -'/index.html'.length)}.html`,
-				request,
-				pathname.slice(0, -'/index.html'.length),
-				configuration,
-				exists,
-				skipRedirects,
-				'html-handling',
-			))
-		) {
-			// /foo.html exists so redirect to /foo
-			return redirectResult;
+			if (
+				(redirectResult = await safeRedirect(
+					`${pathname.slice(0, -'/index.html'.length)}.html`,
+					request,
+					pathname.slice(0, -'/index.html'.length),
+					configuration,
+					exists,
+					skipRedirects,
+					'html-handling',
+				))
+			)
+				return redirectResult;
 		}
 	} else if (pathname.endsWith('/')) {
 		if (pathname === '/') {
 			if ((eTagResult = await exists('/index.html', request))) {
-				// /index.html exists so serve at /
-				return {
-					asset: { eTag: eTagResult, status: OkResponse.status },
-					redirect: undefined,
-					resolver: 'html-handling',
-				};
+				return okIntent(eTagResult, '/index.html', 'html-handling');
 			}
-		} else if (
-			(redirectResult = await safeRedirect(
-				`${pathname.slice(0, -'/'.length)}.html`,
-				request,
-				pathname.slice(0, -'/'.length),
-				configuration,
-				exists,
-				skipRedirects,
-				'html-handling',
-			))
-		) {
-			// /foo.html exists so redirect to /foo
-			return redirectResult;
-		} else if (
-			(redirectResult = await safeRedirect(
-				`${pathname.slice(0, -'/'.length)}/index.html`,
-				request,
-				pathname.slice(0, -'/'.length),
-				configuration,
-				exists,
-				skipRedirects,
-				'html-handling',
-			))
-		) {
-			// /foo/index.html exists so redirect to /foo
-			return redirectResult;
+		} else {
+			if (
+				(redirectResult = await safeRedirect(
+					`${pathname.slice(0, -'/'.length)}.html`,
+					request,
+					pathname.slice(0, -'/'.length),
+					configuration,
+					exists,
+					skipRedirects,
+					'html-handling',
+				))
+			)
+				return redirectResult;
+			if (
+				(redirectResult = await safeRedirect(
+					`${pathname.slice(0, -'/'.length)}/index.html`,
+					request,
+					pathname.slice(0, -'/'.length),
+					configuration,
+					exists,
+					skipRedirects,
+					'html-handling',
+				))
+			)
+				return redirectResult;
 		}
 	} else if (pathname.endsWith('.html')) {
 		if (
@@ -694,10 +610,9 @@ const htmlHandlingDropTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo.html exists so redirect to /foo
+		)
 			return redirectResult;
-		} else if (
+		if (
 			(redirectResult = await safeRedirect(
 				`${pathname.slice(0, -'.html'.length)}/index.html`,
 				request,
@@ -707,33 +622,18 @@ const htmlHandlingDropTrailingSlash = async (
 				skipRedirects,
 				'html-handling',
 			))
-		) {
-			// /foo/index.html exists so redirect to /foo
+		)
 			return redirectResult;
-		}
 	}
 
 	if (exactETag) {
-		// there's a binary /foo file
-		return {
-			asset: { eTag: exactETag, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
-	} else if ((eTagResult = await exists(`${pathname}.html`, request))) {
-		// /foo.html exists so serve at /foo
-		return {
-			asset: { eTag: eTagResult, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
-	} else if ((eTagResult = await exists(`${pathname}/index.html`, request))) {
-		// /foo/index.html exists so serve at /foo
-		return {
-			asset: { eTag: eTagResult, status: OkResponse.status },
-			redirect: undefined,
-			resolver: 'html-handling',
-		};
+		return okIntent(exactETag, pathname, 'html-handling');
+	}
+	if ((eTagResult = await exists(`${pathname}.html`, request))) {
+		return okIntent(eTagResult, `${pathname}.html`, 'html-handling');
+	}
+	if ((eTagResult = await exists(`${pathname}/index.html`, request))) {
+		return okIntent(eTagResult, `${pathname}/index.html`, 'html-handling');
 	}
 
 	return notFound(pathname, request, configuration, exists);
@@ -746,25 +646,19 @@ const htmlHandlingNone = async (
 	exists: Exists,
 ): Promise<Intent> => {
 	const exactETag = await exists(pathname, request);
-	return exactETag
-		? {
-				asset: { eTag: exactETag, status: OkResponse.status },
-				redirect: undefined,
-				resolver: 'html-handling',
-			}
-		: notFound(pathname, request, configuration, exists);
+	return exactETag ? okIntent(exactETag, pathname, 'html-handling') : notFound(pathname, request, configuration, exists);
 };
+
+// ---------------------------------------------------------------------------
+// Not-found handling
+// ---------------------------------------------------------------------------
 
 const notFound = async (pathname: string, request: Request, configuration: Required<AssetConfig>, exists: Exists): Promise<Intent> => {
 	switch (configuration.not_found_handling) {
 		case 'single-page-application': {
 			const eTag = await exists('/index.html', request);
 			if (eTag) {
-				return {
-					asset: { eTag, status: OkResponse.status },
-					redirect: undefined,
-					resolver: 'not-found',
-				};
+				return okIntent(eTag, '/index.html', 'not-found');
 			}
 			return;
 		}
@@ -772,13 +666,10 @@ const notFound = async (pathname: string, request: Request, configuration: Requi
 			let cwd = pathname;
 			while (cwd) {
 				cwd = cwd.slice(0, cwd.lastIndexOf('/'));
-				const eTag = await exists(`${cwd}/404.html`, request);
+				const notFoundPath = `${cwd}/404.html`;
+				const eTag = await exists(notFoundPath, request);
 				if (eTag) {
-					return {
-						asset: { eTag, status: NotFoundResponse.status },
-						redirect: undefined,
-						resolver: 'not-found',
-					};
+					return notFoundIntent(eTag, notFoundPath, 'not-found');
 				}
 			}
 			return;
@@ -789,6 +680,10 @@ const notFound = async (pathname: string, request: Request, configuration: Requi
 	}
 };
 
+// ---------------------------------------------------------------------------
+// Redirect safety check
+// ---------------------------------------------------------------------------
+
 const safeRedirect = async (
 	file: string,
 	request: Request,
@@ -798,26 +693,21 @@ const safeRedirect = async (
 	skip: boolean,
 	resolver: Resolver,
 ): Promise<Intent> => {
-	if (skip) {
-		return;
-	}
-
+	if (skip) return;
 	if (!(await exists(destination, request))) {
 		const intent = await getIntent(destination, request, configuration, exists, true);
-		// return only if the eTag matches - i.e. not the 404 case
 		if (intent?.asset && intent.asset.eTag === (await exists(file, request))) {
-			return {
-				asset: undefined,
-				redirect: destination,
-				resolver,
-			};
+			return { asset: undefined, redirect: destination, resolver };
 		}
 	}
-
 	return;
 };
+
+// ---------------------------------------------------------------------------
+// Path encoding / decoding
+// ---------------------------------------------------------------------------
+
 /**
- *
  * +===========================================+===========+======================+
  * |              character type               |  fetch()  | encodeURIComponent() |
  * +===========================================+===========+======================+
@@ -835,46 +725,38 @@ const safeRedirect = async (
  *
  * If the user uploads a file that is already URL-encoded, that is accessible only at the (double) encoded path.
  * e.g. /%5Bboop%5D.html is served at /%255Bboop%255D only
- *
- * */
+ */
 
-/**
- * Decode all incoming paths to ensure that we can handle paths with non-ASCII characters.
- */
-const decodePath = (pathname: string) => {
-	return (
-		pathname
-			.split('/')
-			.map((x) => {
-				try {
-					const decoded = decodeURIComponent(x);
-					return decoded;
-				} catch {
-					return x;
-				}
-			})
-			.join('/')
-			// normalize the path; remove multiple slashes which could lead to same-schema redirects
-			.replaceAll(/\/+/g, '/')
-	);
-};
-/**
- * Use the encoded path as the canonical path for sometimes-encoded characters
- * e.g. /[boop] -> /%5Bboop%5D 307
- */
-const encodePath = (pathname: string) => {
-	return pathname
+/** Decodes URL-encoded path segments and normalizes multiple slashes. */
+const decodePath = (pathname: string): string =>
+	pathname
 		.split('/')
-		.map((x) => {
+		.map((s) => {
 			try {
-				const encoded = encodeURIComponent(x);
-				return encoded;
+				return decodeURIComponent(s);
 			} catch {
-				return x;
+				return s;
+			}
+		})
+		.join('/')
+		.replaceAll(/\/+/g, '/');
+
+/** Encodes path segments for use as the canonical URL form. */
+const encodePath = (pathname: string): string =>
+	pathname
+		.split('/')
+		.map((s) => {
+			try {
+				return encodeURIComponent(s);
+			} catch {
+				return s;
 			}
 		})
 		.join('/');
-};
+
+// ---------------------------------------------------------------------------
+// Redirect matching
+// ---------------------------------------------------------------------------
 
 const handleRedirects = (
 	request: Request,
@@ -888,11 +770,6 @@ const handleRedirects = (
 	let proxied = false;
 	if (redirectMatch) {
 		if (redirectMatch.status === 200) {
-			// A 200 redirect means that we are proxying/rewriting to a different asset, for example,
-			// a request with url /users/12345 could be pointed to /users/id.html. In order to
-			// do this, we overwrite the pathname, and instead match for assets with that url,
-			// and importantly, do not use the regular redirect handler - as the url visible to
-			// the user does not change
 			pathname = new URL(redirectMatch.to, request.url).pathname;
 			proxied = true;
 		} else {
@@ -901,9 +778,7 @@ const handleRedirects = (
 			const location =
 				destination.origin === new URL(request.url).origin
 					? `${destination.pathname}${destination.search || search}${destination.hash}`
-					: `${destination.href.slice(0, destination.href.length - (destination.search.length + destination.hash.length))}${
-							destination.search || search
-						}${destination.hash}`;
+					: `${destination.href.slice(0, destination.href.length - (destination.search.length + destination.hash.length))}${destination.search || search}${destination.hash}`;
 
 			switch (status) {
 				case MovedPermanentlyResponse.status: {

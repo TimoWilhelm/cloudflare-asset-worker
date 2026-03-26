@@ -74,16 +74,29 @@ export default class AssetApi extends WorkerEntrypoint<AssetEnvironment> {
 		try {
 			const config = normalizeConfiguration(projectConfig);
 
+			let lastCacheStatus: string | undefined;
+			let lastFetchTimeMs: number | undefined;
+
 			const response = await handleRequest(
 				request,
 				config,
 				(pathname: string, request_: Request) => this.exists(pathname, request_, projectId),
-				(eTag: string, request_?: Request) => this.getByETag(eTag, projectId, request_),
-				analytics,
+				async (eTag: string, request_: Request) => {
+					const result = await this.getByETag(eTag, projectId, request_);
+					lastCacheStatus = result.cacheStatus;
+					lastFetchTimeMs = result.fetchTimeMs;
+					return {
+						readableStream: result.readableStream,
+						contentType: result.contentType,
+						cacheStatus: result.cacheStatus,
+					};
+				},
 			);
 
 			analytics.setData({
 				status: response.status,
+				cacheStatus: lastCacheStatus,
+				fetchTimeMs: lastFetchTimeMs,
 			});
 
 			return response;
